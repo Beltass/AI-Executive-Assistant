@@ -69,8 +69,12 @@ projede de tek doğruluk kaynağı olarak yeniden kullanılacaktır.
 ## 6. Kısıtlar ve varsayımlar
 
 - **Bütçe:** "kolay ve ücretsiz" — Faz 1 tamamen ücretsiz katmanlarla
-  (Supabase free tier, Vercel Hobby, Anthropic API kullanım bazlı
-  ödeme) çalışacak şekilde tasarlanır. Bkz. `ARCHITECTURE.md`.
+  (Supabase free tier, Vercel Hobby, Google Gemini API ücretsiz
+  katmanı) çalışacak şekilde tasarlanır. Not: ilk taslakta AI motoru
+  olarak seçilen Anthropic Claude API'nin kredi kartı gerektiren
+  ücretli bir katmanı olduğu kullanıcı testinde ortaya çıktı; bütçe
+  ilkesine sadık kalmak için Gemini'ye geçildi (bkz.
+  `ARCHITECTURE.md` §1, §8).
 - **Onay mekanizması:** Kullanıcı adına dış dünyaya giden her eylem
   (e-posta gönderme, takvim daveti, başvuru gönderimi) varsayılan
   olarak taslak/onay bekler modunda çalışır; tam otonom gönderim
@@ -108,6 +112,6 @@ projede de tek doğruluk kaynağı olarak yeniden kullanılacaktır.
 
 - `Dashboard-Project/is-basvuru` — Job Search/CV Optimizer için mevcut
   iş mantığının (scrape/apply becerileri) kaynak referansı.
-- Anthropic Claude API erişimi.
+- Google Gemini API erişimi (ücretsiz katman).
 - Google Cloud projesi (Gmail API + Calendar API OAuth kimlik
   bilgileri).

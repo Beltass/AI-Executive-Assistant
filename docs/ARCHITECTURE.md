@@ -12,7 +12,7 @@ Kullanıcı önceliği: **kolay ve ücretsiz**. Buna göre:
 | Dil | TypeScript (uçtan uca) | Frontend + backend tek dil, Claude Agent SDK ve Vercel AI SDK ile birinci sınıf destek, tip güvenliği |
 | Framework | Next.js (App Router) | Frontend + API routes tek projede; Vercel'in ücretsiz Hobby planıyla sıfır-config deploy |
 | Veritabanı | Supabase (Postgres) | Cömert ücretsiz katman, yerleşik Auth (Google OAuth dahil), Storage, ve `pgvector` (AI_MEMORY için embedding/RAG desteği ücretsiz) |
-| AI motoru | Anthropic Claude API + Claude Agent SDK | Orchestrator ve ajanların çoklu-araç (tool use) mantığı için tasarlanmış SDK |
+| AI motoru | Google Gemini API (`@google/genai`, `gemini-2.5-flash`) | Anthropic Claude API kullanım-bazlı ücretli olduğu için (kredi kartı + minimum bakiye gerektiriyor), kişisel/düşük hacimli kullanım için kredi kartı istemeyen gerçek ücretsiz katmanı olan Gemini tercih edildi. Function calling desteği Orchestrator'ın araç-yönlendirme mantığı için yeterli. Bkz. §8. |
 | Arka plan işleri | Vercel Cron (ücretsiz, sınırlı) veya hafif bir worker (Faz 2'de netleşecek) | E-posta/takvim polling, hatırlatma tetikleyicileri için |
 | Kimlik doğrulama | Supabase Auth + Google OAuth | Gmail/Calendar erişimi için zaten gereken OAuth akışını Auth ile birleştirir |
 
@@ -138,10 +138,19 @@ paketlerine bölmek gereksiz soyutlama olurdu; birden fazla tüketici
 (ör. Faz 2 background worker) ortaya çıktığında çıkarılacak.
 
 Çalıştırmak için: `frontend/.env.example` dosyasını
-`frontend/.env.local` olarak kopyalayıp en az `ANTHROPIC_API_KEY`
-girin, ardından `cd frontend && npm install && npm run dev`.
+`frontend/.env.local` olarak kopyalayıp en az `GEMINI_API_KEY` girin
+(ücretsiz, kredi kartı gerektirmez — https://aistudio.google.com/apikey),
+ardından `cd frontend && npm install && npm run dev`.
 `GOOGLE_CLIENT_ID`/`SECRET`/`REFRESH_TOKEN` girilmezse Email Agent
 otomatik olarak demo verisiyle (`MockEmailProvider`) çalışır.
+
+**Not — AI motoru değişikliği:** İlk taslakta Anthropic Claude API
+kullanılmıştı; kullanıcı testinde Claude API'nin ücretsiz bir katmanı
+olmadığı (minimum bakiye/kredi kartı gerektirdiği) ortaya çıkınca,
+"kolay ve ücretsiz" ilkesine sadık kalmak için Google Gemini API'ye
+geçildi (bkz. §1 tablosu). `getGeminiClient()` (`src/lib/llm.ts`) tek
+giriş noktası olduğu için ileride farklı bir sağlayıcıya geçiş de aynı
+şekilde tek dosyada izole kalır.
 
 ## 9. Geleceğe dönük genişleme noktaları
 

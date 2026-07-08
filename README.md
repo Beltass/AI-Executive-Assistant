@@ -47,12 +47,23 @@ Analytics, Voice, Browser) ve entegrasyonlar (Outlook, Teams, Slack,
 Notion, LinkedIn derin entegrasyonu) `docs/ROADMAP.md` ve ileride
 `FUTURE.md`'de ele alınacak.
 
-## Teknoloji yığını (önerilen, Faz 1)
+## Teknoloji yığını (Faz 1)
 
 TypeScript uçtan uca (Next.js), Supabase (Postgres + Auth + pgvector),
-Anthropic Claude API + Claude Agent SDK. Gerekçe için
-[`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) içindeki "Teknoloji
-Seçimi ve Gerekçe" bölümüne bakın.
+Google Gemini API (`@google/genai`) — ücretsiz, kredi kartı gerektirmeyen
+katman. Gerekçe için [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md)
+içindeki "Teknoloji Seçimi ve Gerekçe" bölümüne bakın.
+
+## Çalıştırma (ilk dikey dilim)
+
+```
+cd frontend
+cp .env.example .env.local   # GEMINI_API_KEY girin (aistudio.google.com/apikey)
+npm install
+npm run dev
+```
+`http://localhost:3000` adresini açın. Gmail bağlanmadıysa Email Agent
+demo verisiyle çalışır.
 
 ## Katkı / geliştirme
 

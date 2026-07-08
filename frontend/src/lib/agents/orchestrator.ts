@@ -1,38 +1,45 @@
-import Anthropic from "@anthropic-ai/sdk";
-import { getAnthropicClient, ORCHESTRATOR_MODEL } from "@/lib/anthropic";
+import { Type, type Content, type FunctionDeclaration } from "@google/genai";
+import { getGeminiClient, ORCHESTRATOR_MODEL } from "@/lib/llm";
 import { summarizeInbox } from "@/lib/agents/email-agent";
 
 /**
  * Master Orchestrator — bkz. docs/ARCHITECTURE.md §3 ve docs/AGENTS.md.
  * Kullanıcı isteğini sınıflandırır, ilgili uzman ajana yönlendirir.
  * Faz 1'in ilk dikey diliminde tek uzman ajan var: Email Agent.
- * Yeni bir ajan eklendiğinde yalnızca `tools` listesine ve switch'e
- * bir dal eklenir — Orchestrator'ın geri kalanı değişmez.
+ * Yeni bir ajan eklendiğinde yalnızca `functionDeclarations` listesine
+ * ve `runTool` switch'ine bir dal eklenir — Orchestrator'ın geri kalanı
+ * değişmez.
  */
 
-const tools: Anthropic.Tool[] = [
-  {
-    name: "summarize_inbox",
-    description:
-      "Kullanıcının Gmail gelen kutusundaki son e-postaları özetler ve " +
-      "önceliklendirir. Kullanıcı e-postalarını, gelen kutusunu veya " +
-      "önemli mesajlarını sorduğunda bu aracı kullan.",
-    input_schema: {
-      type: "object",
-      properties: {
-        limit: {
-          type: "number",
-          description: "Kaç e-posta özetlenecek (varsayılan 5).",
-        },
+const summarizeInboxDeclaration: FunctionDeclaration = {
+  name: "summarize_inbox",
+  description:
+    "Kullanıcının Gmail gelen kutusundaki son e-postaları özetler ve " +
+    "önceliklendirir. Kullanıcı e-postalarını, gelen kutusunu veya " +
+    "önemli mesajlarını sorduğunda bu aracı kullan.",
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      limit: {
+        type: Type.NUMBER,
+        description: "Kaç e-posta özetlenecek (varsayılan 5).",
       },
     },
   },
-];
+};
 
-async function runTool(name: string, input: Record<string, unknown>) {
+const tools = [{ functionDeclarations: [summarizeInboxDeclaration] }];
+
+const ORCHESTRATOR_SYSTEM_PROMPT =
+  "Sen kullanıcının kişisel AI Executive Assistant'ının Master " +
+  "Orchestrator'ısın. Kullanıcının isteğini anla ve gerekirse elindeki " +
+  "araçlardan (uzman ajanlardan) uygun olanı çağır. Araç gerekmeyen " +
+  "genel sorularda doğrudan Türkçe yanıt ver. Kısa ve net konuş.";
+
+async function runTool(name: string, args: Record<string, unknown>) {
   switch (name) {
     case "summarize_inbox":
-      return summarizeInbox(typeof input.limit === "number" ? input.limit : 5);
+      return summarizeInbox(typeof args.limit === "number" ? args.limit : 5);
     default:
       throw new Error(`Bilinmeyen araç: ${name}`);
   }
@@ -46,72 +53,54 @@ export interface OrchestratorResult {
 export async function handleUserMessage(
   userMessage: string
 ): Promise<OrchestratorResult> {
-  const anthropic = getAnthropicClient();
+  const genAI = getGeminiClient();
 
-  const messages: Anthropic.MessageParam[] = [
-    { role: "user", content: userMessage },
-  ];
+  const contents: Content[] = [{ role: "user", parts: [{ text: userMessage }] }];
 
-  const first = await anthropic.messages.create({
+  const first = await genAI.models.generateContent({
     model: ORCHESTRATOR_MODEL,
-    max_tokens: 600,
-    system:
-      "Sen kullanıcının kişisel AI Executive Assistant'ının Master " +
-      "Orchestrator'ısın. Kullanıcının isteğini anla ve gerekirse elindeki " +
-      "araçlardan (uzman ajanlardan) uygun olanı çağır. Araç gerekmeyen " +
-      "genel sorularda doğrudan Türkçe yanıt ver. Kısa ve net konuş.",
-    tools,
-    messages,
+    contents,
+    config: { systemInstruction: ORCHESTRATOR_SYSTEM_PROMPT, tools },
   });
 
-  const toolUse = first.content.find((b) => b.type === "tool_use");
-
-  if (!toolUse || toolUse.type !== "tool_use") {
-    const textBlock = first.content.find((b) => b.type === "text");
-    return {
-      reply:
-        textBlock && textBlock.type === "text"
-          ? textBlock.text
-          : "Bir yanıt üretemedim.",
-      usedAgent: null,
-    };
+  const calls = first.functionCalls;
+  if (!calls || calls.length === 0) {
+    return { reply: first.text ?? "Bir yanıt üretemedim.", usedAgent: null };
   }
 
-  const toolResult = await runTool(
-    toolUse.name,
-    (toolUse.input as Record<string, unknown>) ?? {}
-  );
+  const call = calls[0];
+  const toolResult = await runTool(call.name ?? "", call.args ?? {});
 
-  const second = await anthropic.messages.create({
-    model: ORCHESTRATOR_MODEL,
-    max_tokens: 600,
-    system:
-      "Sen kullanıcının kişisel AI Executive Assistant'ının Master " +
-      "Orchestrator'ısın. Bir uzman ajandan gelen sonucu kullanıcıya " +
-      "Türkçe, kısa ve net şekilde ilet.",
-    tools,
-    messages: [
-      ...messages,
-      { role: "assistant", content: first.content },
+  const modelTurnParts = first.candidates?.[0]?.content?.parts ?? [
+    { functionCall: { name: call.name, args: call.args } },
+  ];
+  contents.push({ role: "model", parts: modelTurnParts });
+  contents.push({
+    role: "user",
+    parts: [
       {
-        role: "user",
-        content: [
-          {
-            type: "tool_result",
-            tool_use_id: toolUse.id,
-            content: toolResult,
-          },
-        ],
+        functionResponse: {
+          name: call.name ?? "",
+          response: { result: toolResult },
+        },
       },
     ],
   });
 
-  const finalText = second.content.find((b) => b.type === "text");
+  const second = await genAI.models.generateContent({
+    model: ORCHESTRATOR_MODEL,
+    contents,
+    config: {
+      systemInstruction:
+        "Sen kullanıcının kişisel AI Executive Assistant'ının Master " +
+        "Orchestrator'ısın. Bir uzman ajandan gelen sonucu kullanıcıya " +
+        "Türkçe, kısa ve net şekilde ilet.",
+      tools,
+    },
+  });
+
   return {
-    reply:
-      finalText && finalText.type === "text"
-        ? finalText.text
-        : toolResult,
-    usedAgent: toolUse.name,
+    reply: second.text ?? toolResult,
+    usedAgent: call.name ?? null,
   };
 }

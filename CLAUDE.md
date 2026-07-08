@@ -28,11 +28,15 @@ stub'ıyla oluşturuldu; içleri Faz 1'de doldurulmaya başlanacak.
 ## Teknoloji yığını (Faz 1)
 
 TypeScript uçtan uca · Next.js (App Router) · Supabase (Postgres +
-Auth + pgvector) · Anthropic Claude API + Claude Agent SDK. Gerekçe
-için `docs/ARCHITECTURE.md` §1. Deployment hedefi (Vercel + Supabase
-önerisi) henüz kullanıcı tarafından kesinleştirilmedi — `DEPLOYMENT.md`
-(Faz 2) yazılana kadar bunu varsayım olarak kullan, geri dönüşü kolay
-tut (ör. hosting'e sıkı bağımlı kod yazma).
+Auth + pgvector) · Google Gemini API (`@google/genai`) — Anthropic
+Claude API'nin ücretsiz bir katmanı olmadığı kullanıcı testinde ortaya
+çıktığı için Gemini'ye geçildi (bkz. `docs/ARCHITECTURE.md` §1 ve §8).
+LLM erişimi tek dosyada izole (`frontend/src/lib/llm.ts`) — ileride
+sağlayıcı değişirse Orchestrator/ajan kodunun geri kalanı etkilenmemeli.
+Deployment hedefi (Vercel + Supabase önerisi) henüz kullanıcı
+tarafından kesinleştirilmedi — `DEPLOYMENT.md` (Faz 2) yazılana kadar
+bunu varsayım olarak kullan, geri dönüşü kolay tut (ör. hosting'e sıkı
+bağımlı kod yazma).
 
 ## MVP kapsamı — kapsam genişlemesine karşı en önemli kural
 

@@ -1,4 +1,4 @@
-import { getAnthropicClient, ORCHESTRATOR_MODEL } from "@/lib/anthropic";
+import { getGeminiClient, ORCHESTRATOR_MODEL } from "@/lib/llm";
 import { getEmailProvider } from "@/lib/integrations/gmail";
 
 /**
@@ -14,7 +14,7 @@ export async function summarizeInbox(limit = 5): Promise<string> {
     return "Gelen kutunuzda özetlenecek yeni e-posta bulunamadı.";
   }
 
-  const anthropic = getAnthropicClient();
+  const genAI = getGeminiClient();
   const emailsAsText = emails
     .map(
       (e, i) =>
@@ -22,25 +22,19 @@ export async function summarizeInbox(limit = 5): Promise<string> {
     )
     .join("\n\n");
 
-  const response = await anthropic.messages.create({
+  const response = await genAI.models.generateContent({
     model: ORCHESTRATOR_MODEL,
-    max_tokens: 600,
-    system:
-      "Sen bir Email Agent'sın. Sana verilen e-posta listesini kullanıcı " +
-      "için önem sırasına göre kısa ve öz şekilde Türkçe özetle. Müşteri/iş " +
-      "ile ilgili e-postaları bülten/otomatik bildirimlerden daha öncelikli " +
-      "say. Her e-posta için tek satırlık bir öncelik notu ver. Hiçbir " +
-      "e-postaya yanıt taslağı üretme, yalnızca özetle.",
-    messages: [
-      {
-        role: "user",
-        content: `Şu e-postaları özetle ve önceliklendir:\n\n${emailsAsText}`,
-      },
-    ],
+    contents: `Şu e-postaları özetle ve önceliklendir:\n\n${emailsAsText}`,
+    config: {
+      systemInstruction:
+        "Sen bir Email Agent'sın. Sana verilen e-posta listesini kullanıcı " +
+        "için önem sırasına göre kısa ve öz şekilde Türkçe özetle. Müşteri/iş " +
+        "ile ilgili e-postaları bülten/otomatik bildirimlerden daha öncelikli " +
+        "say. Her e-posta için tek satırlık bir öncelik notu ver. Hiçbir " +
+        "e-postaya yanıt taslağı üretme, yalnızca özetle.",
+      maxOutputTokens: 600,
+    },
   });
 
-  const textBlock = response.content.find((b) => b.type === "text");
-  return textBlock && textBlock.type === "text"
-    ? textBlock.text
-    : "Özet üretilemedi.";
+  return response.text ?? "Özet üretilemedi.";
 }

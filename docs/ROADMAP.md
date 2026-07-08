@@ -43,7 +43,8 @@ Hedef: tek kullanıcı için gerçekten kullanılabilir bir asistan.
    kullanımla test edilmesi.
 
 **Sıradaki adımlar (kullanıcı girdisi gerekli):**
-- Anthropic API anahtarı → `frontend/.env.local` içine `ANTHROPIC_API_KEY`
+- Ücretsiz Gemini API anahtarı (https://aistudio.google.com/apikey) →
+  `frontend/.env.local` içine `GEMINI_API_KEY`
 - Gerçek Gmail verisiyle test için Google Cloud OAuth kimlik bilgileri
   (`GOOGLE_CLIENT_ID/SECRET/REFRESH_TOKEN`) — yoksa demo veriyle çalışmaya
   devam eder.
