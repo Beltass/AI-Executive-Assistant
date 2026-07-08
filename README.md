@@ -5,9 +5,10 @@ LinkedIn gibi servislerle entegre çalışan; e-postaları, takvimi,
 toplantıları, hatırlatmaları ve iş başvurularını benim adıma yöneten
 kişisel yapay zekâ yönetici asistanı ("dijital chief of staff").
 
-> **Durum:** Faz 0 — Dokümantasyon ve mimari tasarım. Henüz çalışan kod
-> yok. Aşağıdaki `docs/` klasörü, geliştirmenin dayanacağı ürün ve
-> mimari kararlarını içerir.
+> **Durum:** Faz 1 — ilk dikey dilim çalışıyor: Master Orchestrator +
+> Email Agent + Calendar Agent + Morning Briefing (`frontend/`, canlı
+> Gemini ile test edildi). Sırada Memory Agent / Job Search Agent var
+> — bkz. `docs/ROADMAP.md`.
 
 ## Bu proje ne yapar (hedef)
 
@@ -62,8 +63,17 @@ cp .env.example .env.local   # GEMINI_API_KEY girin (aistudio.google.com/apikey)
 npm install
 npm run dev
 ```
-`http://localhost:3000` adresini açın. Gmail bağlanmadıysa Email Agent
-demo verisiyle çalışır.
+`http://localhost:3000` adresini açın. Gmail/Calendar bağlanmadıysa
+Email/Calendar Agent demo veriyle çalışır.
+
+**Gerçek Gmail/Calendar verisiyle çalıştırmak için:** `.env.example`
+içindeki Google Cloud kurulum adımlarını takip edip Client ID/Secret'i
+girin, ardından:
+```
+npm run get-google-token
+```
+Tarayıcıda açılan bağlantıda izin verin; script `GOOGLE_REFRESH_TOKEN`
+değerini otomatik üretip ekrana basar, onu da `.env.local`'e ekleyin.
 
 ## Katkı / geliştirme
 
