@@ -60,7 +60,11 @@ export async function handleUserMessage(
   const first = await genAI.models.generateContent({
     model: ORCHESTRATOR_MODEL,
     contents,
-    config: { systemInstruction: ORCHESTRATOR_SYSTEM_PROMPT, tools },
+    config: {
+      systemInstruction: ORCHESTRATOR_SYSTEM_PROMPT,
+      tools,
+      thinkingConfig: { thinkingBudget: 0 },
+    },
   });
 
   const calls = first.functionCalls;
@@ -96,6 +100,8 @@ export async function handleUserMessage(
         "Orchestrator'ısın. Bir uzman ajandan gelen sonucu kullanıcıya " +
         "Türkçe, kısa ve net şekilde ilet.",
       tools,
+      maxOutputTokens: 1024,
+      thinkingConfig: { thinkingBudget: 0 },
     },
   });
 

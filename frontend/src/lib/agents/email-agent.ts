@@ -32,7 +32,8 @@ export async function summarizeInbox(limit = 5): Promise<string> {
         "ile ilgili e-postaları bülten/otomatik bildirimlerden daha öncelikli " +
         "say. Her e-posta için tek satırlık bir öncelik notu ver. Hiçbir " +
         "e-postaya yanıt taslağı üretme, yalnızca özetle.",
-      maxOutputTokens: 600,
+      maxOutputTokens: 1024,
+      thinkingConfig: { thinkingBudget: 0 },
     },
   });
 
