@@ -23,12 +23,17 @@ tanımı) onaylar.
 
 Hedef: tek kullanıcı için gerçekten kullanılabilir bir asistan.
 
-1. **Altyapı:** Next.js iskeleti, Supabase projesi (Postgres + Auth +
-   pgvector), Google Cloud OAuth kimlik bilgileri (Gmail + Calendar).
-2. **Master Orchestrator + Chat Agent:** temel sohbet arayüzü, istek
-   sınıflandırma/yönlendirme.
-3. **Email Agent:** Gmail okuma, özetleme, önceliklendirme, taslak
-   yanıt (gönderim onaylı).
+1. [x] **Altyapı (kısmi):** Next.js iskeleti kuruldu (`frontend/`).
+   Supabase projesi ve Google Cloud OAuth kimlik bilgileri henüz
+   kullanıcı tarafından oluşturulmadı — bkz. §"Sıradaki adımlar".
+2. [x] **Master Orchestrator + Chat Agent (ilk dikey dilim):** temel
+   sohbet arayüzü + istek sınıflandırma/yönlendirme çalışıyor
+   (`frontend/src/lib/agents/orchestrator.ts`).
+3. [x] **Email Agent (ilk dikey dilim):** Gmail okuma/özetleme/
+   önceliklendirme kodu yazıldı ve derleniyor
+   (`frontend/src/lib/agents/email-agent.ts`); gerçek Gmail OAuth
+   kimlik bilgileri girilene kadar demo veriyle (`MockEmailProvider`)
+   çalışır. Taslak yanıt üretimi henüz eklenmedi.
 4. **Calendar Agent:** Google Calendar okuma/yazma, çakışma tespiti.
 5. **Memory Agent:** temel tercih/bağlam hafızası (pgvector ile basit
    RAG).
@@ -36,6 +41,13 @@ Hedef: tek kullanıcı için gerçekten kullanılabilir bir asistan.
    mantığının bu asistana taşınması/entegrasyonu.
 7. **Uçtan uca doğrulama:** PRD §7'deki başarı kriterlerinin gerçek
    kullanımla test edilmesi.
+
+**Sıradaki adımlar (kullanıcı girdisi gerekli):**
+- Anthropic API anahtarı → `frontend/.env.local` içine `ANTHROPIC_API_KEY`
+- Gerçek Gmail verisiyle test için Google Cloud OAuth kimlik bilgileri
+  (`GOOGLE_CLIENT_ID/SECRET/REFRESH_TOKEN`) — yoksa demo veriyle çalışmaya
+  devam eder.
+- Supabase projesi (Memory Agent'a geçmeden önce gerekecek).
 
 **Çıkış kriteri:** PRD §7'deki tüm başarı kriterleri sağlanıyor.
 

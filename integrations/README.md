@@ -1,18 +1,10 @@
 # integrations/
 
-Servis bazlı connector kodu (OAuth akışı + API istemcisi), her
-servis kendi alt klasöründe, ör.:
+Servis bazlı connector'lar için bkz. `../docs/INTEGRATIONS.md` (Faz 2).
 
-```
-integrations/
-├── gmail/
-├── google-calendar/
-├── outlook/        # Faz 2
-├── teams/           # Faz 3
-├── slack/            # Faz 3
-├── notion/             # Faz 3
-└── linkedin/            # Faz 3
-```
-
-Detaylar `../docs/INTEGRATIONS.md` içinde yazılacak (Faz 2). Faz 1'de
-yalnızca `gmail/` ve `google-calendar/` doldurulur.
+**Uygulama notu (Faz 1):** Gmail connector'ının gerçek kodu şu an
+burada değil, `../frontend/src/lib/integrations/gmail.ts` altında
+yaşıyor — `EmailProvider` arayüzü + `GmailProvider` (gerçek API) +
+`MockEmailProvider` (kimlik bilgisi yokken demo/geliştirme için).
+Bu klasör, connector sayısı arttıkça (Outlook, Teams, Slack, Notion —
+Faz 2/3) ayrı pakete çıkarılacağı yer olarak duruyor.

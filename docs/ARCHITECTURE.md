@@ -123,7 +123,27 @@ işlerinin (polling, hatırlatmalar) ücretsiz katmanlarda nasıl
 içinde Faz 2'de netleştirilecek — bu, kullanıcının deployment kararını
 henüz vermemiş olmasından dolayı bilinçli olarak açık bırakılmıştır.
 
-## 8. Geleceğe dönük genişleme noktaları
+## 8. Uygulama durumu (Faz 1 dikey dilim)
+
+İlk çalışan dikey dilim kuruldu: `frontend/` tek bir Next.js projesi
+olarak Chat UI + `/api/chat` route + Master Orchestrator + Email Agent
++ Gmail connector'ı (mock/gerçek sağlayıcı seçimli) içeriyor. Bununla
+birlikte §5'teki klasör planında küçük bir sadeleştirme yapıldı:
+`agents/`, `integrations/`, `backend/` klasörleri henüz ayrı paketler
+değil — kod fiilen `frontend/src/lib/agents/` ve
+`frontend/src/lib/integrations/` altında yaşıyor, o üç klasör de
+kendi `README.md`'lerinde bunu açıklayan birer yönlendirme notuyla
+duruyor. Gerekçe: tek tüketici (tek Next.js app) varken ayrı npm
+paketlerine bölmek gereksiz soyutlama olurdu; birden fazla tüketici
+(ör. Faz 2 background worker) ortaya çıktığında çıkarılacak.
+
+Çalıştırmak için: `frontend/.env.example` dosyasını
+`frontend/.env.local` olarak kopyalayıp en az `ANTHROPIC_API_KEY`
+girin, ardından `cd frontend && npm install && npm run dev`.
+`GOOGLE_CLIENT_ID`/`SECRET`/`REFRESH_TOKEN` girilmezse Email Agent
+otomatik olarak demo verisiyle (`MockEmailProvider`) çalışır.
+
+## 9. Geleceğe dönük genişleme noktaları
 
 - **Outlook/Microsoft 365/Teams:** `integrations/` altına yeni bir
   connector eklenerek; Orchestrator ve Email/Calendar Agent'lar
