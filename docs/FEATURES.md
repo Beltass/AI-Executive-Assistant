@@ -21,8 +21,9 @@ Detaylı ajan tanımları için `AGENTS.md`, faz sırası için `ROADMAP.md`.
 
 ## Takvim (Calendar Agent)
 
-- [ ] **MVP** — Etkinlik oluşturma/düzenleme/iptal
-- [ ] **MVP** — Çakışma tespiti
+- [x] **MVP** — Yaklaşan etkinlikleri okuma/özetleme
+- [x] **MVP** — Çakışma tespiti (LLM tabanlı özet içinde)
+- [ ] **MVP** — Etkinlik oluşturma/düzenleme/iptal (taslak/onay akışı gerekiyor)
 - [ ] **MVP** — Uygun saat önerisi
 - [ ] **F2** — Outlook Calendar desteği
 - [ ] **F2** — Toplantı öncesi otomatik hatırlatma (Reminder Agent ile)

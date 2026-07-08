@@ -61,7 +61,7 @@ export default function ChatPage() {
       <h1 style={{ fontSize: 20 }}>AI Executive Assistant</h1>
       <p style={{ color: "#666", fontSize: 14 }}>
         Faz 1 — dikey dilim demosu. Deneyin: &quot;bugünkü e-postalarımı
-        özetle&quot;
+        özetle&quot; veya &quot;yarınki programımda çakışma var mı?&quot;
       </p>
 
       <div

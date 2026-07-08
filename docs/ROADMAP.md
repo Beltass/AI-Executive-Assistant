@@ -34,7 +34,15 @@ Hedef: tek kullanıcı için gerçekten kullanılabilir bir asistan.
    (`frontend/src/lib/agents/email-agent.ts`); gerçek Gmail OAuth
    kimlik bilgileri girilene kadar demo veriyle (`MockEmailProvider`)
    çalışır. Taslak yanıt üretimi henüz eklenmedi.
-4. **Calendar Agent:** Google Calendar okuma/yazma, çakışma tespiti.
+4. [x] **Calendar Agent (ilk dikey dilim):** Google Calendar okuma +
+   LLM tabanlı özet/çakışma tespiti çalışıyor
+   (`frontend/src/lib/agents/calendar-agent.ts`); kimlik bilgisi
+   girilene kadar demo veriyle (`MockCalendarProvider`, bilerek
+   çakışan iki etkinlik içerir) çalışır. Etkinlik oluşturma/düzenleme/
+   iptal ve uygun saat önerisi (yazma işlemleri) henüz eklenmedi —
+   bunlar dış dünyaya giden eylemler olduğu için taslak/onay akışı
+   gerektiriyor (bkz. `ARCHITECTURE.md` §3), ayrı bir adım olarak ele
+   alınacak.
 5. **Memory Agent:** temel tercih/bağlam hafızası (pgvector ile basit
    RAG).
 6. **Job Search Agent + CV Optimizer:** `Dashboard-Project/is-basvuru`

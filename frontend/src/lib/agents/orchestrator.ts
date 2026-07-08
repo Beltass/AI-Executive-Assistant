@@ -1,11 +1,12 @@
 import { Type, type Content, type FunctionDeclaration } from "@google/genai";
 import { getGeminiClient, ORCHESTRATOR_MODEL } from "@/lib/llm";
 import { summarizeInbox } from "@/lib/agents/email-agent";
+import { summarizeUpcomingSchedule } from "@/lib/agents/calendar-agent";
 
 /**
  * Master Orchestrator — bkz. docs/ARCHITECTURE.md §3 ve docs/AGENTS.md.
  * Kullanıcı isteğini sınıflandırır, ilgili uzman ajana yönlendirir.
- * Faz 1'in ilk dikey diliminde tek uzman ajan var: Email Agent.
+ * Faz 1'de iki uzman ajan var: Email Agent ve Calendar Agent.
  * Yeni bir ajan eklendiğinde yalnızca `functionDeclarations` listesine
  * ve `runTool` switch'ine bir dal eklenir — Orchestrator'ın geri kalanı
  * değişmez.
@@ -28,7 +29,33 @@ const summarizeInboxDeclaration: FunctionDeclaration = {
   },
 };
 
-const tools = [{ functionDeclarations: [summarizeInboxDeclaration] }];
+const summarizeScheduleDeclaration: FunctionDeclaration = {
+  name: "summarize_upcoming_schedule",
+  description:
+    "Kullanıcının Google Calendar'ındaki yaklaşan etkinlikleri özetler " +
+    "ve zaman çakışmalarını tespit eder. Kullanıcı takvimini, " +
+    "programını, bugünkü/yarınki toplantılarını sorduğunda veya " +
+    "çakışma olup olmadığını öğrenmek istediğinde bu aracı kullan.",
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      hoursAhead: {
+        type: Type.NUMBER,
+        description:
+          "Kaç saat ilerisine bakılacak (varsayılan 24, örn. 'yarın' için ~48).",
+      },
+    },
+  },
+};
+
+const tools = [
+  {
+    functionDeclarations: [
+      summarizeInboxDeclaration,
+      summarizeScheduleDeclaration,
+    ],
+  },
+];
 
 const ORCHESTRATOR_SYSTEM_PROMPT =
   "Sen kullanıcının kişisel AI Executive Assistant'ının Master " +
@@ -40,6 +67,10 @@ async function runTool(name: string, args: Record<string, unknown>) {
   switch (name) {
     case "summarize_inbox":
       return summarizeInbox(typeof args.limit === "number" ? args.limit : 5);
+    case "summarize_upcoming_schedule":
+      return summarizeUpcomingSchedule(
+        typeof args.hoursAhead === "number" ? args.hoursAhead : 24
+      );
     default:
       throw new Error(`Bilinmeyen araç: ${name}`);
   }

@@ -127,7 +127,13 @@ henüz vermemiş olmasından dolayı bilinçli olarak açık bırakılmıştır.
 
 İlk çalışan dikey dilim kuruldu: `frontend/` tek bir Next.js projesi
 olarak Chat UI + `/api/chat` route + Master Orchestrator + Email Agent
-+ Gmail connector'ı (mock/gerçek sağlayıcı seçimli) içeriyor. Bununla
++ Calendar Agent + Gmail/Google Calendar connector'ları (mock/gerçek
+sağlayıcı seçimli, aynı `GOOGLE_CLIENT_ID/SECRET/REFRESH_TOKEN`
+kimlik bilgileriyle) içeriyor. Calendar Agent şu an yalnızca okuma
+yapıyor (özet + LLM tabanlı çakışma tespiti) — etkinlik oluşturma/
+düzenleme, dış dünyaya giden bir eylem olduğu için ayrı bir taslak/
+onay akışı gerektiriyor ve henüz eklenmedi (bkz. `ROADMAP.md`).
+Bununla
 birlikte §5'teki klasör planında küçük bir sadeleştirme yapıldı:
 `agents/`, `integrations/`, `backend/` klasörleri henüz ayrı paketler
 değil — kod fiilen `frontend/src/lib/agents/` ve
