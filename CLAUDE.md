@@ -5,11 +5,15 @@ yaparken uyulması gereken kurallar ve proje bağlamı.
 
 ## Proje nedir
 
-Gmail, Google Calendar ve zamanla Microsoft 365, Teams, Zoom, Slack,
-Notion, LinkedIn gibi servislerle entegre çalışan, kullanıcı adına
-işlem yapabilen kişisel bir yapay zekâ yönetici asistanı ("dijital
-chief of staff"). Tek kullanıcı için tasarlanıyor (proje sahibi:
-Burak Eltaş) — çoklu kiracı/SaaS değil (bkz. `docs/PRD.md` §1).
+Bu bir chatbot değil — kullanıcının **AI Chief of Staff'ı**. Gmail,
+Google Calendar ve zamanla Microsoft 365, Teams, Zoom, Slack, Notion,
+LinkedIn gibi servislerle entegre çalışan, kullanıcı adına proaktif
+işlem yapabilen kişisel bir yapay zekâ yönetici asistanı. Tek kullanıcı
+için tasarlanıyor (proje sahibi: Burak Eltaş) — çoklu kiracı/SaaS/RBAC
+değil (bkz. `docs/PRD.md` §1). Tasarım ilkeleri (proaktif, çok ajanlı,
+izin tabanlı, hafızalı, açıklanabilir, modüler, tek-kullanıcı-güvenli)
+için `docs/PRD.md` §1'e bakın — yeni bir özellik/ajan önerirken bu
+ilkelere göre değerlendirin.
 
 **Önce şunları oku:** `docs/PRD.md` (ne inşa ediyoruz ve neden),
 `docs/ARCHITECTURE.md` (nasıl inşa ediyoruz), `docs/AGENTS.md` (hangi

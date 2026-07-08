@@ -51,26 +51,56 @@ Detaylı ajan tanımları için `AGENTS.md`, faz sırası için `ROADMAP.md`.
 - [ ] **MVP** — Başvuru takip günlüğü
 - [ ] **F2** — ATS-uyumlu düz metin CV varyantı otomasyonu
 
-## Toplantı & not (F2)
+## Toplantı zekası — Meeting Intelligence (F2)
 
 - [ ] **F2** — Toplantı gündemi hazırlama
-- [ ] **F2** — Transkriptten aksiyon maddesi çıkarma (Zoom/Teams)
+- [ ] **F2** — Transkriptten yapılandırılmış çıktı: kim ne söyledi, kim
+      hangi görevi aldı, deadline, riskler, kararlar, açık sorular
 - [ ] **F2** — Notion'a not kaydetme
 
-## Planlama & hatırlatma (F2)
+## Planlama & proaktif raporlama (F2)
 
 - [ ] **F2** — Günlük öncelik planı
+- [ ] **F2** — Morning Briefing (okunmamış mail/toplantı/kritik görev
+      özeti — Email + Calendar Agent'ı birleştirir)
+- [ ] **F2** — Evening Report (tamamlanan/ertelenen işler özeti)
 - [ ] **F2** — Koşullu hatırlatmalar (ör. "3 gün yanıt gelmezse")
 
-## Analitik (F2)
+## Analitik & karar desteği (F2)
 
-- [ ] **F2** — Zaman kullanımı raporu
+- [ ] **F2** — Zaman kullanımı raporu (Workload Analysis)
 - [ ] **F2** — Başvuru dönüşüm oranı raporu
+- [ ] **F2** — E-posta/görev önem sıralaması (Decision Support)
+- [ ] **F2** — İlişki analizi: kiminle sıklık, kim yanıt vermiyor
+      (Relationship Manager)
+
+## Executive Dashboard (F2)
+
+- [ ] **F2** — Tek ekranda özet: okunmamış mail, bugünkü toplantılar,
+      kritik görevler, haftalık hedefler, bekleyen onaylar, AI
+      önerileri
+
+## Kişiselleştirme (F2)
+
+- [ ] **F2** — AI Learning: kullanıcı düzeltmelerinden (üslup, hitap)
+      öğrenme geri bildirim döngüsü (Memory Agent)
+
+## Otomasyon (F3)
+
+- [ ] **F3** — Kural tabanlı Smart Automation (ör. "X başlıklı mail
+      gelirse Y klasörüne taşı + takvime görev ekle") — kurulum
+      kullanıcı onayı gerektirir
+
+## Kariyer zekası (F3)
+
+- [ ] **F3** — Şirket/kültür analizi, maaş tahmini, başarı olasılığı
+      (veri kaynağı kararı bekliyor — bkz. `AGENTS.md`)
 
 ## Ses & tarayıcı otomasyonu (F3)
 
 - [ ] **F3** — Sesli komut/yanıt
-- [ ] **F3** — Onaylı tarayıcı otomasyonu (form doldurma vb.)
+- [ ] **F3** — Onaylı tarayıcı otomasyonu + web araştırması (form
+      doldurma, PDF indirme, rapor hazırlama)
 
 ## Entegrasyonlar
 
@@ -83,6 +113,10 @@ Detaylı ajan tanımları için `AGENTS.md`, faz sırası için `ROADMAP.md`.
 
 ## Güvenlik & uyumluluk (F2, detay `SECURITY.md`)
 
+Faz 1-3 kapsamı **tek kullanıcı** için sağlamlaştırma; çoklu-kiracı
+RBAC dahil değildir (bkz. `PRD.md` §1, Faz 4).
+
 - [ ] **F2** — OAuth token şifreli saklama
 - [ ] **F2** — KVKK/GDPR veri işleme değerlendirmesi
 - [ ] **F2** — Denetim (audit) günlüğü
+- [ ] **F4** — Rol tabanlı yetkilendirme (RBAC) / çoklu kullanıcı izolasyonu

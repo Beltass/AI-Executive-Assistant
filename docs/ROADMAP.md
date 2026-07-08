@@ -62,31 +62,47 @@ Hedef: tek kullanıcı için gerçekten kullanılabilir bir asistan.
 
 ## Faz 2 — Genişleme
 
-- **Yeni ajanlar:** Meeting Agent, Note Agent, Daily Planner, Reminder
-  Agent, Analytics Agent.
+- **Yeni ajanlar/yetenekler:** Meeting Agent (Meeting Intelligence),
+  Note/Document Agent, Daily Planner (+ Morning Briefing / Evening
+  Report), Reminder Agent, Analytics Agent (Decision Support,
+  Relationship Manager, Workload Analysis).
+- **Executive Dashboard:** sohbet ekranının yanına özet ekranı
+  (okunmamış mail, bugünkü toplantılar, kritik görevler, bekleyen
+  onaylar) — bkz. `AGENTS.md`.
+- **AI Learning:** Memory Agent'a kullanıcı düzeltmelerinden öğrenme
+  geri bildirim döngüsü.
 - **Yeni entegrasyon:** Microsoft 365/Outlook (Email/Calendar
   Agent'ların sağlayıcıdan bağımsız hale getirilmesi ilk adım).
 - **Yeni dokümanlar (bu fazda yazılır, çünkü artık somut mimari
   kararlara oturacaklar):** `DATABASE.md`, `API.md`, `SECURITY.md`
-  (KVKK/GDPR değerlendirmesi dahil), `INTEGRATIONS.md`, `UI_UX.md`,
+  (KVKK/GDPR + tek kullanıcı için token şifreleme/audit log — RBAC
+  değil, bkz. `PRD.md` §1), `INTEGRATIONS.md`, `UI_UX.md`,
   `TEST_PLAN.md`, `DEPLOYMENT.md` (deployment kararının kesinleşmiş
-  hâli), `AI_MEMORY.md`, `AUTOMATION.md`, `PROMPTS.md`.
+  hâli), `AI_MEMORY.md`, `AUTOMATION.md` (Smart Automation kuralları
+  dahil), `PROMPTS.md`.
 - **Test altyapısı:** `tests/` klasörünün doldurulması, temel
   regresyon testleri.
 
 ## Faz 3 — İleri seviye
 
-- **Yeni ajanlar:** Voice Agent, Browser Agent.
+- **Yeni ajanlar:** Voice Agent, Browser Agent (Research Agent dahil).
+- **Job Search Intelligence:** şirket/kültür analizi, maaş tahmini,
+  başarı olasılığı — veri kaynağı kararı gerekiyor (bkz. `AGENTS.md`
+  risk notu, Glassdoor'un ücretsiz API'si yok).
 - **Yeni entegrasyonlar:** Teams, Zoom (transkript), Slack, Notion,
   LinkedIn derin entegrasyonu.
 - **Mobil:** `mobile/` klasörünün doldurulması (muhtemelen React
-  Native veya Expo — karar bu faza gelindiğinde verilecek).
+  Native veya Expo — karar bu faza gelindiğinde verilecek); Voice
+  Agent muhtemelen mobil ile birlikte gelir.
 - `docs/FUTURE.md` bu fazın ayrıntılı planını taşıyacak.
 
 ## Faz 4 — Olgunlaşma (gerekirse)
 
-- Çoklu kullanıcı/SaaS'a geçiş değerlendirmesi (bugün planlanmıyor,
-  yalnızca olasılık olarak not düşülüyor — bkz. PRD §1).
+- Çoklu kullanıcı/SaaS'a geçiş değerlendirmesi ve **rol tabanlı
+  yetkilendirme (RBAC)** — bugün planlanmıyor, yalnızca olasılık
+  olarak not düşülüyor (bkz. PRD §1). Faz 1-3 boyunca güvenlik "tek
+  kullanıcı için sağlam" anlamına gelir (token şifreleme, audit log,
+  asgari yetki), çoklu-kiracı izolasyon değil.
 - Gelişmiş güvenlik/uyumluluk sertleştirmesi.
 - Analitik/ölçeklenme optimizasyonları.
 

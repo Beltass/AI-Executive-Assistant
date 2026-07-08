@@ -7,18 +7,54 @@
 
 ## 1. Vizyon
 
-Gmail, Google Calendar ve zamanla Microsoft 365, Teams, Zoom, Slack,
-Notion, LinkedIn gibi servislerle entegre çalışan; e-postaları, takvimi,
-toplantıları ve iş başvurularını kullanıcı adına yönetebilen kişisel bir
-yapay zekâ "chief of staff". Kullanıcı görevleri manuel yapmak yerine
-asistana devreder, asistan gerektiğinde onay ister ve sonucu raporlar.
+Bu ürün bir chatbot değildir — kullanıcının **AI Chief of Staff'ı**
+(Yapay Zekâ Özel Kalem Müdürü)'dür. Gmail, Google Calendar ve zamanla
+Microsoft 365, Teams, Zoom, Slack, Notion, LinkedIn gibi servislerle
+entegre çalışır; e-postaları, takvimi, toplantıları ve iş
+başvurularını kullanıcı adına proaktif olarak yönetir. Kullanıcı
+görevleri manuel yapmak yerine asistana devreder, asistan gerektiğinde
+onay ister ve sonucu raporlar.
 
-**Önemli kapsam notu:** "Kurumsal seviyede dokümantasyon" ifadesi
-*dokümantasyonun kalitesine/yapısına* atıfta bulunur — ürünün kendisi
-Faz 1-3 boyunca **tek kullanıcılı, kişisel** bir asistan olarak
-tasarlanır (çoklu kiracı/SaaS değildir). Çoklu kullanıcı desteği
-gündeme gelirse ayrı bir faz olarak ele alınacak ve mimaride köklü
-değişiklik gerektirecektir; bugünden o karmaşıklığı eklemiyoruz.
+**Tasarım ilkeleri** (her yeni özellik/ajan bunlara göre değerlendirilir):
+
+1. **Proaktif** — kullanıcı istemeden hazırlık yapabilir (ör. sabah
+   özeti), yalnızca soruya cevap vermez.
+2. **Çok ajanlı** — her iş uzman bir ajana ait; Master Orchestrator
+   koordine eder (bkz. `AGENTS.md`).
+3. **İzin tabanlı** — dış dünyaya giden her eylem taslak → kullanıcı
+   onayı akışından geçer (bkz. §5, `ARCHITECTURE.md` §3).
+4. **Uzun süreli hafızalı** — kullanıcıyı, tercihlerini ve geçmiş
+   bağlamı zamanla öğrenir, unutmaz (Memory Agent).
+5. **Açıklanabilir** — bir öneri/özet sunarken nereden geldiğini
+   gösterebilir (hangi e-posta, hangi etkinlik).
+6. **Modüler** — yeni servis/ajan eklemek mevcut mimariyi bozmaz
+   (bkz. `ARCHITECTURE.md` §6, sağlayıcıdan bağımsız arayüzler).
+7. **Güvenli** — OAuth token şifreleme, denetim (audit) kaydı; **ama
+   bkz. aşağıdaki kapsam notu** — bu "kurumsal düzeyde tek kullanıcı
+   güvenliği" anlamına gelir, çoklu-kiracı rol tabanlı yetkilendirme
+   (RBAC) değil.
+
+**Önemli kapsam notu (iki ayrı konuyu birbirinden ayır):**
+- "Kurumsal seviyede dokümantasyon" ifadesi *dokümantasyonun
+  kalitesine/yapısına* atıfta bulunur.
+- "Kurumsal seviyede güvenlik" ifadesi de *tek kullanıcı için sağlam
+  güvenlik pratiklerine* (şifreli token saklama, audit log, asgari
+  yetki) atıfta bulunur — **rol tabanlı yetkilendirme (RBAC) ve
+  çoklu-kiracı izolasyon bunun dışındadır.**
+- Ürünün kendisi Faz 1-3 boyunca **tek kullanıcılı, kişisel** bir
+  asistan olarak tasarlanır (çoklu kiracı/SaaS değildir). Çoklu
+  kullanıcı/RBAC gündeme gelirse ayrı bir faz olarak ele alınacak ve
+  mimaride köklü değişiklik (yetkilendirme katmanı, veri izolasyonu)
+  gerektirecektir; bugünden o karmaşıklığı eklemiyoruz (bkz. Faz 4,
+  `ROADMAP.md`). Kullanıcı bu kararı değiştirmek isterse bu bölüm
+  güncellenmeli.
+
+Genişletilmiş vizyonun tam modül haritası (Executive Dashboard,
+Morning/Evening Briefing, Meeting Intelligence, Decision Support,
+Relationship Manager, Workload Analysis, Smart Automation, AI
+Learning, Job Search Intelligence, Voice/Browser Agent) `AGENTS.md` ve
+`FEATURES.md`'de faz etiketleriyle yer alır — MVP'yi genişletmez,
+Faz 2/3'ü zenginleştirir.
 
 ## 2. Problem
 
