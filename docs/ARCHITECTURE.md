@@ -1,0 +1,137 @@
+# ARCHITECTURE.md — Sistem Mimarisi
+
+**Durum:** Faz 1 için önerilen mimari. Deployment detayları (bkz. §7)
+henüz kesinleşmedi — `DEPLOYMENT.md` (Faz 2) içinde netleştirilecek.
+
+## 1. Teknoloji seçimi ve gerekçe
+
+Kullanıcı önceliği: **kolay ve ücretsiz**. Buna göre:
+
+| Katman | Seçim | Gerekçe |
+|---|---|---|
+| Dil | TypeScript (uçtan uca) | Frontend + backend tek dil, Claude Agent SDK ve Vercel AI SDK ile birinci sınıf destek, tip güvenliği |
+| Framework | Next.js (App Router) | Frontend + API routes tek projede; Vercel'in ücretsiz Hobby planıyla sıfır-config deploy |
+| Veritabanı | Supabase (Postgres) | Cömert ücretsiz katman, yerleşik Auth (Google OAuth dahil), Storage, ve `pgvector` (AI_MEMORY için embedding/RAG desteği ücretsiz) |
+| AI motoru | Anthropic Claude API + Claude Agent SDK | Orchestrator ve ajanların çoklu-araç (tool use) mantığı için tasarlanmış SDK |
+| Arka plan işleri | Vercel Cron (ücretsiz, sınırlı) veya hafif bir worker (Faz 2'de netleşecek) | E-posta/takvim polling, hatırlatma tetikleyicileri için |
+| Kimlik doğrulama | Supabase Auth + Google OAuth | Gmail/Calendar erişimi için zaten gereken OAuth akışını Auth ile birleştirir |
+
+Bu yığın, `Dashboard-Project/is-basvuru` becerisinin bugün kullandığı
+"kod yok, salt prompt/skill" yaklaşımından farklıdır — çünkü bu proje
+kalıcı durum (e-posta geçmişi, hafıza, takip kayıtları), OAuth token
+yönetimi ve arka planda çalışan görevler gerektirir. `is-basvuru`
+mantığı (scrape/apply) bu projeye **agent olarak taşınacak/adapte
+edilecek**, birebir kopyalanmayacak.
+
+## 2. Üst düzey bileşen diyagramı
+
+```mermaid
+flowchart TB
+    U[Kullanıcı] --> UI[Dashboard / Chat UI\nNext.js frontend]
+    UI --> ORCH[Master Orchestrator]
+    ORCH --> EMAIL[Email Agent]
+    ORCH --> CAL[Calendar Agent]
+    ORCH --> MEM[Memory Agent]
+    ORCH --> JOB[Job Search Agent]
+    ORCH --> CV[CV Optimizer]
+
+    EMAIL --> GMAIL[(Gmail API)]
+    CAL --> GCAL[(Google Calendar API)]
+    JOB --> LINKEDIN[(LinkedIn / kariyer.net)]
+    CV --> PDF[LaTeX/PDF üretimi]
+
+    MEM --> DB[(Supabase Postgres\n+ pgvector)]
+    EMAIL --> DB
+    CAL --> DB
+    JOB --> DB
+    CV --> DB
+
+    ORCH -.->|gelecek fazlar| FUTURE[Meeting / Note / Planner /\nReminder / Analytics / Voice / Browser]
+```
+
+## 3. Master Orchestrator deseni
+
+Orchestrator, kullanıcının doğal dil isteğini alır, hangi uzman
+ajan(lar)ın gerekli olduğuna karar verir (Claude'un tool-use / agent
+routing yeteneğiyle), ilgili ajanı çağırır, sonucu birleştirir ve
+kullanıcıya sunar. Her uzman ajan kendi sistem promptuna (bkz.
+`PROMPTS.md`, Faz 2) ve sınırlı bir araç setine sahiptir — Orchestrator
+hiçbir ajanın "her şeyi yapabilir" hale gelmesine izin vermez (asgari
+yetki ilkesi, bkz. `SECURITY.md`).
+
+**Onay katmanı:** Dış dünyaya giden her eylem (e-posta gönder, davet
+oluştur, başvuru gönder) Orchestrator seviyesinde bir "taslak → kullanıcı
+onayı → gönder" adımından geçer. Bu, `is-basvuru` becerisinin "asla
+otomatik gönderim yapma" kuralının tüm asistana genellenmiş hâlidir.
+
+## 4. Veri akışı (MVP örneği: "Bugünkü e-postalarımı özetle")
+
+1. Kullanıcı dashboard'da isteği yazar → UI, Orchestrator'a iletir.
+2. Orchestrator isteği sınıflandırır → Email Agent'a yönlendirir.
+3. Email Agent, Gmail API'den (OAuth token Supabase Auth'tan) son
+   e-postaları çeker, Memory Agent'tan kullanıcı önceliklerini
+   (ör. "müşteri e-postaları öncelikli") okur.
+4. Email Agent özet + öncelik sıralaması üretir, sonucu Orchestrator'a
+   döner.
+5. Orchestrator sonucu kullanıcıya sunar; kullanıcı bir e-postaya
+   taslak yanıt isterse aynı akış "taslak oluştur" moduna geçer ve
+   gönderim onay bekler.
+6. İşlem özeti Supabase'e (audit/geçmiş için) yazılır.
+
+## 5. Klasör yapısı (kök dizin)
+
+```
+ai-executive-assistant/
+├── CLAUDE.md              # Claude Code için ana kurallar
+├── README.md               # proje tanıtımı
+├── docs/                   # tüm ürün/mimari dokümantasyonu
+├── agents/                 # her ajan için: sistem promptu + araçlar + testler
+├── backend/                 # Next.js API routes, iş mantığı, Orchestrator
+├── frontend/                # Next.js dashboard UI (chat arayüzü)
+├── mobile/                  # (Faz 3+, şimdilik boş — bkz. ROADMAP)
+├── api/                      # dış/iç API sözleşmeleri (OpenAPI vb.)
+├── database/                 # şema, migration'lar (Supabase)
+├── integrations/              # servis bazlı OAuth/connector kodu (gmail/, google-calendar/, ...)
+├── prompts/                   # ajan sistem promptları (bkz. PROMPTS.md)
+├── automation/                 # otomasyon akış tanımları (bkz. AUTOMATION.md)
+├── tests/                       # test suite'leri
+└── deployment/                   # IaC / deploy konfigürasyonu
+```
+
+Bu yapı, kullanıcının talep ettiği kurumsal şablonla birebir uyumludur.
+Faz 1'de `backend/`, `frontend/`, `agents/`, `database/`,
+`integrations/` aktif olarak doldurulacak; `mobile/`, `api/`,
+`prompts/`, `automation/`, `tests/`, `deployment/` iskelet olarak
+duracak ve ilgili faz geldiğinde doldurulacak (bkz. `ROADMAP.md`).
+
+## 6. Ajan ↔ Orchestrator sözleşmesi (özet)
+
+Her ajan:
+- Net bir görev tanımına sahiptir (bkz. `AGENTS.md`).
+- Yalnızca ihtiyaç duyduğu araçlara/verilere erişir (asgari yetki).
+- Girdi/çıktısı Orchestrator'ın anlayacağı yapılandırılmış bir formatta
+  olur (ör. `{status, summary, requiresApproval, draft}`).
+- Kendi başına dış dünyaya kalıcı bir eylem *göndermez* — taslak üretir,
+  onay Orchestrator/kullanıcı katmanında verilir.
+
+## 7. Dağıtım (önerilen, netleşmemiş)
+
+Kullanıcı "kolay ve ücretsiz" istediği için önerilen varsayılan:
+**Vercel (Hobby, ücretsiz) + Supabase (Free tier)**. Arka plan
+işlerinin (polling, hatırlatmalar) ücretsiz katmanlarda nasıl
+çalışacağı (Vercel Cron sınırları vs. ayrı bir worker) `DEPLOYMENT.md`
+içinde Faz 2'de netleştirilecek — bu, kullanıcının deployment kararını
+henüz vermemiş olmasından dolayı bilinçli olarak açık bırakılmıştır.
+
+## 8. Geleceğe dönük genişleme noktaları
+
+- **Outlook/Microsoft 365/Teams:** `integrations/` altına yeni bir
+  connector eklenerek; Orchestrator ve Email/Calendar Agent'lar
+  sağlayıcıdan bağımsız bir arayüz (`EmailProvider`,
+  `CalendarProvider`) üzerinden çalışacak şekilde tasarlanmalı —
+  bugünden Gmail'e sıkı bağlı (hard-coded) yazılmamalı.
+- **Çoklu kullanıcı:** Bugün tüm veri modeli tek kullanıcı varsayımıyla
+  kurulur; `user_id` alanları yine de şemaya eklenir (bkz.
+  `DATABASE.md`, Faz 2) ki ileride çoklu kullanıcıya geçiş şema
+  göçü gerektirmesin — ama yetkilendirme/izolasyon mantığı Faz 1'de
+  kurulmaz.

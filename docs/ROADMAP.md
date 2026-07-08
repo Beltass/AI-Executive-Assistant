@@ -1,0 +1,77 @@
+# ROADMAP.md — Geliştirme Fazları
+
+## Faz 0 — Dokümantasyon ve mimari (şu an)
+
+- [x] `CLAUDE.md`, `README.md` — proje bağlamı
+- [x] `docs/PRD.md` — ürün gereksinimleri
+- [x] `docs/ARCHITECTURE.md` — mimari + teknoloji seçimi
+- [x] `docs/AGENTS.md` — ajan tanımları
+- [x] `docs/ROADMAP.md` — bu doküman
+- [x] `docs/FEATURES.md` — özellik listesi
+- [x] Klasör iskeleti (`agents/`, `backend/`, `frontend/`, `mobile/`,
+      `api/`, `database/`, `integrations/`, `prompts/`, `automation/`,
+      `tests/`, `deployment/`)
+- [ ] Deployment kararının kesinleştirilmesi → `DEPLOYMENT.md`
+- [ ] Faz 2 dokümanları: `DATABASE.md`, `API.md`, `SECURITY.md`,
+      `INTEGRATIONS.md`, `UI_UX.md`, `TEST_PLAN.md`, `AI_MEMORY.md`,
+      `AUTOMATION.md`, `PROMPTS.md`, `FUTURE.md`
+
+**Çıkış kriteri:** Kullanıcı Faz 1 kapsamını (bu dokümanlardaki MVP
+tanımı) onaylar.
+
+## Faz 1 — MVP (Çekirdek 4 + Job Search/CV)
+
+Hedef: tek kullanıcı için gerçekten kullanılabilir bir asistan.
+
+1. **Altyapı:** Next.js iskeleti, Supabase projesi (Postgres + Auth +
+   pgvector), Google Cloud OAuth kimlik bilgileri (Gmail + Calendar).
+2. **Master Orchestrator + Chat Agent:** temel sohbet arayüzü, istek
+   sınıflandırma/yönlendirme.
+3. **Email Agent:** Gmail okuma, özetleme, önceliklendirme, taslak
+   yanıt (gönderim onaylı).
+4. **Calendar Agent:** Google Calendar okuma/yazma, çakışma tespiti.
+5. **Memory Agent:** temel tercih/bağlam hafızası (pgvector ile basit
+   RAG).
+6. **Job Search Agent + CV Optimizer:** `Dashboard-Project/is-basvuru`
+   mantığının bu asistana taşınması/entegrasyonu.
+7. **Uçtan uca doğrulama:** PRD §7'deki başarı kriterlerinin gerçek
+   kullanımla test edilmesi.
+
+**Çıkış kriteri:** PRD §7'deki tüm başarı kriterleri sağlanıyor.
+
+## Faz 2 — Genişleme
+
+- **Yeni ajanlar:** Meeting Agent, Note Agent, Daily Planner, Reminder
+  Agent, Analytics Agent.
+- **Yeni entegrasyon:** Microsoft 365/Outlook (Email/Calendar
+  Agent'ların sağlayıcıdan bağımsız hale getirilmesi ilk adım).
+- **Yeni dokümanlar (bu fazda yazılır, çünkü artık somut mimari
+  kararlara oturacaklar):** `DATABASE.md`, `API.md`, `SECURITY.md`
+  (KVKK/GDPR değerlendirmesi dahil), `INTEGRATIONS.md`, `UI_UX.md`,
+  `TEST_PLAN.md`, `DEPLOYMENT.md` (deployment kararının kesinleşmiş
+  hâli), `AI_MEMORY.md`, `AUTOMATION.md`, `PROMPTS.md`.
+- **Test altyapısı:** `tests/` klasörünün doldurulması, temel
+  regresyon testleri.
+
+## Faz 3 — İleri seviye
+
+- **Yeni ajanlar:** Voice Agent, Browser Agent.
+- **Yeni entegrasyonlar:** Teams, Zoom (transkript), Slack, Notion,
+  LinkedIn derin entegrasyonu.
+- **Mobil:** `mobile/` klasörünün doldurulması (muhtemelen React
+  Native veya Expo — karar bu faza gelindiğinde verilecek).
+- `docs/FUTURE.md` bu fazın ayrıntılı planını taşıyacak.
+
+## Faz 4 — Olgunlaşma (gerekirse)
+
+- Çoklu kullanıcı/SaaS'a geçiş değerlendirmesi (bugün planlanmıyor,
+  yalnızca olasılık olarak not düşülüyor — bkz. PRD §1).
+- Gelişmiş güvenlik/uyumluluk sertleştirmesi.
+- Analitik/ölçeklenme optimizasyonları.
+
+## Önceliklendirme ilkesi
+
+Bir sonraki fazın ajanlarına/entegrasyonlarına geçmeden önce mevcut
+fazın **çıkış kriteri** sağlanmalı. Paralel olarak 14 ajanın hepsini
+"biraz biraz" geliştirmek yerine, MVP'nin gerçekten uçtan uca
+çalıştığından emin olup öyle genişlemek tercih edilir.

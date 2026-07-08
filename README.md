@@ -1,2 +1,60 @@
-# AI-Executive-Assistant
-Build a production-ready AI Executive Assistant that works as my personal digital chief of staff.
+# AI Executive Assistant
+
+Gmail, Google Calendar, Microsoft 365, Teams, Zoom, Slack, Notion ve
+LinkedIn gibi servislerle entegre çalışan; e-postaları, takvimi,
+toplantıları, hatırlatmaları ve iş başvurularını benim adıma yöneten
+kişisel yapay zekâ yönetici asistanı ("dijital chief of staff").
+
+> **Durum:** Faz 0 — Dokümantasyon ve mimari tasarım. Henüz çalışan kod
+> yok. Aşağıdaki `docs/` klasörü, geliştirmenin dayanacağı ürün ve
+> mimari kararlarını içerir.
+
+## Bu proje ne yapar (hedef)
+
+Sadece bir iş başvuru botu değil — e-posta triyajından takvim
+yönetimine, toplantı notlarından günlük planlamaya kadar birden fazla
+uzman **AI ajanının** bir **Master Orchestrator** altında koordine
+olduğu, kullanıcı adına gerçek işlemler yapabilen bir asistan.
+
+## Dokümantasyon
+
+| Doküman | Amaç |
+|---|---|
+| [`CLAUDE.md`](./CLAUDE.md) | Claude Code için geliştirme kuralları ve proje bağlamı |
+| [`docs/PRD.md`](./docs/PRD.md) | Ürün gereksinimleri, hedef kullanıcı, kapsam |
+| [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) | Sistem mimarisi, teknoloji yığını, veri akışı |
+| [`docs/AGENTS.md`](./docs/AGENTS.md) | Tüm AI ajanlarının görev tanımları |
+| [`docs/ROADMAP.md`](./docs/ROADMAP.md) | Geliştirme fazları ve önceliklendirme |
+| [`docs/FEATURES.md`](./docs/FEATURES.md) | Özellik listesi (MVP / gelecek) |
+
+Faz 2'de eklenecek: `DATABASE.md`, `API.md`, `SECURITY.md`,
+`INTEGRATIONS.md`, `UI_UX.md`, `TEST_PLAN.md`, `DEPLOYMENT.md`,
+`AI_MEMORY.md`, `AUTOMATION.md`, `PROMPTS.md`, `FUTURE.md` — mimari
+kararlar netleştikçe (bkz. `docs/ROADMAP.md`).
+
+## MVP kapsamı (Faz 1)
+
+- 🎯 Master Orchestrator — kullanıcı isteğini ilgili ajana yönlendirir
+- 💬 Chat Agent — konuşma arayüzü (dashboard üzerinden)
+- 📧 Email Agent — Gmail triyaj/özet/taslak
+- 📅 Calendar Agent — Google Calendar yönetimi
+- 🧠 Memory Agent — kullanıcı tercihleri ve bağlam hafızası
+- 💼 Job Search Agent + 📄 CV Optimizer — `Dashboard-Project/is-basvuru`
+  becerilerinin bu asistana entegrasyonu
+
+Kapsam dışı bırakılan ajanlar (Meeting, Note, Daily Planner, Reminder,
+Analytics, Voice, Browser) ve entegrasyonlar (Outlook, Teams, Slack,
+Notion, LinkedIn derin entegrasyonu) `docs/ROADMAP.md` ve ileride
+`FUTURE.md`'de ele alınacak.
+
+## Teknoloji yığını (önerilen, Faz 1)
+
+TypeScript uçtan uca (Next.js), Supabase (Postgres + Auth + pgvector),
+Anthropic Claude API + Claude Agent SDK. Gerekçe için
+[`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) içindeki "Teknoloji
+Seçimi ve Gerekçe" bölümüne bakın.
+
+## Katkı / geliştirme
+
+Bu depoda çalışan bir Claude Code oturumu için önce
+[`CLAUDE.md`](./CLAUDE.md) dosyasını okuyun.
