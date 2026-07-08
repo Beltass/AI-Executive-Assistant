@@ -2,11 +2,13 @@ import { Type, type Content, type FunctionDeclaration } from "@google/genai";
 import { getGeminiClient, ORCHESTRATOR_MODEL } from "@/lib/llm";
 import { summarizeInbox } from "@/lib/agents/email-agent";
 import { summarizeUpcomingSchedule } from "@/lib/agents/calendar-agent";
+import { getMorningBriefing } from "@/lib/agents/planner-agent";
 
 /**
  * Master Orchestrator — bkz. docs/ARCHITECTURE.md §3 ve docs/AGENTS.md.
  * Kullanıcı isteğini sınıflandırır, ilgili uzman ajana yönlendirir.
- * Faz 1'de iki uzman ajan var: Email Agent ve Calendar Agent.
+ * Faz 1'de üç uzman yetenek var: Email Agent, Calendar Agent ve bu
+ * ikisini birleştiren Morning Briefing (Daily Planner'ın ilk çıktısı).
  * Yeni bir ajan eklendiğinde yalnızca `functionDeclarations` listesine
  * ve `runTool` switch'ine bir dal eklenir — Orchestrator'ın geri kalanı
  * değişmez.
@@ -48,11 +50,23 @@ const summarizeScheduleDeclaration: FunctionDeclaration = {
   },
 };
 
+const morningBriefingDeclaration: FunctionDeclaration = {
+  name: "get_morning_briefing",
+  description:
+    "E-postaları ve bugünkü takvim programını tek bir günaydın " +
+    "raporunda birleştirir. Kullanıcı 'günaydın', 'bugünkü briefingimi " +
+    "ver', 'günlük özetimi göster' gibi genel bir durum raporu " +
+    "istediğinde — yalnızca e-posta VEYA yalnızca takvim değil, ikisini " +
+    "birden istediğinde — bu aracı kullan.",
+  parameters: { type: Type.OBJECT, properties: {} },
+};
+
 const tools = [
   {
     functionDeclarations: [
       summarizeInboxDeclaration,
       summarizeScheduleDeclaration,
+      morningBriefingDeclaration,
     ],
   },
 ];
@@ -71,6 +85,8 @@ async function runTool(name: string, args: Record<string, unknown>) {
       return summarizeUpcomingSchedule(
         typeof args.hoursAhead === "number" ? args.hoursAhead : 24
       );
+    case "get_morning_briefing":
+      return getMorningBriefing();
     default:
       throw new Error(`Bilinmeyen araç: ${name}`);
   }
@@ -131,7 +147,7 @@ export async function handleUserMessage(
         "Orchestrator'ısın. Bir uzman ajandan gelen sonucu kullanıcıya " +
         "Türkçe, kısa ve net şekilde ilet.",
       tools,
-      maxOutputTokens: 1024,
+      maxOutputTokens: 2048,
       thinkingConfig: { thinkingBudget: 0 },
     },
   });

@@ -61,8 +61,8 @@ Detaylı ajan tanımları için `AGENTS.md`, faz sırası için `ROADMAP.md`.
 ## Planlama & proaktif raporlama (F2)
 
 - [ ] **F2** — Günlük öncelik planı
-- [ ] **F2** — Morning Briefing (okunmamış mail/toplantı/kritik görev
-      özeti — Email + Calendar Agent'ı birleştirir)
+- [x] **MVP-bonus** — Morning Briefing (okunmamış mail + bugünkü
+      program özeti — Email + Calendar Agent'ı ek maliyetsiz birleştirir)
 - [ ] **F2** — Evening Report (tamamlanan/ertelenen işler özeti)
 - [ ] **F2** — Koşullu hatırlatmalar (ör. "3 gün yanıt gelmezse")
 

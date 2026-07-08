@@ -45,6 +45,12 @@ Hedef: tek kullanıcı için gerçekten kullanılabilir bir asistan.
    alınacak.
 5. **Memory Agent:** temel tercih/bağlam hafızası (pgvector ile basit
    RAG).
+5b. [x] **Morning Briefing (bonus, neredeyse bedava):** Email + Calendar
+   Agent'ı birleştiren `get_morning_briefing` aracı eklendi
+   (`frontend/src/lib/agents/planner-agent.ts`) — ek Gemini çağrısı
+   olmadan (sadece iki mevcut ajanı yeniden kullanarak) "günaydın"
+   raporu üretiyor. Kritik görevler/teslim tarihleri henüz yok (görev
+   sistemi gerektiriyor, Faz 2).
 6. **Job Search Agent + CV Optimizer:** `Dashboard-Project/is-basvuru`
    mantığının bu asistana taşınması/entegrasyonu.
 7. **Uçtan uca doğrulama:** PRD §7'deki başarı kriterlerinin gerçek
