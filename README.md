@@ -27,6 +27,7 @@ olduğu, kullanıcı adına gerçek işlemler yapabilen bir asistan.
 | [`docs/AGENTS.md`](./docs/AGENTS.md) | Tüm AI ajanlarının görev tanımları |
 | [`docs/ROADMAP.md`](./docs/ROADMAP.md) | Geliştirme fazları ve önceliklendirme |
 | [`docs/FEATURES.md`](./docs/FEATURES.md) | Özellik listesi (MVP / gelecek) |
+| [`docs/N8N_SETUP.md`](./docs/N8N_SETUP.md) | Aynı MVP'yi n8n workflow'ları olarak kurmak isteyenler için kapsam haritası |
 
 Faz 2'de eklenecek: `DATABASE.md`, `API.md`, `SECURITY.md`,
 `INTEGRATIONS.md`, `UI_UX.md`, `TEST_PLAN.md`, `DEPLOYMENT.md`,
