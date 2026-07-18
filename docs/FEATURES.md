@@ -38,18 +38,23 @@ Detaylı ajan tanımları için `AGENTS.md`, faz sırası için `ROADMAP.md`.
 
 ## İş arama (Job Search Agent)
 
-- [ ] **MVP** — LinkedIn + kariyer.net ilan tarama
-      (`is-basvuru/scrape`'den taşınan mantık)
-- [ ] **MVP** — Takip kaydıyla tekrar eleme
+- [x] **MVP (uyarlanmış)** — İlan değerlendirme: otomatik LinkedIn/
+      kariyer.net ARAMASI değil, kullanıcının verdiği tek bir ilan
+      metni/URL'si (bkz. `AGENTS.md` — bulk scraping riski + serverless
+      ortam kısıtı nedeniyle kasıtlı kapsam daraltması)
+- [x] **MVP** — Takip kaydıyla tekrar eleme (Supabase `job_applications`,
+      yoksa oturum-bazlı bellek)
 - [ ] **F2** — Ek iş ilanı kaynakları (kullanıcı onayıyla)
 
 ## CV/Başvuru (CV Optimizer)
 
-- [ ] **MVP** — Uygunluk puanlama (0-100 rubrik)
-- [ ] **MVP** — Kişiselleştirilmiş CV (PDF) üretimi
-- [ ] **MVP** — Ön yazı/mesaj taslağı üretimi
-- [ ] **MVP** — Başvuru takip günlüğü
-- [ ] **F2** — ATS-uyumlu düz metin CV varyantı otomasyonu
+- [x] **MVP** — Uygunluk puanlama (0-100 rubrik, `reviewer-kriterleri.md`)
+- [x] **MVP (uyarlanmış)** — Kişiselleştirilmiş CV üretimi: PDF değil,
+      tek sütunlu Markdown (Vercel serverless'ta pdflatex yok)
+- [x] **MVP** — Ön yazı/mesaj taslağı üretimi
+- [x] **MVP** — Başvuru takip günlüğü + "başvuruldu" durum güncelleme
+- [ ] **F2** — ATS-uyumlu düz metin CV varyantı otomasyonu (Markdown
+      çıktı zaten tek sütun/ATS-güvenli; bu madde ek biçim ihracı içindir)
 
 ## Toplantı zekası — Meeting Intelligence (F2)
 

@@ -169,6 +169,38 @@ Briefing artık `MockEmailProvider`/`MockCalendarProvider` yerine
 kullanıcının gerçek Gmail/Calendar verisiyle canlı ortamda çalışıyor
 ve doğrulandı.
 
+**Not — Job Search Agent + CV Optimizer, ortam kaynaklı uyarlamalar:**
+Mantık `Dashboard-Project/is-basvuru/.claude/skills/{scrape,apply}`'den
+taşındı (`frontend/src/lib/agents/job-search-agent.ts`); `profil.md` ve
+`reviewer-kriterleri.md` kardeş repodan birebir kopyalanıp
+`frontend/src/lib/agents/job-search/` altında TypeScript string
+sabitleri olarak paketlendi (`.md` dosyalarını build-time'da fs ile
+okumak yerine — Vercel'in serverless fonksiyon bundling'i yalnızca
+import edilen modülleri izler, çalışma zamanında fs.readFileSync
+edilen dosyalar deploy'a dahil olmayabilir; bu, OAuth kurulumunda
+yaşanan Vercel yapılandırma sürprizlerinden çıkarılan bir ders).
+Yürütme ortamı iki noktada orijinal beceriden ayrışıyor:
+1. **CV çıktısı PDF değil, Markdown.** Vercel serverless'ta `pdflatex`
+   toolchain'i çalıştırmak pratik değil; çıktı tek sütunlu Markdown'a
+   uyarlandı (`cv-template.ts`) — bu aynı zamanda
+   `reviewer-kriterleri.md`'nin önerdiği ATS-güvenli tek sütun formatı
+   varsayılan olarak sağlıyor. Sabit bölümler (deneyim, eğitim,
+   sertifika, ödül) `profil.md`'den programatik olarak (regex ile)
+   çıkarıldı — elle kopyalanmadı, sadakat garantisi için.
+2. **Otomatik ilan TARAMASI yok.** `scrape` becerisinin LinkedIn/
+   kariyer.net arama-sonucu taraması bu sürümde uygulanmadı (bulk
+   scraping riski + Vercel'de headless tarayıcı çalıştırmanın pratik
+   olmaması); yalnızca kullanıcının verdiği tek bir ilan metni/URL'si
+   değerlendiriliyor (`job-posting.ts`, tek istek). Bu, kapsamı
+   daraltıyor ama orijinal beceri de zaten arama sonuçları için
+   kullanıcı onaylı bir URL istiyordu (bkz. `scrape/SKILL.md` adım 2).
+
+Başvuru takip günlüğü (`ApplicationTracker`, `job-tracker.ts`) aynı
+Mock/gerçek sağlayıcı deseniyle kuruldu: Supabase kimlik bilgisi
+girilmemişse (`NEXT_PUBLIC_SUPABASE_URL` boş) oturum-bazlı bellekte
+tutulur — kalıcı değildir, soğuk başlatmada kaybolur; kalıcılık için
+Supabase kurulumu gerekir (bkz. `.env.example`).
+
 ## 9. Geleceğe dönük genişleme noktaları
 
 - **Outlook/Microsoft 365/Teams:** `integrations/` altına yeni bir

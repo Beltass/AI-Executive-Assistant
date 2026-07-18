@@ -64,19 +64,34 @@ Hedef: tek kullanıcı için gerçekten kullanılabilir bir asistan.
    olmadan (sadece iki mevcut ajanı yeniden kullanarak) "günaydın"
    raporu üretiyor. Kritik görevler/teslim tarihleri henüz yok (görev
    sistemi gerektiriyor, Faz 2).
-6. **Job Search Agent + CV Optimizer:** `Dashboard-Project/is-basvuru`
-   mantığının bu asistana taşınması/entegrasyonu.
+6. [x] **Job Search Agent + CV Optimizer:** `Dashboard-Project/is-basvuru`
+   mantığının bu asistana taşınması (`frontend/src/lib/agents/job-search-agent.ts`).
+   `profil.md` ve `reviewer-kriterleri.md` kardeş repodan birebir
+   kopyalandı (`frontend/src/lib/agents/job-search/`); puanlama rubriği
+   ve "olgusal içerik asla değiştirilmez" kuralı aynen korunuyor. İki
+   ortam-kaynaklı uyarlama (bkz. `ARCHITECTURE.md` §8): (a) çıktı
+   pdflatex/PDF yerine tek sütunlu Markdown CV — Vercel serverless'ta
+   LaTeX toolchain yok; (b) otomatik LinkedIn/kariyer.net ARAMASI yok —
+   yalnızca kullanıcının verdiği tek bir ilan metni/URL'si değerlendirilir
+   (orijinal `scrape` becerisi de zaten kullanıcı onaylı URL istiyordu).
+   Başvuru takip günlüğü Supabase'e yazılır; Supabase henüz kurulmadıysa
+   oturum-bazlı (kalıcı olmayan) belleğe düşer — bkz. `.env.example`.
 7. **Uçtan uca doğrulama:** PRD §7'deki başarı kriterlerinin gerçek
-   kullanımla test edilmesi.
+   kullanımla test edilmesi — Job Search Agent henüz canlıda gerçek bir
+   ilanla denenmedi (yalnızca `npm run typecheck`/`build` doğrulandı).
 
 **Sıradaki adımlar (kullanıcı girdisi gerekli):**
 - ~~Ücretsiz Gemini API anahtarı~~ — tamamlandı, canlı ortamda çalışıyor.
 - ~~Gerçek Gmail/Calendar verisiyle test için Google Cloud OAuth kimlik
   bilgileri~~ — tamamlandı, `ai-executive-assistant-uerc.vercel.app`
   üzerinde gerçek verilerle doğrulandı.
-- Supabase projesi (Memory Agent'a başlamadan önce gerekecek) — sırada.
-- Faz 1'in bir sonraki adımı için karar: **Memory Agent** mi, **Job
-  Search Agent + CV Optimizer** mi önce ele alınacak?
+- Job Search Agent'ı canlıda gerçek bir ilanla test et (bir ilan
+  yapıştır, "bu ilana uygun muyum?" de) — PRD §7'deki "en az bir gerçek
+  başvuru uçtan uca tamamlanabiliyor" kriteri için gerekli.
+- Supabase projesi (kurulursa hem Job Search Agent'ın takip günlüğü hem
+  ileride Memory Agent kalıcı hale gelir) — kurulum adımları
+  `.env.example`'da.
+- Kalan Faz 1 parçası: **Memory Agent** (oturumlar arası hafıza).
 
 **Çıkış kriteri:** PRD §7'deki tüm başarı kriterleri sağlanıyor.
 

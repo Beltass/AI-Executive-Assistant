@@ -58,10 +58,16 @@ ajan değil, Memory Agent'ın geri bildirim döngüsüdür.
 
 ### 💼 Job Search Agent
 `Dashboard-Project/is-basvuru/.claude/skills/scrape` becerisindeki
-mantığın bu asistana taşınmış hâli: LinkedIn ve kariyer.net'te
-`profil.md`'deki hedef unvanlara uygun ilan tarar, tekrarları takip
-kaydıyla eler, kısa liste sunar. Aynı ToS/kapsam kısıtları geçerlidir
+mantığın bu asistana taşınmış hâli — **uygulandı**
+(`frontend/src/lib/agents/job-search-agent.ts`). Otomatik LinkedIn/
+kariyer.net ARAMASI bu sürümde yok (bulk scraping riski + Vercel
+serverless'ta headless tarayıcı çalıştırmanın pratik olmaması); bunun
+yerine kullanıcının verdiği tek bir ilan metni/URL'si değerlendirilir
+— zaten orijinal beceri de arama sonucu sayfalarını değil, kullanıcı
+onaylı tek bir URL'yi işliyordu. Aynı ToS/kapsam kısıtları geçerlidir
 (giriş duvarı aşma yok, CAPTCHA bypass yok, otomatik başvuru yok).
+Tekrarları `job_applications` takip tablosu (Supabase, kurulmadıysa
+oturum-bazlı bellek) üzerinden eler.
 
 **Faz 3 eklentisi — Job Search Intelligence:** şirket analizi
 (kültür/itibar), maaş tahmini, CV-ilan eşleşme skoru, başarı
@@ -73,9 +79,16 @@ bir veri kaynağı kararıyla birlikte netleştirilecek.
 
 ### 📄 CV Optimizer
 `Dashboard-Project/is-basvuru/.claude/skills/apply` becerisindeki
-mantığın taşınmış hâli: seçilen ilan için uygunluk puanlar (≥70 devam,
-50-69 kullanıcıya sor, <50 üretme), `profil.md`'ye sadık kalarak CV/ön
-yazı taslağı üretir, hiçbir platforma otomatik göndermez.
+mantığın taşınmış hâli — **uygulandı**. Seçilen ilan için uygunluk
+puanlar (≥70 devam, 50-69 kullanıcıya sor, <50 üretme, aynı
+`reviewer-kriterleri.md` rubriği), `profil.md`'ye sadık kalarak CV/ön
+yazı taslağı üretir (yetkinlik listesinin LLM tarafından üretilen
+sıralaması, orijinal 17 öğeden sapmışsa koddaki savunmacı kontrol
+orijinal sıraya geri döner), hiçbir platforma otomatik göndermez. Çıktı
+formatı, orijinal iki sütunlu LaTeX/PDF yerine tek sütunlu Markdown'dur
+(Vercel serverless'ta pdflatex yok — bkz. `ARCHITECTURE.md` §8); bu
+aynı zamanda `reviewer-kriterleri.md`'nin ATS-güvenli tek sütun format
+önerisini varsayılan olarak karşılar.
 
 ---
 
