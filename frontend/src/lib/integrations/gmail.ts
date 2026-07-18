@@ -9,6 +9,7 @@ export interface EmailSummary {
   from: string;
   subject: string;
   snippet: string;
+  body: string;
   receivedAt: string;
 }
 
@@ -29,6 +30,11 @@ export class MockEmailProvider implements EmailProvider {
         subject: "Sözleşme yenileme görüşmesi — bu hafta uygun musunuz?",
         snippet:
           "Merhaba, mevcut sözleşmemizin yenilenmesi için bu hafta 30 dakikalık bir görüşme ayarlayabilir miyiz?",
+        body:
+          "Merhaba,\n\nMevcut sözleşmemizin yenilenmesi için bu hafta 30 dakikalık " +
+          "bir görüşme ayarlayabilir miyiz? Perşembe veya Cuma öğleden sonra " +
+          "uygunum. Ayrıca yeni dönem için %10 hacim artışı talebimiz olacak, " +
+          "bunu da görüşmede konuşmak isterim.\n\nİyi çalışmalar,\nAyşe",
         receivedAt: new Date(Date.now() - 2 * 3600_000).toISOString(),
       },
       {
@@ -36,6 +42,7 @@ export class MockEmailProvider implements EmailProvider {
         from: "no-reply@linkedin.com",
         subject: "5 yeni bağlantı isteğiniz var",
         snippet: "LinkedIn ağınızdaki gelişmeleri kaçırmayın.",
+        body: "LinkedIn ağınızdaki gelişmeleri kaçırmayın. 5 yeni bağlantı isteğiniz var.",
         receivedAt: new Date(Date.now() - 5 * 3600_000).toISOString(),
       },
       {
@@ -43,6 +50,9 @@ export class MockEmailProvider implements EmailProvider {
         from: "finance@saas-tool.com",
         subject: "Faturanız hazır — Temmuz 2026",
         snippet: "Aylık aboneliğinize ait fatura ekte. Ödeme tarihi 15 Temmuz.",
+        body:
+          "Aylık aboneliğinize ait fatura ekte. Tutar: 49 USD. Ödeme tarihi: " +
+          "15 Temmuz 2026. Otomatik ödeme kayıtlı kartınızdan tahsil edilecektir.",
         receivedAt: new Date(Date.now() - 20 * 3600_000).toISOString(),
       },
     ];
@@ -54,6 +64,52 @@ export class MockEmailProvider implements EmailProvider {
  * Gmail API üzerinden gerçek gelen kutusu erişimi. googleapis + OAuth2
  * (offline erişim, önceden alınmış refresh token) kullanır.
  */
+/** Gmail body'leri gördüğü en detaylı `text/plain` parçası kadar uzun olabilir;
+ * özet üretecek LLM çağrısının maliyetini kontrol altında tutmak için kırpılır. */
+const MAX_BODY_CHARS = 2000;
+
+function decodeGmailBase64Url(data: string): string {
+  const normalized = data.replace(/-/g, "+").replace(/_/g, "/");
+  return Buffer.from(normalized, "base64").toString("utf-8");
+}
+
+function stripHtml(html: string): string {
+  return html
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** İç içe MIME parçalarında önce text/plain, bulunamazsa text/html arar. */
+function extractBody(payload: unknown): string {
+  type GmailPart = {
+    mimeType?: string | null;
+    body?: { data?: string | null } | null;
+    parts?: GmailPart[] | null;
+  };
+  const root = payload as GmailPart | undefined;
+  if (!root) return "";
+
+  let plainFallback = "";
+  let htmlFallback = "";
+
+  function walk(part: GmailPart) {
+    const data = part.body?.data;
+    if (data && part.mimeType === "text/plain" && !plainFallback) {
+      plainFallback = decodeGmailBase64Url(data);
+    } else if (data && part.mimeType === "text/html" && !htmlFallback) {
+      htmlFallback = decodeGmailBase64Url(data);
+    }
+    for (const child of part.parts ?? []) walk(child);
+  }
+  walk(root);
+
+  const text = plainFallback || stripHtml(htmlFallback);
+  return text.slice(0, MAX_BODY_CHARS);
+}
+
 export class GmailProvider implements EmailProvider {
   async listRecentEmails(limit: number): Promise<EmailSummary[]> {
     const { google } = await import("googleapis");
@@ -79,8 +135,7 @@ export class GmailProvider implements EmailProvider {
         gmail.users.messages.get({
           userId: "me",
           id: m.id!,
-          format: "metadata",
-          metadataHeaders: ["From", "Subject", "Date"],
+          format: "full",
         })
       )
     );
@@ -94,6 +149,7 @@ export class GmailProvider implements EmailProvider {
         from: header("From"),
         subject: header("Subject"),
         snippet: res.data.snippet ?? "",
+        body: extractBody(res.data.payload),
         receivedAt: header("Date"),
       };
     });

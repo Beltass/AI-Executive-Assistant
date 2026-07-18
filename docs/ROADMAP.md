@@ -31,12 +31,21 @@ Hedef: tek kullanıcı için gerçekten kullanılabilir bir asistan.
    Agent'a geçmeden önce gerekecek).
 2. [x] **Master Orchestrator + Chat Agent (ilk dikey dilim):** temel
    sohbet arayüzü + istek sınıflandırma/yönlendirme çalışıyor
-   (`frontend/src/lib/agents/orchestrator.ts`).
+   (`frontend/src/lib/agents/orchestrator.ts`); aynı oturum içindeki
+   önceki mesajlar artık modele geçmiş (history) olarak gönderiliyor,
+   böylece takip soruları ("bu mailde ne yazıyordu?") bağlamı
+   koruyor. Bu, oturumlar arası kalıcı hafıza değil — o, ayrı
+   maddedeki Memory Agent'a ait (bkz. madde 5).
 3. [x] **Email Agent (ilk dikey dilim):** Gmail okuma/özetleme/
    önceliklendirme çalışıyor (`frontend/src/lib/agents/email-agent.ts`)
-   — **gerçek Gmail verisiyle canlı ortamda doğrulandı** (OAuth
-   kimlik bilgisi yoksa `MockEmailProvider` ile demo veriyle de
-   çalışmaya devam eder). Taslak yanıt üretimi henüz eklenmedi.
+   — **gerçek Gmail verisiyle canlı ortamda doğrulandı**. Gmail'in
+   kısa otomatik snippet'i yerine e-postanın gerçek gövdesi (`format:
+   "full"`, `text/plain`/`text/html` ayrıştırma) kullanılıyor ve özet
+   promptu somut ayrıntı (kim, ne zaman, ne kadar, ne istiyor)
+   içerecek şekilde güncellendi — ilk sürümde özetler fazla yüzeysel
+   kalıyordu. OAuth kimlik bilgisi yoksa `MockEmailProvider` ile demo
+   veriyle de çalışmaya devam eder. Taslak yanıt üretimi henüz
+   eklenmedi.
 4. [x] **Calendar Agent (ilk dikey dilim):** Google Calendar okuma +
    LLM tabanlı özet/çakışma tespiti çalışıyor
    (`frontend/src/lib/agents/calendar-agent.ts`) — **gerçek Calendar

@@ -1,9 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
-import { handleUserMessage } from "@/lib/agents/orchestrator";
+import { handleUserMessage, type ChatTurn } from "@/lib/agents/orchestrator";
+
+function parseHistory(value: unknown): ChatTurn[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter(
+    (t): t is ChatTurn =>
+      t &&
+      (t.role === "user" || t.role === "assistant") &&
+      typeof t.text === "string"
+  );
+}
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
   const message = typeof body?.message === "string" ? body.message.trim() : "";
+  const history = parseHistory(body?.history);
 
   if (!message) {
     return NextResponse.json(
@@ -13,7 +24,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const result = await handleUserMessage(message);
+    const result = await handleUserMessage(message, history);
     return NextResponse.json(result);
   } catch (err) {
     const detail = err instanceof Error ? err.message : "Bilinmeyen hata";

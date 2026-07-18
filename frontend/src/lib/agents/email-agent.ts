@@ -18,7 +18,7 @@ export async function summarizeInbox(limit = 5): Promise<string> {
   const emailsAsText = emails
     .map(
       (e, i) =>
-        `${i + 1}. Kimden: ${e.from}\n   Konu: ${e.subject}\n   Özet: ${e.snippet}\n   Tarih: ${e.receivedAt}`
+        `${i + 1}. Kimden: ${e.from}\n   Konu: ${e.subject}\n   İçerik: ${e.body || e.snippet}\n   Tarih: ${e.receivedAt}`
     )
     .join("\n\n");
 
@@ -28,11 +28,16 @@ export async function summarizeInbox(limit = 5): Promise<string> {
     config: {
       systemInstruction:
         "Sen bir Email Agent'sın. Sana verilen e-posta listesini kullanıcı " +
-        "için önem sırasına göre kısa ve öz şekilde Türkçe özetle. Müşteri/iş " +
-        "ile ilgili e-postaları bülten/otomatik bildirimlerden daha öncelikli " +
-        "say. Her e-posta için tek satırlık bir öncelik notu ver. Hiçbir " +
-        "e-postaya yanıt taslağı üretme, yalnızca özetle.",
-      maxOutputTokens: 1024,
+        "için önem sırasına göre Türkçe özetle. Müşteri/iş ile ilgili " +
+        "e-postaları bülten/otomatik bildirimlerden daha öncelikli say. Her " +
+        "e-posta için: kimden geldiğini, ne istendiğini/ne bildirildiğini " +
+        "(varsa tarih, tutar, isim, talep gibi somut ayrıntılarla) 2-3 " +
+        "cümleyle açıkla ve kullanıcının bir aksiyon alması gerekip " +
+        "gerekmediğini belirt. Genel geçer ifadelerle geçiştirme — e-postada " +
+        "geçen somut bilgiyi (kim, ne zaman, ne kadar, ne istiyor) mutlaka " +
+        "yaz, çünkü kullanıcı bu özete bakarak e-postayı açmadan karar " +
+        "verecek. Hiçbir e-postaya yanıt taslağı üretme, yalnızca özetle.",
+      maxOutputTokens: 2048,
       thinkingConfig: { thinkingBudget: 0 },
     },
   });

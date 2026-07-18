@@ -97,12 +97,33 @@ export interface OrchestratorResult {
   usedAgent: string | null;
 }
 
+export interface ChatTurn {
+  role: "user" | "assistant";
+  text: string;
+}
+
+/** Kaç önceki mesaj konuşma geçmişi olarak modele gönderilsin — sınırsız
+ * büyümesin diye (token maliyeti). Uzun vadeli hafıza değil; bkz. Memory
+ * Agent (Faz 1, ROADMAP.md madde 5) — bu yalnızca aynı oturum içi süreklilik. */
+const MAX_HISTORY_TURNS = 20;
+
 export async function handleUserMessage(
-  userMessage: string
+  userMessage: string,
+  history: ChatTurn[] = []
 ): Promise<OrchestratorResult> {
   const genAI = getGeminiClient();
 
-  const contents: Content[] = [{ role: "user", parts: [{ text: userMessage }] }];
+  const historyContents: Content[] = history
+    .slice(-MAX_HISTORY_TURNS)
+    .map((turn) => ({
+      role: turn.role === "assistant" ? "model" : "user",
+      parts: [{ text: turn.text }],
+    }));
+
+  const contents: Content[] = [
+    ...historyContents,
+    { role: "user", parts: [{ text: userMessage }] },
+  ];
 
   const first = await genAI.models.generateContent({
     model: ORCHESTRATOR_MODEL,
