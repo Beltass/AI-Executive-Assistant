@@ -5,10 +5,11 @@ LinkedIn gibi servislerle entegre çalışan; e-postaları, takvimi,
 toplantıları, hatırlatmaları ve iş başvurularını benim adıma yöneten
 kişisel yapay zekâ yönetici asistanı ("dijital chief of staff").
 
-> **Durum:** Faz 1 — ilk dikey dilim çalışıyor: Master Orchestrator +
-> Email Agent + Calendar Agent + Morning Briefing (`frontend/`, canlı
-> Gemini ile test edildi). Sırada Memory Agent / Job Search Agent var
-> — bkz. `docs/ROADMAP.md`.
+> **Durum:** Faz 1 — ilk dikey dilim uçtan uca doğrulandı: Master
+> Orchestrator + Email Agent + Calendar Agent + Morning Briefing,
+> Vercel'de canlı (`ai-executive-assistant-uerc.vercel.app`) ve
+> gerçek Gmail/Google Calendar verisiyle test edildi (`frontend/`).
+> Sırada Memory Agent / Job Search Agent var — bkz. `docs/ROADMAP.md`.
 
 ## Bu proje ne yapar (hedef)
 

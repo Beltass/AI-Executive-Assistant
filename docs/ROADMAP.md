@@ -23,26 +23,30 @@ tanımı) onaylar.
 
 Hedef: tek kullanıcı için gerçekten kullanılabilir bir asistan.
 
-1. [x] **Altyapı (kısmi):** Next.js iskeleti kuruldu (`frontend/`).
-   Supabase projesi ve Google Cloud OAuth kimlik bilgileri henüz
-   kullanıcı tarafından oluşturulmadı — bkz. §"Sıradaki adımlar".
+1. [x] **Altyapı:** Next.js iskeleti kuruldu (`frontend/`), Vercel'e
+   deploy edildi (`ai-executive-assistant-uerc.vercel.app`). Google
+   Cloud OAuth kimlik bilgileri (Client ID/Secret/Refresh Token)
+   oluşturuldu, Gmail API + Calendar API etkinleştirildi ve canlı
+   ortamda doğrulandı. Supabase projesi henüz kurulmadı (Memory
+   Agent'a geçmeden önce gerekecek).
 2. [x] **Master Orchestrator + Chat Agent (ilk dikey dilim):** temel
    sohbet arayüzü + istek sınıflandırma/yönlendirme çalışıyor
    (`frontend/src/lib/agents/orchestrator.ts`).
 3. [x] **Email Agent (ilk dikey dilim):** Gmail okuma/özetleme/
-   önceliklendirme kodu yazıldı ve derleniyor
-   (`frontend/src/lib/agents/email-agent.ts`); gerçek Gmail OAuth
-   kimlik bilgileri girilene kadar demo veriyle (`MockEmailProvider`)
-   çalışır. Taslak yanıt üretimi henüz eklenmedi.
+   önceliklendirme çalışıyor (`frontend/src/lib/agents/email-agent.ts`)
+   — **gerçek Gmail verisiyle canlı ortamda doğrulandı** (OAuth
+   kimlik bilgisi yoksa `MockEmailProvider` ile demo veriyle de
+   çalışmaya devam eder). Taslak yanıt üretimi henüz eklenmedi.
 4. [x] **Calendar Agent (ilk dikey dilim):** Google Calendar okuma +
    LLM tabanlı özet/çakışma tespiti çalışıyor
-   (`frontend/src/lib/agents/calendar-agent.ts`); kimlik bilgisi
-   girilene kadar demo veriyle (`MockCalendarProvider`, bilerek
-   çakışan iki etkinlik içerir) çalışır. Etkinlik oluşturma/düzenleme/
-   iptal ve uygun saat önerisi (yazma işlemleri) henüz eklenmedi —
-   bunlar dış dünyaya giden eylemler olduğu için taslak/onay akışı
-   gerektiriyor (bkz. `ARCHITECTURE.md` §3), ayrı bir adım olarak ele
-   alınacak.
+   (`frontend/src/lib/agents/calendar-agent.ts`) — **gerçek Calendar
+   verisiyle canlı ortamda doğrulandı** (kimlik bilgisi yoksa
+   `MockCalendarProvider`, bilerek çakışan iki etkinlik içerir, ile
+   demo veriyle de çalışmaya devam eder). Etkinlik oluşturma/
+   düzenleme/iptal ve uygun saat önerisi (yazma işlemleri) henüz
+   eklenmedi — bunlar dış dünyaya giden eylemler olduğu için taslak/
+   onay akışı gerektiriyor (bkz. `ARCHITECTURE.md` §3), ayrı bir adım
+   olarak ele alınacak.
 5. **Memory Agent:** temel tercih/bağlam hafızası (pgvector ile basit
    RAG).
 5b. [x] **Morning Briefing (bonus, neredeyse bedava):** Email + Calendar
@@ -57,12 +61,13 @@ Hedef: tek kullanıcı için gerçekten kullanılabilir bir asistan.
    kullanımla test edilmesi.
 
 **Sıradaki adımlar (kullanıcı girdisi gerekli):**
-- Ücretsiz Gemini API anahtarı (https://aistudio.google.com/apikey) →
-  `frontend/.env.local` içine `GEMINI_API_KEY`
-- Gerçek Gmail verisiyle test için Google Cloud OAuth kimlik bilgileri
-  (`GOOGLE_CLIENT_ID/SECRET/REFRESH_TOKEN`) — yoksa demo veriyle çalışmaya
-  devam eder.
-- Supabase projesi (Memory Agent'a geçmeden önce gerekecek).
+- ~~Ücretsiz Gemini API anahtarı~~ — tamamlandı, canlı ortamda çalışıyor.
+- ~~Gerçek Gmail/Calendar verisiyle test için Google Cloud OAuth kimlik
+  bilgileri~~ — tamamlandı, `ai-executive-assistant-uerc.vercel.app`
+  üzerinde gerçek verilerle doğrulandı.
+- Supabase projesi (Memory Agent'a başlamadan önce gerekecek) — sırada.
+- Faz 1'in bir sonraki adımı için karar: **Memory Agent** mi, **Job
+  Search Agent + CV Optimizer** mi önce ele alınacak?
 
 **Çıkış kriteri:** PRD §7'deki tüm başarı kriterleri sağlanıyor.
 

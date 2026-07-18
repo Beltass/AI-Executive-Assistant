@@ -158,6 +158,17 @@ geçildi (bkz. §1 tablosu). `getGeminiClient()` (`src/lib/llm.ts`) tek
 giriş noktası olduğu için ileride farklı bir sağlayıcıya geçiş de aynı
 şekilde tek dosyada izole kalır.
 
+**Not — canlı doğrulama (Vercel + gerçek Gmail/Calendar):** İlk dikey
+dilim `ai-executive-assistant-uerc.vercel.app` adresinde Vercel Hobby
+üzerinde deploy edildi (Root Directory: `frontend`, Production Branch:
+`claude/claude-md-docs-r1b40g`). Google Cloud tarafında bir OAuth
+istemcisi oluşturulup Gmail API + Google Calendar API etkinleştirildi;
+elde edilen `GOOGLE_CLIENT_ID/SECRET/REFRESH_TOKEN` Vercel ortam
+değişkenlerine girildi. Sonuç: Email Agent, Calendar Agent ve Morning
+Briefing artık `MockEmailProvider`/`MockCalendarProvider` yerine
+kullanıcının gerçek Gmail/Calendar verisiyle canlı ortamda çalışıyor
+ve doğrulandı.
+
 ## 9. Geleceğe dönük genişleme noktaları
 
 - **Outlook/Microsoft 365/Teams:** `integrations/` altına yeni bir
