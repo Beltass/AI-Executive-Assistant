@@ -25,6 +25,75 @@ every subsequent run refreshes the short-lived access token automatically. See
 Each check **skips** gracefully when its credentials are missing, so the tool
 runs cleanly out of the box before you have configured anything.
 
+## Daily advisor team
+
+On top of the connection checks the assistant ships a **supervised team of
+daily advisor agents** that produce a single Turkish morning briefing.
+
+| Advisor              | Persona                                   | Needs                                            |
+| -------------------- | ----------------------------------------- | ------------------------------------------------ |
+| Hava Durumu          | Turkish meteorologist daily summary       | `WEATHER_CITY` (+opt. `WEATHER_COUNTRY`) or `WEATHER_LATITUDE`/`WEATHER_LONGITUDE` — Open-Meteo, **no key** |
+| Liderlik Koçu        | Senior leadership coach                    | `GEMINI_API_KEY` or `OPENAI_API_KEY`             |
+| Çocuk Gelişimi       | Child development & education advisor       | `GEMINI_API_KEY` or `OPENAI_API_KEY`             |
+| Kariyer & İK         | Senior HR director / career mentor          | `GEMINI_API_KEY` or `OPENAI_API_KEY`             |
+
+Each advisor exposes one interface — `generate_briefing()` — returning a
+structured `Briefing` (title, status `ok`/`failed`/`skipped`, text). All
+network/LLM calls are guarded, so a missing key means `skipped` and a broken
+call means `failed`; neither crashes the run.
+
+### Operations Manager (the supervising agent)
+
+`ai_assistant.operations_manager.OperationsManager` is the single orchestration
+entry point. It auto-discovers every advisor, runs each one, isolates per-advisor
+failures so one broken advisor never breaks the others, and returns a
+supervision summary (who ran, each status, failure reasons, counts like
+`3 ok, 0 failed, 1 skipped`).
+
+```bash
+python -m ai_assistant.operations_manager
+```
+
+Exits `0` even when advisors are skipped; non-zero only if a *configured*
+advisor actually failed (mirroring `health.py`).
+
+### Daily digest
+
+`ai_assistant.daily_digest.build_digest()` runs the Operations Manager and
+assembles one dated Turkish report — a header, one section per advisor, and a
+short supervision line (`Operasyon Yöneticisi: 3 ok, 1 skipped`).
+
+```bash
+python -m ai_assistant.daily_digest
+```
+
+### Slack notifier
+
+`ai_assistant.notifiers.slack_notifier` builds the digest and posts it to Slack
+via an Incoming Webhook (`SLACK_WEBHOOK_URL`) or a bot token
+(`SLACK_BOT_TOKEN` + `SLACK_CHANNEL`, `chat.postMessage`). With neither set it
+reports `skipped` and exits `0`.
+
+```bash
+python -m ai_assistant.notifiers.slack_notifier
+```
+
+### Scheduled daily delivery
+
+`.github/workflows/daily-briefing.yml` runs on a daily `schedule` (cron
+`0 6 * * *` UTC — adjust the time/timezone in the workflow) and on manual
+`workflow_dispatch`. It installs the package and runs the Slack notifier.
+
+To turn on **live daily delivery**, add these GitHub repository **Secrets**
+(Settings → Secrets and variables → Actions):
+
+- `WEATHER_CITY` (and optionally `WEATHER_COUNTRY`) — activates the weather advisor.
+- `GEMINI_API_KEY` **or** `OPENAI_API_KEY` — activates the three LLM personas.
+- `SLACK_WEBHOOK_URL` **or** (`SLACK_BOT_TOKEN` + `SLACK_CHANNEL`) — activates Slack delivery.
+
+Any secret you omit simply leaves that advisor/notifier `skipped`; the workflow
+still succeeds.
+
 ## Project layout
 
 ```
@@ -32,12 +101,23 @@ runs cleanly out of the box before you have configured anything.
 ├── pyproject.toml                 # deps + packaging + pytest config
 ├── .env.example                   # every expected env var, documented
 ├── .github/workflows/ci.yml       # GitHub Actions: install + pytest
-├── scripts/
-│   └── check_connections.py       # convenience CLI wrapper
+├── .github/workflows/daily-briefing.yml  # scheduled Slack daily digest
 ├── src/ai_assistant/
 │   ├── __init__.py
 │   ├── config.py                  # loads .env, defines integration specs
 │   ├── health.py                  # run_all_checks() + CLI entrypoint
+│   ├── operations_manager.py      # supervising agent over the advisors
+│   ├── daily_digest.py            # build_digest() + CLI entrypoint
+│   ├── advisors/
+│   │   ├── __init__.py            # Advisor/Briefing base + discovery
+│   │   ├── _llm_base.py           # shared LLM persona base
+│   │   ├── weather.py             # Open-Meteo meteorologist (no key)
+│   │   ├── leadership_coach.py
+│   │   ├── kids_development.py
+│   │   └── career_hr.py
+│   ├── notifiers/
+│   │   ├── __init__.py
+│   │   └── slack_notifier.py      # webhook / chat.postMessage delivery
 │   └── integrations/
 │       ├── __init__.py            # CheckResult + status constants
 │       ├── _common.py             # shared HTTP helpers
@@ -48,10 +128,13 @@ runs cleanly out of the box before you have configured anything.
 │       ├── slack.py
 │       ├── todoist.py
 │       ├── notion.py
-│       └── llm.py
+│       └── llm.py                 # check + generate_text() for advisors
 └── tests/
     ├── test_health.py
-    └── test_google_auth.py
+    ├── test_google_auth.py
+    ├── test_advisors.py
+    ├── test_operations_manager.py
+    └── test_slack_notifier.py
 ```
 
 ## Setup
