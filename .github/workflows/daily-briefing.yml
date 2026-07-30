@@ -1,0 +1,42 @@
+name: Daily Briefing
+
+# Runs the supervised advisor team and posts the Turkish daily digest to Slack.
+on:
+  schedule:
+    # Daily at 06:00 UTC. Cron is always in UTC — adjust the time here to change
+    # when the briefing is delivered (e.g. "0 3 * * *" = 06:00 Istanbul time,
+    # UTC+3). https://crontab.guru/ helps translate the schedule.
+    - cron: "0 6 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  briefing:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install package
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+
+      - name: Build and send daily digest
+        env:
+          # Weather advisor (Open-Meteo, no key required).
+          WEATHER_CITY: ${{ secrets.WEATHER_CITY }}
+          WEATHER_COUNTRY: ${{ secrets.WEATHER_COUNTRY }}
+          # LLM provider — either key activates the persona advisors.
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          # Slack delivery — webhook OR bot token + channel.
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_CHANNEL: ${{ secrets.SLACK_CHANNEL }}
+        run: python -m ai_assistant.notifiers.slack_notifier
