@@ -19,8 +19,13 @@ GEMINI_MODELS_URL = "https://generativelanguage.googleapis.com/v1beta/models"
 OPENAI_MODELS_URL = "https://api.openai.com/v1/models"
 
 # Default generation models. Kept small/fast; either provider is fine.
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+
+# Max output tokens for generation. gemini-2.5-flash is a "thinking" model that
+# spends part of its budget on internal reasoning, so a small budget truncates
+# the visible answer. Default kept generous; overridable via env var.
+GEMINI_MAX_OUTPUT_TOKENS = int(os.getenv("GEMINI_MAX_OUTPUT_TOKENS", "2048"))
 
 
 def check_connection() -> CheckResult:
@@ -98,7 +103,10 @@ def _generate_gemini(system_prompt: str, user_prompt: str) -> str:
     payload = {
         "system_instruction": {"parts": [{"text": system_prompt}]},
         "contents": [{"role": "user", "parts": [{"text": user_prompt}]}],
-        "generationConfig": {"temperature": 0.7, "maxOutputTokens": 600},
+        "generationConfig": {
+            "temperature": 0.7,
+            "maxOutputTokens": GEMINI_MAX_OUTPUT_TOKENS,
+        },
     }
     resp = http_post(url, json=payload)
     resp.raise_for_status()
