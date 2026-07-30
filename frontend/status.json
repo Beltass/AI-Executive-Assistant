@@ -1,14 +1,14 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-30T15:11:51+00:00",
-  "generated_at_istanbul": "30.07.2026 18:11",
+  "generated_at": "2026-07-30T18:10:49+00:00",
+  "generated_at_istanbul": "30.07.2026 21:10",
   "run": {
     "conclusion": "ok",
     "total": 13,
     "ok": 11,
     "failed": 0,
     "skipped": 2,
-    "duration_seconds": 145.0,
+    "duration_seconds": 148.7,
     "batch": {
       "enabled": true,
       "attempted": true,
@@ -37,7 +37,7 @@
       "id": "leadership_coach",
       "name": "Liderlik Koçu",
       "status": "ok",
-      "content_length": 5001,
+      "content_length": 5095,
       "detail": "",
       "emoji": "🧭",
       "category": "kişisel gelişim"
@@ -46,7 +46,7 @@
       "id": "kids_development",
       "name": "Çocuk Gelişimi Danışmanı",
       "status": "ok",
-      "content_length": 5847,
+      "content_length": 5490,
       "detail": "",
       "emoji": "👨‍👩‍👧",
       "category": "aile"
@@ -55,7 +55,7 @@
       "id": "career_hr",
       "name": "Kariyer & İK Danışmanı",
       "status": "ok",
-      "content_length": 4658,
+      "content_length": 5203,
       "detail": "",
       "emoji": "💼",
       "category": "kariyer"
@@ -64,7 +64,7 @@
       "id": "job_scout",
       "name": "İş Avcısı & Başvuru Hazırlayıcı",
       "status": "ok",
-      "content_length": 7912,
+      "content_length": 7203,
       "detail": "",
       "emoji": "🔎",
       "category": "kariyer"
@@ -73,7 +73,7 @@
       "id": "sector_intel",
       "name": "Sektör & Rakip İstihbaratı",
       "status": "ok",
-      "content_length": 8489,
+      "content_length": 8794,
       "detail": "",
       "emoji": "📊",
       "category": "sektör"
@@ -82,7 +82,7 @@
       "id": "ai_news",
       "name": "Yapay Zeka Haberleri",
       "status": "ok",
-      "content_length": 8506,
+      "content_length": 8231,
       "detail": "",
       "emoji": "🤖",
       "category": "sektör"
@@ -91,7 +91,7 @@
       "id": "free_certs",
       "name": "Ücretsiz Sertifika & Eğitim Araştırmacısı",
       "status": "ok",
-      "content_length": 5847,
+      "content_length": 5740,
       "detail": "",
       "emoji": "🎓",
       "category": "kişisel gelişim"
@@ -100,7 +100,7 @@
       "id": "banking_cc_projects",
       "name": "Banka & Çağrı Merkezi Proje Uzmanı",
       "status": "ok",
-      "content_length": 13238,
+      "content_length": 11039,
       "detail": "",
       "emoji": "🏦",
       "category": "sektör"
@@ -118,7 +118,7 @@
       "id": "language_coach",
       "name": "İngilizce & Yönetici İletişimi Koçu",
       "status": "ok",
-      "content_length": 8392,
+      "content_length": 7605,
       "detail": "",
       "emoji": "🗣️",
       "category": "kişisel gelişim"
@@ -136,7 +136,7 @@
       "id": "accountability_coach",
       "name": "Hesap Sorucu Koç",
       "status": "ok",
-      "content_length": 3934,
+      "content_length": 4016,
       "detail": "",
       "emoji": "🔥",
       "category": "kişisel gelişim"
@@ -169,6 +169,17 @@
       "skipped": 2,
       "total": 13,
       "duration_seconds": 145.0,
+      "slack": "ok"
+    },
+    {
+      "at": "2026-07-30T18:10:49+00:00",
+      "at_istanbul": "30.07.2026 21:10",
+      "conclusion": "ok",
+      "ok": 11,
+      "failed": 0,
+      "skipped": 2,
+      "total": 13,
+      "duration_seconds": 148.7,
       "slack": "ok"
     }
   ]
