@@ -32,7 +32,7 @@ daily advisor agents** that produce a single Turkish morning briefing.
 
 | Advisor              | Persona                                   | Needs                                            |
 | -------------------- | ----------------------------------------- | ------------------------------------------------ |
-| Hava Durumu          | Turkish meteorologist daily summary       | `WEATHER_CITY` (+opt. `WEATHER_COUNTRY`) or `WEATHER_LATITUDE`/`WEATHER_LONGITUDE` — Open-Meteo, **no key** |
+| Hava Durumu          | Turkish meteorologist daily summary       | Nothing — `WEATHER_CITY` defaults to `Istanbul` (override with `WEATHER_COUNTRY` / `WEATHER_LATITUDE`+`WEATHER_LONGITUDE`); Open-Meteo, **no key** |
 | Liderlik Koçu        | Senior leadership coach                    | `GEMINI_API_KEY` or `OPENAI_API_KEY`             |
 | Çocuk Gelişimi       | Child development & education advisor       | `GEMINI_API_KEY` or `OPENAI_API_KEY`             |
 | Kariyer & İK         | Senior HR director / career mentor          | `GEMINI_API_KEY` or `OPENAI_API_KEY`             |
@@ -50,9 +50,9 @@ degrade to `skipped` when their config/LLM key is absent.
 
 | Advisor                          | Persona                                              | Needs                                              |
 | -------------------------------- | ---------------------------------------------------- | -------------------------------------------------- |
-| İş Avcısı & Başvuru Hazırlayıcı  | Prepares target roles, CV/cover-letter bullets & search links | `JOB_KEYWORDS` (+opt. `JOB_LOCATION`) **and** an LLM key |
-| Sektör & Rakip İstihbaratı       | Sector technology/AI & competitor briefing           | LLM key (`USER_SECTOR`, opt. `SECTOR_NEWS_RSS_URL`) |
-| Yapay Zeka Haberleri             | AI news roundup from a feed or LLM                    | `AI_NEWS_RSS_URL` **or** an LLM key                |
+| İş Avcısı & Başvuru Hazırlayıcı  | Prepares target roles, CV/cover-letter bullets & search links | An LLM key (`JOB_KEYWORDS`/`JOB_LOCATION` have defaults) |
+| Sektör & Rakip İstihbaratı       | Sector technology/AI & competitor briefing           | An LLM key (`USER_SECTOR`, `SECTOR_NEWS_RSS_URL` have defaults) |
+| Yapay Zeka Haberleri             | AI news roundup from a feed or LLM                    | Nothing — `AI_NEWS_RSS_URL` has a default feed; an LLM key deepens it |
 | Ücretsiz Sertifika & Eğitim      | Free certs/courses & language resources for your field | LLM key (opt. `USER_SECTOR`)                     |
 | Anka Köprüsü                     | Generic HTTP connector to your external "Anka" assistant | `ANKA_WEBHOOK_URL` / `ANKA_API_URL`              |
 
@@ -66,9 +66,60 @@ Kariyer.net built from your keywords/location.
 **Sektör & Yapay Zeka Haberleri caveats.** Because live financial/graph data and
 the very latest headlines aren't reliably fetchable, these briefings are
 LLM-based and carry an honest caveat that figures/links are not real-time and
-should be verified. If you set `SECTOR_NEWS_RSS_URL` / `AI_NEWS_RSS_URL`, recent
-headlines from those feeds are folded in (fetched with `httpx` + stdlib
-`xml.etree`, guarded so a broken feed never crashes the run).
+should be verified. `SECTOR_NEWS_RSS_URL` / `AI_NEWS_RSS_URL` default to Turkish
+Google News search feeds, so recent headlines (with their real links) are folded
+in out of the box — fetched with `httpx` + stdlib `xml.etree` and guarded, so an
+unreachable feed degrades to the LLM-only roundup instead of failing.
+
+### Defaults: the whole team is active out of the box
+
+`config.DEFAULT_SETTINGS` pre-fills the **non-secret** configuration so every
+agent produces content without any setup. A non-empty environment variable or
+GitHub secret always wins; an unset secret (which Actions expands to an empty
+string) falls back to the default.
+
+| Setting               | Default                                                        |
+| --------------------- | -------------------------------------------------------------- |
+| `WEATHER_CITY`        | `Istanbul`                                                      |
+| `USER_SECTOR`         | `banka çağrı merkezleri`                                        |
+| `JOB_KEYWORDS`        | `çağrı merkezi müdürü, müşteri deneyimi yöneticisi, operasyon müdürü` |
+| `JOB_LOCATION`        | `İstanbul`                                                      |
+| `AI_NEWS_RSS_URL`     | Google News RSS search for *yapay zeka* (Turkish)               |
+| `SECTOR_NEWS_RSS_URL` | Google News RSS search for *çağrı merkezi banka* (Turkish)      |
+
+Two deliberate exceptions: **no API key is ever defaulted** (without
+`GEMINI_API_KEY`/`OPENAI_API_KEY` the LLM advisors still report `skipped` and the
+run exits `0`), and the **Anka Köprüsü has no default endpoint** — that URL is
+specific to you, so the bridge legitimately stays `skipped` until you set it.
+
+### One batched LLM call per run
+
+The free Gemini tier only allows a couple of `generateContent` calls per quota
+window, so asking each persona separately (nine calls) meant most sections came
+back `429`/`503` no matter how patiently the client retried — retrying cannot
+beat a quota ceiling. By default (`DIGEST_BATCH_MODE=true`) every LLM-backed
+advisor contributes a `BatchSection` (its persona + today's brief), they are sent
+as **one** request with an explicit output contract, and the response is split
+back apart on `### SECTION: <advisor_key>` markers — so per-advisor
+`ok`/`failed`/`skipped` statuses are unchanged.
+
+Non-LLM work stays outside the batch: the weather advisor still calls Open-Meteo
+directly and the news advisors still fetch their RSS feeds themselves; only the
+*summarization* is batched. If the batched call fails, or the model omits a
+section, those advisors transparently fall back to their own per-advisor call.
+Set `DIGEST_BATCH_MODE=false` to disable batching entirely.
+
+### Gemini resilience
+
+Transient failures are retried with backoff — `429` (rate limit) **and**
+`500/502/503/504` (the "model is overloaded" / "service unavailable" family) —
+honouring `Retry-After` when present. If a model keeps failing, the client walks
+a **fallback chain** (`GEMINI_MODEL` → `gemini-flash-latest` → `gemini-2.0-flash`,
+overridable via `GEMINI_FALLBACK_MODELS`) and logs which model actually served
+the answer. Every request carries a timeout (`GEMINI_TIMEOUT_SECONDS`, default
+120s) so a hung call can't stall the job, and every surfaced error is passed
+through key redaction — **the API key can never appear in a log, an error or a
+Slack message**.
 
 **Anka Köprüsü env contract.** Configure `ANKA_WEBHOOK_URL` (or the alias
 `ANKA_API_URL`); optionally `ANKA_API_KEY` (sent as `Authorization: Bearer`) and
@@ -122,21 +173,23 @@ python -m ai_assistant.notifiers.slack_notifier
 To turn on **live daily delivery**, add these GitHub repository **Secrets**
 (Settings → Secrets and variables → Actions):
 
-- `WEATHER_CITY` (and optionally `WEATHER_COUNTRY`) — activates the weather advisor.
 - `GEMINI_API_KEY` **or** `OPENAI_API_KEY` — activates the LLM personas.
 - `SLACK_WEBHOOK_URL` **or** (`SLACK_BOT_TOKEN` + `SLACK_CHANNEL`) — activates Slack delivery.
 
-Optional **Phase 2** secrets (all optional; a missing one just skips its agent):
+Everything else is **optional** and now has a sensible default (see
+[Defaults](#defaults-the-whole-team-is-active-out-of-the-box)); set a secret only
+when you want to override one:
 
-- `JOB_KEYWORDS` (+ optional `JOB_LOCATION`) — activates the job scout.
+- `WEATHER_CITY` / `WEATHER_COUNTRY` — override the default city (`Istanbul`).
+- `JOB_KEYWORDS` / `JOB_LOCATION` — override the default job-scout search.
 - `USER_SECTOR` — tailors the sector intel & free-cert advisors (default
   "banka çağrı merkezleri").
-- `SECTOR_NEWS_RSS_URL` — folds sector news headlines into the sector briefing.
-- `AI_NEWS_RSS_URL` — activates/feeds the AI news advisor.
-- `ANKA_WEBHOOK_URL` (+ optional `ANKA_API_KEY`) — activates the Anka bridge.
+- `SECTOR_NEWS_RSS_URL` / `AI_NEWS_RSS_URL` — override the default Google News feeds.
+- `ANKA_WEBHOOK_URL` (+ optional `ANKA_API_KEY`) — the only agent with **no**
+  default: without it the Anka bridge stays `skipped`.
 
-Any secret you omit simply leaves that advisor/notifier `skipped`; the workflow
-still succeeds.
+Any secret you omit falls back to its default (or leaves that advisor/notifier
+`skipped` when there is none); the workflow still succeeds.
 
 ## Project layout
 
@@ -154,7 +207,8 @@ still succeeds.
 │   ├── daily_digest.py            # build_digest() + CLI entrypoint
 │   ├── advisors/
 │   │   ├── __init__.py            # Advisor/Briefing base + discovery
-│   │   ├── _llm_base.py           # shared LLM persona base
+│   │   ├── _llm_base.py           # shared LLM persona base + rich guide
+│   │   ├── _batch.py              # one batched LLM call for the whole team
 │   │   ├── _rss.py                # shared RSS/Atom fetch + parse helper
 │   │   ├── weather.py             # Open-Meteo meteorologist (no key)
 │   │   ├── leadership_coach.py

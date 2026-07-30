@@ -13,9 +13,14 @@ SYSTEM_PROMPT = (
 )
 
 USER_PROMPT = (
-    "Bugün için doyurucu bir günlük kariyer gelişimi briefingi hazırla. Şu "
-    "alanlardan en uygun olan birine ya da birkaçına odaklan: ücretsiz "
-    "eğitim/kurs fırsatları, yabancı dil pratiği, CV geliştirme.\n\n"
+    "Bugün için derinlikli bir günlük kariyer gelişimi briefingi hazırla. Şu "
+    "alanlardan en uygun olan birine odaklan ve onu sonuna kadar işle: "
+    "ücretsiz eğitim/kurs fırsatları, yabancı dil pratiği veya CV geliştirme. "
+    "Seçtiğin alanda somut ol: uygulanabilir bir yöntem/rutin tarif et "
+    "(süre, sıklık, hangi adım), 'önce/sonra' biçiminde gerçek bir örnek ver "
+    "(örneğin zayıf bir CV maddesinin güçlü hâli ya da 15 dakikalık bir dil "
+    "pratiği planı), ilerlemenin nasıl ölçüleceğini söyle ve 4 haftalık kısa "
+    "bir yol haritası çıkar. Genel geçer tavsiyelerden kaçın.\n\n"
     + RICH_BRIEFING_GUIDE
 )
 

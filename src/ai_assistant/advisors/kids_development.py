@@ -13,11 +13,17 @@ SYSTEM_PROMPT = (
 )
 
 USER_PROMPT = (
-    "Bugün için doyurucu bir günlük ebeveynlik briefingi hazırla. 10 ve 4 "
-    "yaşındaki iki kız için özgüven, sağlıklı gelişim ve başarılı eğitim "
-    "odağında yaz; mümkünse iki yaş için de küçük bir uyarlama ver. Kaynaklar "
-    "arasında ebeveynlik/çocuk gelişimi kitapları veya güvenilir eğitim "
-    "platformları önerebilirsin.\n\n"
+    "Bugün için derinlikli bir günlük ebeveynlik briefingi hazırla. TEK bir "
+    "tema seç (örneğin duygu düzenleme, özerklik desteği, ekran süresi, okuma "
+    "alışkanlığı, kardeş çatışması) ve onu iki yaş için AYRI AYRI işle: "
+    "10 yaş için ne yapılır, 4 yaş için ne yapılır. Her yaş uyarlamasında "
+    "gelişimsel gerekçeyi kısaca açıkla (neden bu yaşta böyle davranıyor), "
+    "ebeveynin kullanabileceği GERÇEK cümle kalıpları ver ('şunu şöyle "
+    "söyleyin' formatında, 2-3 örnek), sık yapılan bir hatayı ve alternatifini "
+    "göster, ve 10 dakikalık küçük bir birlikte-etkinlik öner. Suçluluk "
+    "hissettirmeyen, destekleyici bir dil kullan. Kaynaklar arasında "
+    "ebeveynlik/çocuk gelişimi kitapları veya güvenilir eğitim platformları "
+    "önerebilirsin.\n\n"
     + RICH_BRIEFING_GUIDE
 )
 

@@ -2,9 +2,14 @@
 
 Covers the security + resilience hardening:
 - the API key is sent via the ``X-goog-api-key`` header, never in the URL;
-- HTTP 429 responses are retried with backoff;
-- when retries are exhausted the raised error is REDACTED so the key can
-  never leak into an advisor's failed message / Slack / logs.
+- HTTP 429 AND transient server errors (500/502/503/504) are retried with
+  backoff, honouring ``Retry-After``;
+- a model that keeps failing is transparently swapped for the next one in the
+  fallback chain;
+- every surfaced error is REDACTED so the key can never leak into an advisor's
+  failed message / Slack / logs.
+
+All sleeps are patched out, so the suite stays fast.
 """
 
 from __future__ import annotations
@@ -26,6 +31,34 @@ def _resp(status_code: int, headers: dict | None = None) -> httpx.Response:
     return httpx.Response(status_code, headers=headers or {}, request=request)
 
 
+@pytest.fixture()
+def gemini_env(monkeypatch):
+    """A Gemini-only environment with fast, deterministic retry settings."""
+    monkeypatch.setenv("GEMINI_API_KEY", FAKE_KEY)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("GEMINI_MODEL", raising=False)
+    monkeypatch.setenv("GEMINI_RETRY_BASE_SECONDS", "0")
+    monkeypatch.setenv("GEMINI_REQUEST_SPACING_SECONDS", "0")
+    yield
+
+
+def _single_model_chain(monkeypatch):
+    """Reduce the chain to the primary model so retries can be counted alone."""
+    monkeypatch.delenv("GEMINI_FALLBACK_MODELS", raising=False)
+    monkeypatch.setattr(llm, "DEFAULT_GEMINI_FALLBACK_MODELS", "")
+
+
+def test_blank_fallback_env_keeps_the_builtin_chain(monkeypatch):
+    """An unset GitHub secret expands to "" — it must not disable fallbacks."""
+    monkeypatch.delenv("GEMINI_MODEL", raising=False)
+    monkeypatch.setenv("GEMINI_FALLBACK_MODELS", "  ")
+    assert llm._gemini_model_chain() == [
+        "gemini-2.5-flash",
+        "gemini-flash-latest",
+        "gemini-2.0-flash",
+    ]
+
+
 def test_redact_key_strips_query_param_and_raw_value():
     raw = f"error for url ...:generateContent?key={FAKE_KEY} boom {FAKE_KEY}"
     redacted = llm._redact_key(raw, FAKE_KEY)
@@ -33,14 +66,35 @@ def test_redact_key_strips_query_param_and_raw_value():
     assert "key=REDACTED" in redacted
 
 
-def test_gemini_uses_header_not_url(monkeypatch):
-    monkeypatch.setenv("GEMINI_API_KEY", FAKE_KEY)
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+def test_model_chain_defaults_to_primary_then_fallbacks(monkeypatch):
+    monkeypatch.delenv("GEMINI_MODEL", raising=False)
+    monkeypatch.delenv("GEMINI_FALLBACK_MODELS", raising=False)
+    assert llm._gemini_model_chain() == [
+        "gemini-2.5-flash",
+        "gemini-flash-latest",
+        "gemini-2.0-flash",
+    ]
+
+
+def test_model_chain_is_overridable_and_deduplicated(monkeypatch):
+    monkeypatch.setenv("GEMINI_MODEL", "gemini-2.0-flash")
+    monkeypatch.setenv("GEMINI_FALLBACK_MODELS", "gemini-2.0-flash, my-model ,")
+    assert llm._gemini_model_chain() == ["gemini-2.0-flash", "my-model"]
+
+
+def test_default_max_output_tokens_is_8192(monkeypatch):
+    monkeypatch.delenv("GEMINI_MAX_OUTPUT_TOKENS", raising=False)
+    assert llm._gemini_max_output_tokens() == 8192
+
+
+def test_gemini_uses_header_not_url(monkeypatch, gemini_env):
     captured = {}
 
-    def fake_post(url, headers=None, json=None):
+    def fake_post(url, headers=None, json=None, timeout=None):
         captured["url"] = url
         captured["headers"] = headers or {}
+        captured["timeout"] = timeout
+        captured["payload"] = json
         return _resp(200)
 
     def fake_json(self):
@@ -54,19 +108,38 @@ def test_gemini_uses_header_not_url(monkeypatch):
     assert text == "merhaba"
     assert "key=" not in captured["url"]
     assert captured["headers"].get("X-goog-api-key") == FAKE_KEY
+    # A per-request timeout is always sent so a hung call can't stall the job.
+    assert captured["timeout"] == 120.0
 
 
-def test_gemini_retries_on_429_and_redacts_key(monkeypatch):
-    monkeypatch.setenv("GEMINI_API_KEY", FAKE_KEY)
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+def test_generate_text_honors_max_output_tokens_override(monkeypatch, gemini_env):
+    captured = {}
+
+    def fake_post(url, headers=None, json=None, timeout=None):
+        captured["payload"] = json
+        return _resp(200)
+
+    monkeypatch.setattr(llm, "http_post", fake_post)
+    monkeypatch.setattr(
+        httpx.Response,
+        "json",
+        lambda self: {"candidates": [{"content": {"parts": [{"text": "ok"}]}}]},
+        raising=False,
+    )
+
+    llm.generate_text("sys", "user", max_output_tokens=32768)
+
+    assert captured["payload"]["generationConfig"]["maxOutputTokens"] == 32768
+
+
+def test_gemini_retries_on_429_and_redacts_key(monkeypatch, gemini_env):
     monkeypatch.setenv("GEMINI_MAX_RETRIES", "3")
-    monkeypatch.setenv("GEMINI_RETRY_BASE_SECONDS", "0")  # keep the test fast
-    monkeypatch.setenv("GEMINI_REQUEST_SPACING_SECONDS", "0")
+    _single_model_chain(monkeypatch)  # isolate retry behaviour
 
     calls = {"n": 0}
     sleeps: list[float] = []
 
-    def fake_post(url, headers=None, json=None):
+    def fake_post(url, headers=None, json=None, timeout=None):
         calls["n"] += 1
         # Always 429 so retries are exhausted; URL never carries the key.
         assert "key=" not in url
@@ -85,16 +158,120 @@ def test_gemini_retries_on_429_and_redacts_key(monkeypatch):
     assert FAKE_KEY not in str(excinfo.value)
 
 
-def test_gemini_honors_retry_after_header(monkeypatch):
-    monkeypatch.setenv("GEMINI_API_KEY", FAKE_KEY)
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+@pytest.mark.parametrize("status", [500, 502, 503, 504])
+def test_gemini_retries_transient_server_errors(monkeypatch, gemini_env, status):
+    """The reported bug: a 503 used to give up immediately. Now it retries."""
+    monkeypatch.setenv("GEMINI_MAX_RETRIES", "2")
+    _single_model_chain(monkeypatch)  # isolate retry behaviour
+
+    calls = {"n": 0}
+    monkeypatch.setattr(llm.time, "sleep", lambda s: None)
+
+    def fake_post(url, headers=None, json=None, timeout=None):
+        calls["n"] += 1
+        # Succeed on the last allowed attempt to prove the retry paid off.
+        if calls["n"] > 2:
+            return _resp(200)
+        return _resp(status, {"Retry-After": "1"})
+
+    monkeypatch.setattr(llm, "http_post", fake_post)
+    monkeypatch.setattr(
+        httpx.Response,
+        "json",
+        lambda self: {"candidates": [{"content": {"parts": [{"text": "kurtardık"}]}}]},
+        raising=False,
+    )
+
+    assert llm.generate_text("sys", "user") == "kurtardık"
+    assert calls["n"] == 3
+
+
+def test_gemini_falls_back_to_next_model_on_503(monkeypatch, gemini_env):
+    """503 "model overloaded" on the primary transparently uses the next model."""
+    monkeypatch.setenv("GEMINI_MAX_RETRIES", "1")
+    monkeypatch.setenv("GEMINI_FALLBACK_MODELS", "gemini-flash-latest,gemini-2.0-flash")
+
+    seen_models: list[str] = []
+    monkeypatch.setattr(llm.time, "sleep", lambda s: None)
+
+    def fake_post(url, headers=None, json=None, timeout=None):
+        model = url.rsplit("/", 1)[-1].split(":")[0]
+        seen_models.append(model)
+        if model == "gemini-2.5-flash":
+            return _resp(503)
+        return _resp(200)
+
+    monkeypatch.setattr(llm, "http_post", fake_post)
+    monkeypatch.setattr(
+        httpx.Response,
+        "json",
+        lambda self: {"candidates": [{"content": {"parts": [{"text": "yedek model"}]}}]},
+        raising=False,
+    )
+
+    text = llm.generate_text("sys", "user")
+
+    assert text == "yedek model"
+    # Primary tried (initial + 1 retry) and then the first fallback served it.
+    assert seen_models == ["gemini-2.5-flash", "gemini-2.5-flash", "gemini-flash-latest"]
+
+
+def test_gemini_all_models_fail_error_is_redacted(monkeypatch, gemini_env):
+    monkeypatch.setenv("GEMINI_MAX_RETRIES", "0")
+    monkeypatch.setenv("GEMINI_FALLBACK_MODELS", "gemini-flash-latest,gemini-2.0-flash")
+
+    def fake_post(url, headers=None, json=None, timeout=None):
+        # A hostile body that echoes the key back at us.
+        return httpx.Response(
+            503,
+            text=f"model overloaded for key={FAKE_KEY} ({FAKE_KEY})",
+            request=httpx.Request("POST", url),
+        )
+
+    monkeypatch.setattr(llm, "http_post", fake_post)
+    monkeypatch.setattr(llm.time, "sleep", lambda s: None)
+
+    with pytest.raises(RuntimeError) as excinfo:
+        llm.generate_text("sys", "user")
+
+    message = str(excinfo.value)
+    assert FAKE_KEY not in message
+    assert "gemini-2.0-flash" in message  # every model in the chain was tried
+
+
+def test_gemini_falls_back_when_a_model_times_out(monkeypatch, gemini_env):
+    monkeypatch.setenv("GEMINI_MAX_RETRIES", "0")
+    monkeypatch.setenv("GEMINI_FALLBACK_MODELS", "gemini-flash-latest")
+
+    seen_models: list[str] = []
+
+    def fake_post(url, headers=None, json=None, timeout=None):
+        model = url.rsplit("/", 1)[-1].split(":")[0]
+        seen_models.append(model)
+        if model == "gemini-2.5-flash":
+            raise httpx.ReadTimeout(f"timed out (key={FAKE_KEY})")
+        return _resp(200)
+
+    monkeypatch.setattr(llm, "http_post", fake_post)
+    monkeypatch.setattr(
+        httpx.Response,
+        "json",
+        lambda self: {"candidates": [{"content": {"parts": [{"text": "yedek"}]}}]},
+        raising=False,
+    )
+
+    assert llm.generate_text("sys", "user") == "yedek"
+    assert seen_models == ["gemini-2.5-flash", "gemini-flash-latest"]
+
+
+def test_gemini_honors_retry_after_header(monkeypatch, gemini_env):
     monkeypatch.setenv("GEMINI_MAX_RETRIES", "1")
     monkeypatch.setenv("GEMINI_RETRY_BASE_SECONDS", "20")
 
     sleeps: list[float] = []
     responses = [_resp(429, {"Retry-After": "7"}), _resp(200)]
 
-    def fake_post(url, headers=None, json=None):
+    def fake_post(url, headers=None, json=None, timeout=None):
         return responses.pop(0)
 
     def fake_json(self):
@@ -108,3 +285,27 @@ def test_gemini_honors_retry_after_header(monkeypatch):
 
     assert text == "ok"
     assert sleeps == [7.0]  # honored the Retry-After header, not the backoff
+
+
+def test_gemini_hard_error_fails_fast_and_is_redacted(monkeypatch, gemini_env):
+    """A bad key (401) must NOT burn the whole fallback chain."""
+    monkeypatch.setenv("GEMINI_MAX_RETRIES", "2")
+
+    calls = {"n": 0}
+
+    def fake_post(url, headers=None, json=None, timeout=None):
+        calls["n"] += 1
+        return httpx.Response(
+            401,
+            text=f"invalid key={FAKE_KEY}",
+            request=httpx.Request("POST", url),
+        )
+
+    monkeypatch.setattr(llm, "http_post", fake_post)
+    monkeypatch.setattr(llm.time, "sleep", lambda s: None)
+
+    with pytest.raises(RuntimeError) as excinfo:
+        llm.generate_text("sys", "user")
+
+    assert calls["n"] == 1
+    assert FAKE_KEY not in str(excinfo.value)
