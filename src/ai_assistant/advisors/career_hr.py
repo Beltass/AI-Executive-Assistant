@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ._llm_base import LLMAdvisor
+from ._llm_base import LLMAdvisor, RICH_BRIEFING_GUIDE
 
 SYSTEM_PROMPT = (
     "Sen kıdemli bir İnsan Kaynakları direktörüsün ve aynı zamanda kariyer "
@@ -13,11 +13,10 @@ SYSTEM_PROMPT = (
 )
 
 USER_PROMPT = (
-    "Bugün için kısa bir günlük kariyer gelişimi briefingi hazırla. Şu "
+    "Bugün için doyurucu bir günlük kariyer gelişimi briefingi hazırla. Şu "
     "alanlardan en uygun olan birine ya da birkaçına odaklan: ücretsiz "
-    "eğitim/kurs fırsatları, yabancı dil pratiği, CV geliştirme. Bugün "
-    "atılabilecek somut bir adım öner. En fazla 150 kelime, net ve "
-    "uygulanabilir Türkçe kullan."
+    "eğitim/kurs fırsatları, yabancı dil pratiği, CV geliştirme.\n\n"
+    + RICH_BRIEFING_GUIDE
 )
 
 

@@ -21,6 +21,7 @@ from urllib.parse import quote_plus
 
 from . import Advisor, Briefing
 from ..integrations import llm
+from ._llm_base import RICH_BRIEFING_GUIDE
 
 SYSTEM_PROMPT = (
     "Sen deneyimli bir kariyer koçu ve teknik işe alım uzmanısın; adına 'İş "
@@ -53,12 +54,14 @@ class JobScoutAdvisor(Advisor):
             "oluştur.\n"
             f"Anahtar kelimeler: {keywords}\n"
             f"Konum: {location or 'belirtilmedi'}\n\n"
-            "Şu üç bölümü ver:\n"
+            "Şu bölümleri ver:\n"
             "(1) Hedef Roller: kişiye uygun 3-5 pozisyon başlığı önerisi.\n"
             "(2) CV / Ön Yazı Maddeleri: bu rollere göre uyarlanabilecek 4-6 "
             "vurucu, ölçülebilir madde (bullet).\n"
             "(3) İpuçları: başvuruyu güçlendirecek kısa öneriler.\n"
-            "En fazla 200 kelime, net ve uygulanabilir Türkçe kullan."
+            "'📚 Kaynaklar' bölümünde CV/mülakat gelişimi için kaliteli, "
+            "kalıcı kaynaklar (kitap, saygın platform, resmi rehber) öner.\n\n"
+            + RICH_BRIEFING_GUIDE
         )
 
         try:

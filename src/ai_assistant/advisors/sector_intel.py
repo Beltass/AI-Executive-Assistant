@@ -18,6 +18,7 @@ import os
 
 from . import Advisor, Briefing
 from ..integrations import llm
+from ._llm_base import RICH_BRIEFING_GUIDE
 from ._rss import fetch_feed_items
 
 DEFAULT_SECTOR = "banka çağrı merkezleri"
@@ -52,17 +53,24 @@ class SectorIntelAdvisor(Advisor):
 
         user_prompt = (
             f"Sektör: {sector}\n\n"
-            "Bu sektör için kısa bir istihbarat brifingi hazırla. Şunları kapsa: "
-            "(1) sektördeki teknoloji ve yapay zeka gelişmeleri, "
+            "Bu sektör için doyurucu bir istihbarat brifingi hazırla. Şunları "
+            "kapsa: (1) sektördeki teknoloji ve yapay zeka gelişmeleri, "
             "(2) rakip ortamı (öne çıkan oyuncular, tedarikçi/çözüm ortağı "
-            "ilişkileri, büyüme ve başarı temaları). En fazla 220 kelime, net ve "
-            "stratejik Türkçe kullan."
+            "ilişkileri, büyüme ve başarı temaları). Analitik ve stratejik ol.\n\n"
+            + RICH_BRIEFING_GUIDE
         )
         if headlines:
             joined = "\n".join(f"- {h}" for h in headlines)
             user_prompt += (
-                "\n\nAşağıdaki güncel haber başlıklarını da dikkate al ve "
-                f"ilgili olanları brifinge yedir:\n{joined}"
+                "\n\nAşağıdaki güncel haber başlıklarını da dikkate al, ilgili "
+                "olanları brifinge yedir ve '📚 Kaynaklar' bölümünde bu "
+                f"başlıkların GERÇEK bağlantılarını tercih et:\n{joined}"
+            )
+        else:
+            user_prompt += (
+                "\n\nCanlı bir haber akışı sağlanmadı; '📚 Kaynaklar' bölümünde "
+                "yalnızca bilinen ve kalıcı kök alan adlarını (örn. sektör "
+                "otoriteleri, resmi kurum siteleri) kullan ve doğrulama notunu ekle."
             )
 
         try:
