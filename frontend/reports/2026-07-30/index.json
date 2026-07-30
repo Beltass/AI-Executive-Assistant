@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
   "date": "2026-07-30",
-  "generated_at": "2026-07-30T21:51:04+03:00",
-  "generated_at_istanbul": "30.07.2026 21:51",
-  "mode": "full",
-  "mode_label": "tam brifing",
+  "generated_at": "2026-07-30T23:16:19+03:00",
+  "generated_at_istanbul": "30.07.2026 23:16",
+  "mode": "incremental",
+  "mode_label": "artımlı",
   "count": 13,
   "reports": [
     {
@@ -25,12 +25,12 @@
       "name": "Yapay Zeka Ustalığı Koçu",
       "emoji": "🧠",
       "category": "kişisel gelişim",
-      "headline": "RAG (Retrieval Augmented Generation) ile yapay zeka modellerine kendi özel belgelerinizi öğreterek daha doğru, güncel ve kaynak gösteren yanıtlar alabilirsiniz.",
-      "excerpt": "Merhaba! Yapay zeka modelleriyle konuşurken bazen \"halüsinasyon\" denilen, yani uydurma bilgiler verdiklerini fark etmişsinizdir. Ya da sadece internetteki genel bilgilerle sınırlı kaldıklarını...…",
-      "words": 837,
+      "headline": "RAG ile yapay zeka modellerini kendi belgelerinizle besleyerek daha doğru ve güncel bilgiler alabilir, kaynak gösterimiyle güvenilirliğini artırabilirsiniz.",
+      "excerpt": "Merak uyandıran giriş: Büyük dil modelleri (LLM'ler) her şeyi bilse de, sizin şirketinizin iç dokümanlarını, en son satış raporunu veya kişisel notlarınızı bilemezler. Peki, yapay zekanın sadece…",
+      "words": 891,
       "read_minutes": 4,
-      "generated_at": "2026-07-30T21:51:04+03:00",
-      "generated_at_istanbul": "30.07.2026 21:51",
+      "generated_at": "2026-07-30T23:16:19+03:00",
+      "generated_at_istanbul": "30.07.2026 23:16",
       "path": "ai_mastery.json"
     },
     {
@@ -116,12 +116,12 @@
       "name": "Yapay Zeka Haberleri",
       "emoji": "🤖",
       "category": "sektör",
-      "headline": "Türkiye'de yapay zeka uygulamaları yaygınlaşıyor; araç muayenesinden hackathon'lara kadar farklı sektörlerde benimseniyor.",
-      "excerpt": "Yapay zeka teknolojileri, hayatımızın her alanına hızla entegre olmaya devam ediyor. Türkiye'den gelen son haberler de bu eğilimi açıkça gösteriyor: hem kamu hizmetlerinde dönüşüm hem de yetenek…",
-      "words": 598,
+      "headline": "OpenAI'nin yapay zeka güvenlik açığı itirafı, büyük veri merkezi yatırımları ve yeni AI donanım spekülasyonları, sektörün hem büyümesini hem de olgunlaşma sancılarını gösteriyor.",
+      "excerpt": "Merak uyandıran giriş: Yapay zeka dünyası, bir yandan devasa altyapı yatırımlarıyla geleceğe koşarken, diğer yandan kontrol dışı kalma riskleriyle yüzleşiyor. Bu hafta, sektörün hem en parlak hem de…",
+      "words": 669,
       "read_minutes": 3,
-      "generated_at": "2026-07-30T21:51:04+03:00",
-      "generated_at_istanbul": "30.07.2026 21:51",
+      "generated_at": "2026-07-30T23:16:19+03:00",
+      "generated_at_istanbul": "30.07.2026 23:16",
       "path": "ai_news.json"
     },
     {

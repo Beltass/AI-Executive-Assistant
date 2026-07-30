@@ -1,27 +1,27 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-30T18:51:04+00:00",
-  "generated_at_istanbul": "30.07.2026 21:51",
+  "generated_at": "2026-07-30T20:16:19+00:00",
+  "generated_at_istanbul": "30.07.2026 23:16",
   "run": {
     "conclusion": "ok",
     "total": 15,
-    "ok": 13,
+    "ok": 2,
     "failed": 0,
-    "skipped": 2,
-    "duration_seconds": 149.7,
+    "skipped": 13,
+    "duration_seconds": 56.0,
     "batch": {
       "enabled": true,
       "attempted": true,
       "used": true,
-      "sections_requested": 11,
-      "sections_produced": 11,
+      "sections_requested": 2,
+      "sections_produced": 2,
       "model": "gemini-2.5-flash",
       "provider": "gemini"
     },
-    "mode": "full",
-    "mode_label": "tam brifing",
-    "new_findings": 4,
-    "nothing_new_count": 0
+    "mode": "incremental",
+    "mode_label": "artımlı",
+    "new_findings": 6,
+    "nothing_new_count": 13
   },
   "slack": {
     "status": "ok",
@@ -31,107 +31,107 @@
     {
       "id": "weather",
       "name": "Hava Durumu Meteoroloğu",
-      "status": "ok",
-      "content_length": 279,
-      "detail": "",
+      "status": "skipped",
+      "content_length": 0,
+      "detail": "yeni bulgu yok",
       "emoji": "🌤️",
       "category": "operasyon",
-      "new_findings": null,
-      "nothing_new": false
+      "new_findings": 0,
+      "nothing_new": true
     },
     {
       "id": "leadership_coach",
       "name": "Liderlik Koçu",
-      "status": "ok",
-      "content_length": 4650,
-      "detail": "",
+      "status": "skipped",
+      "content_length": 0,
+      "detail": "yeni bulgu yok",
       "emoji": "🧭",
       "category": "kişisel gelişim",
-      "new_findings": null,
-      "nothing_new": false
+      "new_findings": 0,
+      "nothing_new": true
     },
     {
       "id": "kids_development",
       "name": "Çocuk Gelişimi Danışmanı",
-      "status": "ok",
-      "content_length": 4978,
-      "detail": "",
+      "status": "skipped",
+      "content_length": 0,
+      "detail": "yeni bulgu yok",
       "emoji": "👨‍👩‍👧",
       "category": "aile",
-      "new_findings": null,
-      "nothing_new": false
+      "new_findings": 0,
+      "nothing_new": true
     },
     {
       "id": "career_hr",
       "name": "Kariyer & İK Danışmanı",
-      "status": "ok",
-      "content_length": 4641,
-      "detail": "",
+      "status": "skipped",
+      "content_length": 0,
+      "detail": "yeni bulgu yok",
       "emoji": "💼",
       "category": "kariyer",
-      "new_findings": null,
-      "nothing_new": false
+      "new_findings": 0,
+      "nothing_new": true
     },
     {
       "id": "job_scout",
       "name": "İş Avcısı & Başvuru Hazırlayıcı",
-      "status": "ok",
-      "content_length": 6076,
-      "detail": "",
+      "status": "skipped",
+      "content_length": 0,
+      "detail": "yeni bulgu yok",
       "emoji": "🔎",
       "category": "kariyer",
-      "new_findings": null,
-      "nothing_new": false
+      "new_findings": 0,
+      "nothing_new": true
     },
     {
       "id": "sector_intel",
       "name": "Sektör & Rakip İstihbaratı",
-      "status": "ok",
-      "content_length": 6325,
-      "detail": "",
+      "status": "skipped",
+      "content_length": 0,
+      "detail": "yeni bulgu yok",
       "emoji": "📊",
       "category": "sektör",
       "new_findings": 0,
-      "nothing_new": false
+      "nothing_new": true
     },
     {
       "id": "ai_news",
       "name": "Yapay Zeka Haberleri",
       "status": "ok",
-      "content_length": 6464,
+      "content_length": 5421,
       "detail": "",
       "emoji": "🤖",
       "category": "sektör",
-      "new_findings": 2,
+      "new_findings": 5,
       "nothing_new": false
     },
     {
       "id": "free_certs",
       "name": "Ücretsiz Sertifika & Eğitim Araştırmacısı",
-      "status": "ok",
-      "content_length": 5596,
-      "detail": "",
+      "status": "skipped",
+      "content_length": 0,
+      "detail": "yeni bulgu yok",
       "emoji": "🎓",
       "category": "kişisel gelişim",
       "new_findings": 0,
-      "nothing_new": false
+      "nothing_new": true
     },
     {
       "id": "banking_cc_projects",
       "name": "Banka & Çağrı Merkezi Proje Uzmanı",
-      "status": "ok",
-      "content_length": 11592,
-      "detail": "",
+      "status": "skipped",
+      "content_length": 0,
+      "detail": "yeni bulgu yok",
       "emoji": "🏦",
       "category": "sektör",
       "new_findings": 0,
-      "nothing_new": false
+      "nothing_new": true
     },
     {
       "id": "ai_mastery",
       "name": "Yapay Zeka Ustalığı Koçu",
       "status": "ok",
-      "content_length": 6773,
+      "content_length": 7340,
       "detail": "",
       "emoji": "🧠",
       "category": "kişisel gelişim",
@@ -141,57 +141,57 @@
     {
       "id": "cx_research",
       "name": "Çağrı Merkezi & Müşteri Deneyimi Araştırmacısı",
-      "status": "ok",
-      "content_length": 4620,
-      "detail": "",
+      "status": "skipped",
+      "content_length": 0,
+      "detail": "yeni bulgu yok",
       "emoji": "🎧",
       "category": "sektör",
-      "new_findings": 1,
-      "nothing_new": false
+      "new_findings": 0,
+      "nothing_new": true
     },
     {
       "id": "daily_ops_briefing",
       "name": "Gün Başı Operasyon Brifingi",
       "status": "skipped",
       "content_length": 0,
-      "detail": "no Google credentials/token configured (run: python -m ai_assistant.integrations.google_auth, then set GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / GOOGLE_REFRESH_TOKEN to run in the cloud)",
+      "detail": "yeni bulgu yok",
       "emoji": "📋",
       "category": "operasyon",
-      "new_findings": null,
-      "nothing_new": false
+      "new_findings": 0,
+      "nothing_new": true
     },
     {
       "id": "language_coach",
       "name": "İngilizce & Yönetici İletişimi Koçu",
-      "status": "ok",
-      "content_length": 6409,
-      "detail": "",
+      "status": "skipped",
+      "content_length": 0,
+      "detail": "yeni bulgu yok",
       "emoji": "🗣️",
       "category": "kişisel gelişim",
-      "new_findings": null,
-      "nothing_new": false
+      "new_findings": 0,
+      "nothing_new": true
     },
     {
       "id": "anka_bridge",
       "name": "Anka Köprüsü",
       "status": "skipped",
       "content_length": 0,
-      "detail": "Anka endpoint not configured (ANKA_WEBHOOK_URL/ANKA_API_URL)",
+      "detail": "yeni bulgu yok",
       "emoji": "🕊️",
       "category": "operasyon",
-      "new_findings": null,
-      "nothing_new": false
+      "new_findings": 0,
+      "nothing_new": true
     },
     {
       "id": "accountability_coach",
       "name": "Hesap Sorucu Koç",
-      "status": "ok",
-      "content_length": 4426,
-      "detail": "",
+      "status": "skipped",
+      "content_length": 0,
+      "detail": "yeni bulgu yok",
       "emoji": "🔥",
       "category": "kişisel gelişim",
-      "new_findings": null,
-      "nothing_new": false
+      "new_findings": 0,
+      "nothing_new": true
     }
   ],
   "accountability": {
@@ -259,6 +259,19 @@
       "slack": "ok",
       "mode": "full",
       "new_findings": 4
+    },
+    {
+      "at": "2026-07-30T20:16:19+00:00",
+      "at_istanbul": "30.07.2026 23:16",
+      "conclusion": "ok",
+      "ok": 2,
+      "failed": 0,
+      "skipped": 13,
+      "total": 15,
+      "duration_seconds": 56.0,
+      "slack": "ok",
+      "mode": "incremental",
+      "new_findings": 6
     }
   ]
 }
