@@ -17,6 +17,7 @@ from __future__ import annotations
 import logging
 import os
 import sys
+import time
 
 from ..daily_digest import Digest, build_digest
 from ..integrations import (
@@ -127,15 +128,41 @@ def _print_run_report(digest: Digest) -> None:
     print(f"Operasyon Yöneticisi: {digest.supervision.summary_line()}")
 
 
+def _write_status_report(digest: Digest, result: CheckResult, started: float) -> None:
+    """Record the finished run for the monitoring dashboard.
+
+    Called AFTER Slack delivery so the file reflects the true final state,
+    including whether the digest actually reached the user. Purely a
+    monitoring artefact: it is written best-effort and can never affect the
+    exit code (``write_status_report`` already swallows its own errors; the
+    extra guard here covers even an import-time surprise).
+    """
+    try:
+        from ..status_report import write_status_report
+
+        path = write_status_report(
+            digest.supervision,
+            slack_result=result,
+            duration_seconds=time.monotonic() - started,
+        )
+        if path:
+            print(f"Durum raporu: {path}")
+    except Exception as exc:  # pragma: no cover - defensive only
+        print(f"Durum raporu yazılamadı: {exc}")
+
+
 def main() -> int:
     """CLI entrypoint. Builds + sends the digest. Returns the exit code."""
     _configure_logging()
+    started = time.monotonic()
     digest = build_digest()
     _print_run_report(digest)
 
     result = send_message(digest.text)
     label = _STATUS_LABEL.get(result.status, result.status.upper())
     print(f"Slack Notifier: {label} — {result.detail}")
+
+    _write_status_report(digest, result, started)
     return 1 if result.status == STATUS_FAILED else 0
 
 

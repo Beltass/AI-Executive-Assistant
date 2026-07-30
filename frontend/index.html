@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="tr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="description" content="AI Executive Assistant danışman ekibinin günlük çalışma panosu." />
+    <meta name="theme-color" content="#1a1a19" />
+    <title>AI Executive Assistant — Ajan Panosu</title>
+    <!-- Everything is local: no CDN, no font download, no build step. The page
+         must render instantly on a phone and keep working offline. -->
+    <link rel="stylesheet" href="./styles.css" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%A4%96%3C/text%3E%3C/svg%3E"
+    />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">İçeriğe geç</a>
+
+    <header class="topbar">
+      <div class="topbar__inner">
+        <div class="topbar__titles">
+          <h1>AI Executive Assistant <span aria-hidden="true">—</span> Ajan Panosu</h1>
+          <p class="topbar__sub">
+            <span id="last-run-label">Yükleniyor…</span>
+            <span class="dot" aria-hidden="true">·</span>
+            <span id="freshness" class="freshness">son güncelleme kontrol ediliyor</span>
+          </p>
+        </div>
+        <div class="topbar__actions">
+          <span id="live-dot" class="live" title="Her 60 saniyede bir otomatik yenilenir">
+            <span class="live__pulse" aria-hidden="true"></span> canlı
+          </span>
+          <button id="refresh" type="button" class="btn">
+            <span aria-hidden="true">⟳</span> Yenile
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main id="main" class="wrap">
+      <!-- Loading / empty / error take over the whole page; the real content
+           stays hidden until there is something true to show. -->
+      <section id="state" class="state" hidden>
+        <div class="state__icon" id="state-icon" aria-hidden="true">⏳</div>
+        <h2 id="state-title">Yükleniyor…</h2>
+        <p id="state-text"></p>
+      </section>
+
+      <div id="content" hidden>
+        <!-- Summary strip -->
+        <section class="tiles" aria-label="Çalıştırma özeti">
+          <div class="tile">
+            <span class="tile__label">Toplam ajan</span>
+            <span class="tile__value" id="stat-total">–</span>
+          </div>
+          <div class="tile tile--good">
+            <span class="tile__label"><span aria-hidden="true">✅</span> Çalıştı</span>
+            <span class="tile__value" id="stat-ok">–</span>
+          </div>
+          <div class="tile tile--critical">
+            <span class="tile__label"><span aria-hidden="true">⚠️</span> Hata</span>
+            <span class="tile__value" id="stat-failed">–</span>
+          </div>
+          <div class="tile tile--muted">
+            <span class="tile__label"><span aria-hidden="true">⏭️</span> Atlandı</span>
+            <span class="tile__value" id="stat-skipped">–</span>
+          </div>
+          <div class="tile">
+            <span class="tile__label">Süre</span>
+            <span class="tile__value" id="stat-duration">–</span>
+          </div>
+          <div class="tile tile--wide">
+            <span class="tile__label">Slack teslimi</span>
+            <span class="tile__value tile__value--sm">
+              <span id="slack-badge" class="badge">–</span>
+            </span>
+            <span class="tile__note" id="slack-detail"></span>
+          </div>
+        </section>
+
+        <!-- Accountability + run engine -->
+        <section class="panels">
+          <article class="panel panel--streak" aria-label="Hesap sorucu koç">
+            <h2 class="panel__title">Hesap Sorucu Koç</h2>
+            <div class="streak">
+              <div class="streak__flame" aria-hidden="true">🔥</div>
+              <div>
+                <div class="streak__value"><span id="streak-value">0</span> <small>gün</small></div>
+                <div class="streak__label">üst üste görev serisi</div>
+              </div>
+            </div>
+            <p class="panel__row">
+              <span>Bugünün görev sayısı</span>
+              <strong id="task-count">0</strong>
+            </p>
+            <p class="panel__note" id="streak-note"></p>
+          </article>
+
+          <article class="panel" aria-label="Çalıştırma motoru">
+            <h2 class="panel__title">Çalıştırma motoru</h2>
+            <p class="panel__row">
+              <span>Toplu tek çağrı</span>
+              <strong id="batch-used">–</strong>
+            </p>
+            <p class="panel__row">
+              <span>Tek çağrıda üretilen bölüm</span>
+              <strong id="batch-sections">–</strong>
+            </p>
+            <p class="panel__row">
+              <span>Model</span>
+              <strong id="batch-model">–</strong>
+            </p>
+            <p class="panel__note">
+              Tüm danışman ekibi ücretsiz kotaya sığsın diye tek bir model
+              çağrısıyla servis edilir; kapsanmayan bölümler kendi yoluna düşer.
+            </p>
+          </article>
+        </section>
+
+        <!-- Advisor cards -->
+        <section aria-labelledby="advisors-title">
+          <div class="section-head">
+            <h2 id="advisors-title">Danışman ekibi</h2>
+            <div class="filters" id="filters" role="group" aria-label="Kategoriye göre filtrele"></div>
+          </div>
+          <div class="grid" id="advisor-grid"></div>
+          <p class="empty-filter" id="empty-filter" hidden>Bu kategoride ajan yok.</p>
+        </section>
+
+        <!-- History -->
+        <section aria-labelledby="history-title" class="history">
+          <div class="section-head">
+            <h2 id="history-title">Son çalıştırmalar</h2>
+            <ul class="legend" aria-label="Grafik göstergesi">
+              <li><span class="swatch swatch--ok" aria-hidden="true"></span> Çalıştı</li>
+              <li><span class="swatch swatch--failed" aria-hidden="true"></span> Hata</li>
+              <li><span class="swatch swatch--skipped" aria-hidden="true"></span> Atlandı</li>
+            </ul>
+          </div>
+
+          <figure class="chart-figure">
+            <!-- role="group", not role="img": the bars below are focusable and
+                 must stay reachable by assistive tech; the table underneath is
+                 the equivalent text view. -->
+            <div class="chart" id="chart" role="group" aria-label="Son çalıştırmaların durum dağılımı"></div>
+            <figcaption class="chart-caption" id="chart-caption"></figcaption>
+          </figure>
+
+          <div class="table-wrap">
+            <table class="table">
+              <caption class="visually-hidden">Son çalıştırmaların tablo görünümü</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Zaman</th>
+                  <th scope="col">Sonuç</th>
+                  <th scope="col" class="num">✅</th>
+                  <th scope="col" class="num">⚠️</th>
+                  <th scope="col" class="num">⏭️</th>
+                  <th scope="col" class="num">Süre</th>
+                  <th scope="col">Slack</th>
+                </tr>
+              </thead>
+              <tbody id="history-body"></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <footer class="footer">
+      <p>
+        Sıradaki planlı çalıştırma: <strong>her gün 10:00 İstanbul</strong>
+        (07:00 UTC).
+      </p>
+      <p>
+        <a href="https://github.com/Beltass/AI-Executive-Assistant/actions/workflows/daily-briefing.yml" rel="noreferrer noopener">
+          GitHub Actions çalıştırma geçmişi →
+        </a>
+      </p>
+      <p class="footer__note">
+        Bu pano yalnızca <em>durum</em> gösterir: brifing metinleri kişiseldir ve
+        bu depoya hiç yazılmaz.
+      </p>
+    </footer>
+
+    <div id="tooltip" class="tooltip" role="status" aria-live="polite" hidden></div>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

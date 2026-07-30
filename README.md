@@ -401,12 +401,19 @@ Any secret you omit falls back to its default (or leaves that advisor/notifier
 ├── .env.example                   # every expected env var, documented
 ├── .github/workflows/ci.yml       # GitHub Actions: install + pytest
 ├── .github/workflows/daily-briefing.yml  # scheduled Slack daily digest
+├── .github/workflows/pages.yml    # publishes the dashboard to GitHub Pages
+├── frontend/                      # the live agent dashboard (static site)
+│   ├── index.html                 # Turkish UI, no framework, no build step
+│   ├── styles.css                 # dark-first, mobile-first
+│   ├── app.js                     # reads status.json, refreshes every 60 s
+│   └── status.json                # written by every briefing run
 ├── src/ai_assistant/
 │   ├── __init__.py
 │   ├── config.py                  # loads .env, defines integration specs
 │   ├── health.py                  # run_all_checks() + CLI entrypoint
 │   ├── operations_manager.py      # supervising agent over the advisors
 │   ├── daily_digest.py            # build_digest() + CLI entrypoint
+│   ├── status_report.py           # writes frontend/status.json for the dashboard
 │   ├── advisors/
 │   │   ├── __init__.py            # Advisor/Briefing base + discovery
 │   │   ├── _llm_base.py           # shared LLM persona base + rich guide
@@ -446,8 +453,32 @@ Any secret you omit falls back to its default (or leaves that advisor/notifier
     ├── test_new_advisors.py
     ├── test_batch.py
     ├── test_operations_manager.py
+    ├── test_status_report.py
     └── test_slack_notifier.py
 ```
+
+## Live dashboard
+
+Every briefing run ends by writing `frontend/status.json` — per-advisor
+statuses, run counts, Slack delivery, the accountability streak and a rolling
+window of the last 30 runs — which the `Daily Briefing` workflow commits back to
+`main`. The static site in `frontend/` renders it: a Turkish, mobile-friendly
+monitor that answers "did the team run this morning, and what broke?" without
+opening GitHub Actions.
+
+It contains **no briefing content** — only statuses, reasons and character
+counts — because the repository is public. Reasons are sanitised for API keys
+on top of the redaction the LLM layer already does.
+
+Two hosts, no build step in either:
+
+- **Vercel** — the connected project's root directory is `frontend`, so the
+  files are served as-is on every push.
+- **GitHub Pages** — `.github/workflows/pages.yml` publishes the same directory.
+  One-time setup: **Settings → Pages → Source: GitHub Actions**, after which the
+  dashboard lives at <https://beltass.github.io/AI-Executive-Assistant/>.
+
+See [`frontend/README.md`](frontend/README.md) for details and local preview.
 
 ## Setup
 

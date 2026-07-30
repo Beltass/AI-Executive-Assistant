@@ -1,0 +1,164 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-30T15:01:11+00:00",
+  "generated_at_istanbul": "30.07.2026 18:01",
+  "run": {
+    "conclusion": "partial",
+    "total": 13,
+    "ok": 1,
+    "failed": 1,
+    "skipped": 11,
+    "duration_seconds": 0.8,
+    "batch": {
+      "enabled": true,
+      "attempted": false,
+      "used": false,
+      "sections_requested": 0,
+      "sections_produced": 0,
+      "model": "",
+      "provider": ""
+    }
+  },
+  "slack": {
+    "status": "skipped",
+    "detail": "missing env var(s): SLACK_WEBHOOK_URL or (SLACK_BOT_TOKEN + SLACK_CHANNEL)"
+  },
+  "advisors": [
+    {
+      "id": "weather",
+      "name": "Hava Durumu Meteoroloğu",
+      "status": "failed",
+      "content_length": 0,
+      "detail": "beklenmeyen hata: 403 Forbidden",
+      "emoji": "🌤️",
+      "category": "operasyon"
+    },
+    {
+      "id": "leadership_coach",
+      "name": "Liderlik Koçu",
+      "status": "skipped",
+      "content_length": 0,
+      "detail": "missing env var(s): GEMINI_API_KEY or OPENAI_API_KEY",
+      "emoji": "🧭",
+      "category": "kişisel gelişim"
+    },
+    {
+      "id": "kids_development",
+      "name": "Çocuk Gelişimi Danışmanı",
+      "status": "skipped",
+      "content_length": 0,
+      "detail": "missing env var(s): GEMINI_API_KEY or OPENAI_API_KEY",
+      "emoji": "👨‍👩‍👧",
+      "category": "aile"
+    },
+    {
+      "id": "career_hr",
+      "name": "Kariyer & İK Danışmanı",
+      "status": "skipped",
+      "content_length": 0,
+      "detail": "missing env var(s): GEMINI_API_KEY or OPENAI_API_KEY",
+      "emoji": "💼",
+      "category": "kariyer"
+    },
+    {
+      "id": "job_scout",
+      "name": "İş Avcısı & Başvuru Hazırlayıcı",
+      "status": "skipped",
+      "content_length": 0,
+      "detail": "missing env var(s): GEMINI_API_KEY or OPENAI_API_KEY",
+      "emoji": "🔎",
+      "category": "kariyer"
+    },
+    {
+      "id": "sector_intel",
+      "name": "Sektör & Rakip İstihbaratı",
+      "status": "skipped",
+      "content_length": 0,
+      "detail": "missing env var(s): GEMINI_API_KEY or OPENAI_API_KEY",
+      "emoji": "📊",
+      "category": "sektör"
+    },
+    {
+      "id": "ai_news",
+      "name": "Yapay Zeka Haberleri",
+      "status": "skipped",
+      "content_length": 0,
+      "detail": "missing env var(s): AI_NEWS_RSS_URL or GEMINI_API_KEY/OPENAI_API_KEY",
+      "emoji": "🤖",
+      "category": "sektör"
+    },
+    {
+      "id": "free_certs",
+      "name": "Ücretsiz Sertifika & Eğitim Araştırmacısı",
+      "status": "skipped",
+      "content_length": 0,
+      "detail": "missing env var(s): GEMINI_API_KEY or OPENAI_API_KEY",
+      "emoji": "🎓",
+      "category": "kişisel gelişim"
+    },
+    {
+      "id": "banking_cc_projects",
+      "name": "Banka & Çağrı Merkezi Proje Uzmanı",
+      "status": "skipped",
+      "content_length": 0,
+      "detail": "missing env var(s): GEMINI_API_KEY or OPENAI_API_KEY",
+      "emoji": "🏦",
+      "category": "sektör"
+    },
+    {
+      "id": "daily_ops_briefing",
+      "name": "Gün Başı Operasyon Brifingi",
+      "status": "skipped",
+      "content_length": 0,
+      "detail": "no Google credentials/token configured (run: python -m ai_assistant.integrations.google_auth, then set GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / GOOGLE_REFRESH_TOKEN to run in the cloud)",
+      "emoji": "📋",
+      "category": "operasyon"
+    },
+    {
+      "id": "language_coach",
+      "name": "İngilizce & Yönetici İletişimi Koçu",
+      "status": "skipped",
+      "content_length": 0,
+      "detail": "missing env var(s): GEMINI_API_KEY or OPENAI_API_KEY",
+      "emoji": "🗣️",
+      "category": "kişisel gelişim"
+    },
+    {
+      "id": "anka_bridge",
+      "name": "Anka Köprüsü",
+      "status": "skipped",
+      "content_length": 0,
+      "detail": "Anka endpoint not configured (ANKA_WEBHOOK_URL/ANKA_API_URL)",
+      "emoji": "🕊️",
+      "category": "operasyon"
+    },
+    {
+      "id": "accountability_coach",
+      "name": "Hesap Sorucu Koç",
+      "status": "ok",
+      "content_length": 578,
+      "detail": "",
+      "emoji": "🔥",
+      "category": "kişisel gelişim"
+    }
+  ],
+  "accountability": {
+    "available": true,
+    "streak": 1,
+    "today_task_count": 9,
+    "last_date": "2026-07-30"
+  },
+  "history": [
+    {
+      "at": "2026-07-30T15:01:11+00:00",
+      "at_istanbul": "30.07.2026 18:01",
+      "conclusion": "partial",
+      "ok": 1,
+      "failed": 1,
+      "skipped": 11,
+      "total": 13,
+      "duration_seconds": 0.8,
+      "slack": "skipped"
+    }
+  ]
+}

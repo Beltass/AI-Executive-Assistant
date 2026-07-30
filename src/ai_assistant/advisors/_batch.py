@@ -27,12 +27,51 @@ from __future__ import annotations
 import logging
 import os
 import re
+from dataclasses import dataclass
 from typing import Dict, List, Sequence
 
 from . import Advisor, BatchSection
 from ..integrations import llm
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class BatchOutcome:
+    """What the batched call did in this process — pure observability.
+
+    Recorded by :func:`run_batch` and read by
+    :mod:`ai_assistant.status_report` so the monitoring dashboard can show
+    whether the single shared Gemini call worked and how much of the team it
+    covered. Contains counts and a public model name only, never a key.
+    """
+
+    enabled: bool = True
+    attempted: bool = False
+    sections_requested: int = 0
+    sections_produced: int = 0
+
+    @property
+    def used(self) -> bool:
+        """True when the batched call actually served at least one section."""
+        return self.sections_produced > 0
+
+    def to_dict(self) -> dict:
+        return {
+            "enabled": self.enabled,
+            "attempted": self.attempted,
+            "used": self.used,
+            "sections_requested": self.sections_requested,
+            "sections_produced": self.sections_produced,
+        }
+
+
+_last_outcome = BatchOutcome()
+
+
+def last_outcome() -> BatchOutcome:
+    """The outcome of the most recent :func:`run_batch` call in this process."""
+    return _last_outcome
 
 # Marker the model must emit before each section; also what we split on.
 SECTION_MARKER = "### SECTION:"
@@ -171,14 +210,19 @@ def run_batch(advisors: Sequence[Advisor]) -> Dict[str, str]:
     two participating advisors), or the call/parse failed — the caller then
     uses the normal per-advisor path. This function never raises.
     """
-    if not batch_mode_enabled():
+    global _last_outcome
+    _last_outcome = BatchOutcome(enabled=batch_mode_enabled())
+
+    if not _last_outcome.enabled:
         return {}
 
     sections = collect_sections(advisors)
+    _last_outcome.sections_requested = len(sections)
     if len(sections) < 2:
         # One section is no cheaper batched, and zero means nothing to ask.
         return {}
 
+    _last_outcome.attempted = True
     user_prompt = build_batch_prompt(sections)
     try:
         text = llm.generate_text(
@@ -192,6 +236,7 @@ def run_batch(advisors: Sequence[Advisor]) -> Dict[str, str]:
         return {}
 
     parsed = parse_batch_response(text, [section.key for section in sections])
+    _last_outcome.sections_produced = len(parsed)
     logger.info(
         "toplu brifing: %s bölümden %s tanesi tek çağrıda üretildi",
         len(sections),
