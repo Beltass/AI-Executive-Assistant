@@ -48,8 +48,13 @@ Yol `STATUS_REPORT_FILE` ile değiştirilebilir (varsayılan
 ### 1. Vercel (birincil)
 
 Depoya bağlı `ai-executive-assistant-uerc` projesinin kök dizini `frontend`
-olarak ayarlı. Statik dosyalar olduğu gibi servis edilir; build komutu ya da
-framework ayarı gerekmez. Her push otomatik dağıtılır.
+olarak ayarlı, yani Vercel bu klasörü ve buradaki `vercel.json`'u okur.
+
+`vercel.json` yalnızca "burada derlenecek bir şey yok" der: framework yok,
+build komutu yok, kurulum komutu yok, çıktı dizini bu klasörün kendisi. Böylece
+projede kayıtlı bir framework/build ayarı varsa geçersiz kılınır ve dosyalar
+olduğu gibi servis edilir. Depo kökündeki diğer Vercel projesi bu dosyayı hiç
+görmez — kök dizini farklı olduğu için etkilenmez.
 
 ### 2. GitHub Pages (yedek)
 
