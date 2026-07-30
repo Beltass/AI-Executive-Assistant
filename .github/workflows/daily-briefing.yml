@@ -39,4 +39,12 @@ jobs:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           SLACK_CHANNEL: ${{ secrets.SLACK_CHANNEL }}
+          # Phase 2 advisors — all optional; a missing secret skips its agent.
+          JOB_KEYWORDS: ${{ secrets.JOB_KEYWORDS }}
+          JOB_LOCATION: ${{ secrets.JOB_LOCATION }}
+          USER_SECTOR: ${{ secrets.USER_SECTOR }}
+          AI_NEWS_RSS_URL: ${{ secrets.AI_NEWS_RSS_URL }}
+          SECTOR_NEWS_RSS_URL: ${{ secrets.SECTOR_NEWS_RSS_URL }}
+          ANKA_WEBHOOK_URL: ${{ secrets.ANKA_WEBHOOK_URL }}
+          ANKA_API_KEY: ${{ secrets.ANKA_API_KEY }}
         run: python -m ai_assistant.notifiers.slack_notifier
