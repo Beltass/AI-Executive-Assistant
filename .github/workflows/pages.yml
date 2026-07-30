@@ -15,14 +15,42 @@ name: Deploy Dashboard to Pages
 # else in the repository is affected.
 #
 # Published URL: https://beltass.github.io/AI-Executive-Assistant/
+#
+# WHY `workflow_run` IS HERE — the stale-dashboard bug
+# ----------------------------------------------------
+# The Daily Briefing job commits `frontend/status.json` and `frontend/reports/`
+# back to `main` at the end of every run. That commit used to reach the
+# repository and stop there: the live site kept serving an older build, so the
+# dashboard showed an old run (11 agents) while the file in git already had the
+# new one. TWO independent reasons, both real:
+#
+#   1. the commit message carried `[skip ci]`, which tells GitHub to skip EVERY
+#      workflow for that push — including this one (now removed);
+#   2. more fundamentally, a push made with the default `GITHUB_TOKEN` NEVER
+#      triggers another workflow run. That is a deliberate GitHub rule against
+#      recursion, and no commit message can change it.
+#
+# So the `push` trigger below can never fire for the briefing's own commit. The
+# `workflow_run` trigger can: it listens for the Daily Briefing WORKFLOW
+# finishing, not for its commit, and by then the new files are already on
+# `main`. The `push` trigger stays for ordinary human edits to `frontend/`.
+#
+# NO LOOP IS POSSIBLE: this workflow only reads the repository and publishes
+# Pages — it pushes nothing — and `daily-briefing.yml` is triggered ONLY by
+# `schedule` and `workflow_dispatch`, never by `push` or `workflow_run`. The
+# trigger graph is a straight line: briefing → pages.
 on:
   push:
     branches: [main]
-    # Only the dashboard (and its data, committed back by the Daily Briefing
-    # job) is worth a redeploy.
+    # Only the dashboard is worth a redeploy.
     paths:
       - "frontend/**"
       - ".github/workflows/pages.yml"
+  workflow_run:
+    workflows: ["Daily Briefing"]
+    # `completed` covers success AND failure on purpose: a failed run still
+    # writes a status file, and showing that failure is the whole point.
+    types: [completed]
   workflow_dispatch: {}
 
 # Read the repo, mint the OIDC token deploy-pages needs, publish to Pages.
@@ -46,6 +74,11 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          # Explicit: on a `workflow_run` event the checked-out ref is not
+          # guaranteed to be the tip of the default branch, and the whole point
+          # of this run is to publish the commit the briefing just pushed.
+          ref: main
 
       - name: Configure Pages
         uses: actions/configure-pages@v5

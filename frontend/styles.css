@@ -774,3 +774,353 @@ a {
     transition: none !important;
   }
 }
+
+/* =========================================================================
+ * REPORTS — the reading half of the dashboard
+ *
+ * Everything below serves one goal: a 400-word advisor briefing must be
+ * comfortable to read on a phone. That means a measured line length (~66
+ * characters), generous line height, a clear heading hierarchy, and NO
+ * horizontal scrolling — long links and code wrap instead of pushing the
+ * layout sideways.
+ * ===================================================================== */
+
+/* The router's view containers are grid items of .wrap. */
+#view-dashboard,
+#view-report,
+#view-archive,
+#view-day {
+  display: grid;
+  gap: 1.6rem;
+}
+
+/* --- stale warning + timestamp ------------------------------------------ */
+
+.banner {
+  background: var(--critical-soft);
+  border-top: 1px solid var(--critical);
+  border-bottom: 1px solid var(--critical);
+  color: var(--text-primary);
+  padding: 0.7rem 1rem;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  text-align: center;
+}
+
+.stamp {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.7rem 0.95rem;
+  background: var(--surface-1);
+  border: 1px solid var(--border-soft);
+  border-left: 4px solid var(--accent);
+  border-radius: var(--radius);
+}
+.stamp--stale {
+  border-left-color: var(--critical);
+}
+.stamp__label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+.stamp__value {
+  font-size: 1.05rem;
+  font-weight: 660;
+  font-variant-numeric: tabular-nums;
+}
+.stamp__rel {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+/* --- report cards -------------------------------------------------------- */
+
+.section-note {
+  margin: 0 0 0.8rem;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.report-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+}
+
+.report-card {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  background: var(--surface-1);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  padding: 0.9rem 1rem;
+  box-shadow: var(--shadow);
+  transition: border-color var(--ease), transform var(--ease);
+}
+.report-card:hover,
+.report-card:focus-visible {
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.report-card__head {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-bottom: 0.45rem;
+}
+.report-card__emoji {
+  font-size: 1.35rem;
+  line-height: 1;
+}
+.report-card__name {
+  margin: 0;
+  font-size: 0.98rem;
+  font-weight: 650;
+}
+.report-card__lead {
+  margin: 0 0 0.7rem;
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  line-height: 1.5;
+  /* Two lines, then ellipsis: the card is an index entry, not the report. */
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.report-card__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+/* --- archive ------------------------------------------------------------- */
+
+.archive h2,
+.reports h2 {
+  font-size: 1rem;
+  font-weight: 640;
+  margin: 0 0 0.4rem;
+}
+
+.archive-list {
+  display: grid;
+  gap: 0.4rem;
+}
+.archive-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  min-height: 48px; /* comfortable tap target */
+  background: var(--surface-1);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  color: inherit;
+}
+.archive-row:hover,
+.archive-row:focus-visible {
+  border-color: var(--accent);
+}
+.archive-row__date {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+.archive-row__meta {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+/* --- the reading page ---------------------------------------------------- */
+
+.doc-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.btn--ghost {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+  background: transparent;
+}
+
+.doc {
+  background: var(--surface-1);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1.4rem 1.15rem 1.8rem;
+  /* The measure. Everything about readability starts here. */
+  max-width: 42rem;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.doc__head {
+  border-bottom: 1px solid var(--border-soft);
+  padding-bottom: 1rem;
+  margin-bottom: 1.2rem;
+}
+.doc__emoji {
+  font-size: 2.2rem;
+  line-height: 1;
+  margin-bottom: 0.4rem;
+}
+.doc__title {
+  margin: 0 0 0.35rem;
+  font-size: 1.55rem;
+  line-height: 1.25;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.doc__meta {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.doc__lead {
+  margin: 0 0 1.4rem;
+  padding: 0.85rem 1rem;
+  background: var(--accent-soft);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-sm);
+  font-size: 1.02rem;
+  line-height: 1.6;
+  font-weight: 560;
+}
+
+/* Body typography: bigger than the UI, looser than the UI. */
+.doc__body {
+  font-size: 1.05rem;
+  line-height: 1.75;
+  color: var(--text-primary);
+  /* Long URLs and unbroken tokens wrap instead of scrolling the phone. */
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.doc__body > *:first-child {
+  margin-top: 0;
+}
+.doc__body p {
+  margin: 0 0 1.15rem;
+}
+.doc__body h2 {
+  margin: 2rem 0 0.7rem;
+  font-size: 1.25rem;
+  line-height: 1.3;
+  font-weight: 680;
+  letter-spacing: -0.005em;
+}
+.doc__body h3 {
+  margin: 1.6rem 0 0.55rem;
+  font-size: 1.1rem;
+  font-weight: 660;
+}
+.doc__body h4,
+.doc__body h5 {
+  margin: 1.3rem 0 0.45rem;
+  font-size: 1rem;
+  font-weight: 640;
+  color: var(--text-secondary);
+}
+.doc__body ul,
+.doc__body ol {
+  margin: 0 0 1.15rem;
+  padding-left: 1.35rem;
+}
+.doc__body li {
+  margin-bottom: 0.5rem;
+}
+.doc__body li::marker {
+  color: var(--text-muted);
+}
+.doc__body a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.doc__body blockquote {
+  margin: 0 0 1.15rem;
+  padding: 0.2rem 0 0.2rem 1rem;
+  border-left: 3px solid var(--border);
+  color: var(--text-secondary);
+  font-style: italic;
+}
+.doc__body code {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.9em;
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+  border-radius: 5px;
+  padding: 0.08em 0.34em;
+}
+.doc__body pre {
+  margin: 0 0 1.15rem;
+  padding: 0.9rem 1rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  overflow-x: auto; /* only code may scroll, and only inside its own box */
+}
+.doc__body pre code {
+  background: none;
+  border: 0;
+  padding: 0;
+  white-space: pre;
+}
+.doc__body hr {
+  border: 0;
+  border-top: 1px solid var(--border-soft);
+  margin: 1.8rem 0;
+}
+
+.doc__foot {
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-soft);
+}
+
+.topbar__home {
+  color: inherit;
+  text-decoration: none;
+}
+.topbar__home:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 520px) {
+  .report-grid {
+    grid-template-columns: 1fr;
+  }
+  .doc {
+    padding: 1.1rem 0.95rem 1.5rem;
+    border-radius: var(--radius-sm);
+  }
+  .doc__title {
+    font-size: 1.35rem;
+  }
+  .doc__body {
+    font-size: 1.02rem;
+    line-height: 1.72;
+  }
+  .doc__body h2 {
+    font-size: 1.15rem;
+  }
+}

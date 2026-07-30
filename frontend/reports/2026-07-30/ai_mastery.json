@@ -1,0 +1,15 @@
+{
+  "id": "ai_mastery",
+  "name": "Yapay Zeka Ustalığı Koçu",
+  "emoji": "🧠",
+  "category": "kişisel gelişim",
+  "headline": "Bugün 25 dakikada tek bir beceri: bir isteme (prompt) rol, bağlam ve çıktı biçimi eklemek.",
+  "excerpt": "Çoğu zayıf yanıtın sebebi model değil, istemedeki eksik bağlamdır. Bir istemeyi üç parçaya böl:",
+  "words": 203,
+  "read_minutes": 1,
+  "generated_at": "2026-07-30T21:38:17+03:00",
+  "generated_at_istanbul": "30.07.2026 21:38",
+  "schema_version": 1,
+  "date": "2026-07-30",
+  "markdown": "**Öne çıkan:** Bugün 25 dakikada tek bir beceri: bir isteme (prompt) rol, bağlam ve çıktı biçimi eklemek.\n\n## Bugünün becerisi: üç parçalı isteme\n\nÇoğu zayıf yanıtın sebebi model değil, istemedeki eksik bağlamdır. Bir istemeyi\nüç parçaya böl:\n\n1. **Rol** — \"Bir banka çağrı merkezi operasyon müdürü gibi düşün.\"\n2. **Bağlam** — elindeki gerçek veriyi ve kısıtı yaz.\n3. **Çıktı biçimi** — \"5 maddelik liste, her madde en fazla 2 cümle.\"\n\n### Karşılaştırma\n\n- Zayıf: \"Çağrı merkezi verimliliği hakkında yaz.\"\n- Güçlü: \"Rol: 200 kişilik bir banka çağrı merkezinin operasyon müdürüsün.\n  Bağlam: ortalama görüşme süresi 4 dk 20 sn, terk oranı %9. Görev: terk oranını\n  2 puan düşürmek için 5 somut aksiyon öner; her aksiyonun ölçüsünü de yaz.\"\n\n## Neden işe yarar\n\nModel, belirsizliği kendi varsayımlarıyla doldurur. Üç parça, o boşluğu\nkapatarak varsayım sayısını azaltır.\n\n## 📚 Kaynaklar\n\n- [Google AI](https://ai.google.dev) — resmi isteme rehberi.\n- [edX](https://www.edx.org) — ücretsiz yapay zeka temelleri dersleri.\n\n🔎 Bağlantıları açılışta doğrulayın.\n\n## ✅ Bugünün görevi\n\nDün sorduğun bir soruyu al ve üç parçalı biçimde yeniden yaz; iki yanıtı yan\nyana koy. Başarı ölçütü: yeni yanıtta senin eklemen gereken bilgi sayısı azaldı.\n\n---\n\n_Bu, panonun ilk yayınında görünsün diye hazırlanmış **örnek** bir bölümdür. İlk gerçek brifing çalıştığında yerini alır._"
+}

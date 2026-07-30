@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "date": "2026-07-30",
+  "generated_at": "2026-07-30T21:38:17+03:00",
+  "generated_at_istanbul": "30.07.2026 21:38",
+  "mode": "full",
+  "mode_label": "tam brifing",
+  "count": 3,
+  "reports": [
+    {
+      "id": "leadership_coach",
+      "name": "Liderlik Koçu",
+      "emoji": "🧭",
+      "category": "kişisel gelişim",
+      "headline": "Ekibinin haftalık ritmini 20 dakikalık tek bir kontrol toplantısıyla sabitle.",
+      "excerpt": "Bir ekipte \"acil\" kelimesi haftada kaç kez geçiyorsa, takvimde o kadar boşluk vardır. Sabit ritmi olmayan ekipler, planlamadıkları her şeyi eskalasyon yoluyla halleder.",
+      "words": 220,
+      "read_minutes": 1,
+      "generated_at": "2026-07-30T21:38:17+03:00",
+      "generated_at_istanbul": "30.07.2026 21:38",
+      "path": "leadership_coach.json"
+    },
+    {
+      "id": "ai_mastery",
+      "name": "Yapay Zeka Ustalığı Koçu",
+      "emoji": "🧠",
+      "category": "kişisel gelişim",
+      "headline": "Bugün 25 dakikada tek bir beceri: bir isteme (prompt) rol, bağlam ve çıktı biçimi eklemek.",
+      "excerpt": "Çoğu zayıf yanıtın sebebi model değil, istemedeki eksik bağlamdır. Bir istemeyi üç parçaya böl:",
+      "words": 203,
+      "read_minutes": 1,
+      "generated_at": "2026-07-30T21:38:17+03:00",
+      "generated_at_istanbul": "30.07.2026 21:38",
+      "path": "ai_mastery.json"
+    },
+    {
+      "id": "cx_research",
+      "name": "Çağrı Merkezi & Müşteri Deneyimi Araştırmacısı",
+      "emoji": "🎧",
+      "category": "sektör",
+      "headline": "İlk temasta çözüm (FCR) ölçülürken 'çözüldü' tanımını müşteriye sormayan her ölçüm yanıltıcıdır.",
+      "excerpt": "FCR (First Contact Resolution) çoğu operasyonda temsilcinin kapanış kodundan üretilir. Aynı müşteri 48 saat içinde tekrar aradığında bu ilk kayıt \"çözüldü\" olarak kalır, dolayısıyla ölçüm gerçeğin…",
+      "words": 172,
+      "read_minutes": 1,
+      "generated_at": "2026-07-30T21:38:17+03:00",
+      "generated_at_istanbul": "30.07.2026 21:38",
+      "path": "cx_research.json"
+    }
+  ]
+}

@@ -223,3 +223,28 @@ def test_batched_error_message_never_contains_the_key(monkeypatch, llm_env):
 
     assert all(b.status == STATUS_FAILED for b in supervision.briefings)
     assert all(FAKE_KEY not in b.text for b in supervision.briefings)
+
+
+def test_batch_prompt_demands_the_headline_first_line():
+    """The compact Slack index is built from that line, so it must be asked for."""
+    from ai_assistant.advisors._batch import HEADLINE_LABEL, build_batch_prompt
+    from ai_assistant.advisors import BatchSection
+
+    prompt = build_batch_prompt(
+        [
+            BatchSection(key="a", title="A", system_prompt="s", user_prompt="u"),
+            BatchSection(key="b", title="B", system_prompt="s", user_prompt="u"),
+        ]
+    )
+    assert HEADLINE_LABEL == "Öne çıkan"
+    assert f"**{HEADLINE_LABEL}:**" in prompt
+    assert "200" in prompt
+
+
+def test_the_headline_the_prompt_asks_for_is_the_one_the_extractor_finds():
+    """The prompt and the parser must not drift apart."""
+    from ai_assistant.advisors._batch import HEADLINE_LABEL
+    from ai_assistant.reports import extract_headline
+
+    section = f"**{HEADLINE_LABEL}:** Tek cümlelik bulgu.\n\nGerisi burada."
+    assert extract_headline(section) == "Tek cümlelik bulgu."

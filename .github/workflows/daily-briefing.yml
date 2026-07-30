@@ -112,6 +112,11 @@ jobs:
           # Combined with the built-in 429/5xx retry + model fallback, this lets
           # more sections complete on the free tier.
           GEMINI_REQUEST_SPACING_SECONDS: "8"
+          # Where the published dashboard lives. Slack no longer carries the
+          # briefing itself — it carries one line per advisor plus a link to
+          # that advisor's report document on this site. An unset secret falls
+          # back to the built-in GitHub Pages URL.
+          DASHBOARD_BASE_URL: ${{ secrets.DASHBOARD_BASE_URL }}
           # Slack delivery — webhook OR bot token + channel.
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
@@ -163,31 +168,44 @@ jobs:
           OPS_BRIEFING_EMAIL_WINDOW: ${{ secrets.OPS_BRIEFING_EMAIL_WINDOW }}
         run: python -m ai_assistant.notifiers.slack_notifier
 
-      # The runner filesystem is thrown away, so three artefacts are persisted
+      # The runner filesystem is thrown away, so four artefacts are persisted
       # by committing them back to `main`:
       #   * the coach's streak/task memory, which is what makes its memory
       #     survive the ephemeral runner;
       #   * the findings ledger, which is what stops the later runs of the day
       #     from repeating what the morning briefing already said;
       #   * the dashboard's status.json, which is what the static site in
-      #     `frontend/` renders (and what makes the run visible to the user).
+      #     `frontend/` renders (and what makes the run visible to the user);
+      #   * frontend/reports/, this run's per-advisor report documents — the
+      #     readable pages Slack links to (see ai_assistant.reports).
+      #
+      # NOTE ON `[skip ci]`: this commit used to carry it, which told GitHub to
+      # skip every workflow for the push — including the Pages deploy — so the
+      # LIVE dashboard kept serving an older build while the repository already
+      # had the fresh data. It is gone. (A push made with GITHUB_TOKEN cannot
+      # trigger a workflow anyway, which is why `pages.yml` additionally listens
+      # for THIS workflow finishing, via `workflow_run`.) Nothing here can loop:
+      # this workflow is triggered only by `schedule` and `workflow_dispatch`,
+      # never by `push`.
+      #
       # Runs even when the briefing step failed (a failed run is exactly what
       # the dashboard must show) and NEVER fails the job: `continue-on-error`
       # plus an always-succeeding script mean a race or a protected branch can
       # cost the streak, never the briefing.
-      - name: Persist accountability state, findings ledger and dashboard status
+      - name: Persist advisor state, dashboard status and report documents
         if: always()
         continue-on-error: true
         env:
-          STATE_FILES: ".assistant_state/accountability.json .assistant_state/findings.json frontend/status.json"
+          STATE_PATHS: ".assistant_state/accountability.json .assistant_state/findings.json frontend/status.json frontend/reports"
         run: |
           set -u
           PRESENT=""
-          for file in $STATE_FILES; do
-            if [ -f "$file" ]; then
-              PRESENT="$PRESENT $file"
+          for path in $STATE_PATHS; do
+            # -e, not -f: frontend/reports is a directory of documents.
+            if [ -e "$path" ]; then
+              PRESENT="$PRESENT $path"
             else
-              echo "No file at $file — skipping it."
+              echo "No path at $path — skipping it."
             fi
           done
           if [ -z "$PRESENT" ]; then
@@ -196,12 +214,14 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -- $PRESENT
+          # -A so pruned report days (older than the rolling window) are
+          # recorded as deletions instead of lingering forever.
+          git add -A -- $PRESENT
           if git diff --cached --quiet -- $PRESENT; then
             echo "Persisted files unchanged — nothing to commit."
             exit 0
           fi
-          git commit -m "chore: persist advisor state and dashboard status [skip ci]" -- $PRESENT
+          git commit -m "chore: persist advisor state, dashboard status and reports" -- $PRESENT
           # Another run (or a merge) may have moved main in the meantime, so
           # rebase and retry a few times before giving up.
           for attempt in 1 2 3; do
