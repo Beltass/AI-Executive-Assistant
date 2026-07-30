@@ -71,6 +71,88 @@ Google News search feeds, so recent headlines (with their real links) are folded
 in out of the box — fetched with `httpx` + stdlib `xml.etree` and guarded, so an
 unreachable feed degrades to the LLM-only roundup instead of failing.
 
+### Phase 3 advisors
+
+Four more supervised agents, discovered the same way and degrading to
+``skipped`` exactly like the rest.
+
+| Advisor                              | Persona                                                            | Needs                                                     |
+| ------------------------------------ | ------------------------------------------------------------------ | --------------------------------------------------------- |
+| Banka & Çağrı Merkezi Proje Uzmanı   | Senior consultant on bank contact-center **outsourcing programs**   | An LLM key (`BANKING_NEWS_RSS_URL` has a default feed)     |
+| Hesap Sorucu Koç                     | Behaviour-science accountability coach over the other advisors' tasks | Nothing — **no LLM call at all** (`ACCOUNTABILITY_STATE_FILE` has a default) |
+| Gün Başı Operasyon Brifingi          | Chief-of-staff morning briefing from Gmail + Calendar               | The one-time **Google OAuth login** (+ an LLM key to deepen it) |
+| İngilizce & Yönetici İletişimi Koçu  | Business-English + executive-presence coach                          | An LLM key (opt. `USER_SECTOR`)                            |
+
+**Banka & Çağrı Merkezi Proje Uzmanı** is a deep *domain* expert, deliberately
+distinct from the broader `sector_intel` agent: it writes like a consultant who
+has run bank contact-center outsourcing programs. Every briefing covers
+outsourcing projects (RFP/ihale prep, vendor selection, pricing models —
+FTE / per-minute / hybrid / outcome-based —, transition risks, SLA & KPI design
+around AHT, FCR, NPS, occupancy, shrinkage, abandon rate, penalty–bonus
+mechanics), ⚠️ the rules a bank must respect (BDDK information-systems &
+outsourcing expectations, KVKK controller/processor split, retention, data
+residency & cross-border transfer, PCI-DSS, call-recording duties, audit trails,
+BCP/DR), 🚨 typical traps (data leakage, SLA gaps, hidden costs, quality-decay
+signals, vendor lock-in and a missing exit plan, subcontractor chains) and
+🔬 the latest technology (speech/text analytics, agent assist, voice & chat bots,
+CCaaS, WFM, omnichannel, generative AI in the contact center, QM automation).
+
+*Accuracy first:* because regulation changes and models invent article numbers,
+the persona is instructed to describe **principles and direction, never specific
+clauses or dates**, to flag whatever must be verified, and every briefing ends
+with a fixed caveat pointing at your bank's own compliance/legal team and the
+official regulator sites (BDDK, KVKK, TCMB — root domains only, per the shared
+anti-hallucinated-link rules). `BANKING_NEWS_RSS_URL` defaults to a Turkish
+Google News search feed so it can cite REAL links; an unreachable feed silently
+degrades to the LLM-only briefing.
+
+**Hesap Sorucu Koç** reads the other advisors' `✅ Bugünün görevi` items from the
+**current run**, restates them as one checkable list, and asks yesterday's
+uncomfortable question — *yaptın mı?* — alongside your streak, an implementation
+intention prompt and a "shrink the task" fallback. It is registered **last** so
+the supervisor can hand it the briefings produced before it (via the
+`Advisor.observe()` hook), and it makes **no LLM call**, so it costs nothing
+against the free-tier quota and cannot invent a task you were never given. If the
+other sections failed or were skipped, it degrades to a generic restart nudge.
+
+> ⚠️ **Persistence limitation (read this).** The coach stores a small JSON file
+> (`ACCOUNTABILITY_STATE_FILE`, default `.assistant_state/accountability.json`)
+> with each day's tasks and the streak counter. On **GitHub Actions the runner
+> filesystem is ephemeral**: every scheduled run starts from a clean checkout, so
+> yesterday's file is gone. The advisor therefore treats "no prior state" as a
+> legitimate fresh start — it never crashes, you still get today's consolidated
+> list and a day-1 streak — but real cross-day tracking would need the state
+> committed back to the repo or moved to an external store (a Gist, Notion, a KV
+> service). That is deliberately **not** implemented here; locally (and within a
+> single run) the file works normally.
+
+**Gün Başı Operasyon Brifingi** uses the **existing** shared Google OAuth
+(read-only Gmail/Calendar scopes — no new auth is invented). Until you complete
+the one-time login it reports `skipped` with that exact instruction, which is the
+expected state on a fresh checkout and on GitHub Actions:
+
+```bash
+python -m ai_assistant.integrations.google_auth
+```
+
+Once logged in it fetches a **bounded** slice of recent unread/important mail
+(`OPS_BRIEFING_EMAIL_WINDOW`, default `1d`; `OPS_BRIEFING_MAX_EMAILS`, default 12)
+plus today's calendar events, then produces: e-postalarda aksiyon gerektirenler /
+bekleyen cevaplar, bugünkü toplantılar + her biri için kısa hazırlık notu,
+çakışmalar ve derin çalışma için boş bloklar, and günün 3 kritik önceliği.
+**Privacy:** only metadata (sender, subject, time) and Gmail's own short snippet
+are read — never a full message body — and the snippet is truncated before it
+reaches the model. Every network call is guarded; if the model is unavailable you
+still get the gathered facts.
+
+**İngilizce & Yönetici İletişimi Koçu** teaches 5 business-English patterns a day
+with banking/contact-center usage examples, a "Bu cümleyi İngilizce kur" mini
+exercise whose model answer is printed at the very bottom behind an explicit
+*"önce kendin dene"* divider (the advisor keeps no state, so the answer travels
+with the exercise), and a weekly executive-communication focus that rotates off
+the ISO week number: veriyle hikâye anlatma → yönetim kuruluna sunum → ikna &
+müzakere → toplantı yönetimi.
+
 ### Defaults: the whole team is active out of the box
 
 `config.DEFAULT_SETTINGS` pre-fills the **non-secret** configuration so every
@@ -86,6 +168,8 @@ string) falls back to the default.
 | `JOB_LOCATION`        | `İstanbul`                                                      |
 | `AI_NEWS_RSS_URL`     | Google News RSS search for *yapay zeka* (Turkish)               |
 | `SECTOR_NEWS_RSS_URL` | Google News RSS search for *çağrı merkezi banka* (Turkish)      |
+| `BANKING_NEWS_RSS_URL` | Google News RSS search for banking / contact-center / regulation news (Turkish) |
+| `ACCOUNTABILITY_STATE_FILE` | `.assistant_state/accountability.json` (git-ignored, ephemeral on CI) |
 
 Two deliberate exceptions: **no API key is ever defaulted** (without
 `GEMINI_API_KEY`/`OPENAI_API_KEY` the LLM advisors still report `skipped` and the
@@ -102,6 +186,12 @@ advisor contributes a `BatchSection` (its persona + today's brief), they are sen
 as **one** request with an explicit output contract, and the response is split
 back apart on `### SECTION: <advisor_key>` markers — so per-advisor
 `ok`/`failed`/`skipped` statuses are unchanged.
+
+All three LLM-backed Phase 3 advisors join that single call too: the banking
+expert and the ops briefing gather their real data first (RSS feed / Gmail +
+Calendar) and then contribute those facts inside their batched section, exactly
+like the existing RSS advisors. The accountability coach uses no LLM at all, so
+the run stays at ~1 Gemini request.
 
 Non-LLM work stays outside the batch: the weather advisor still calls Open-Meteo
 directly and the news advisors still fetch their RSS feeds themselves; only the
@@ -185,9 +275,19 @@ when you want to override one:
 - `JOB_KEYWORDS` / `JOB_LOCATION` — override the default job-scout search.
 - `USER_SECTOR` — tailors the sector intel & free-cert advisors (default
   "banka çağrı merkezleri").
-- `SECTOR_NEWS_RSS_URL` / `AI_NEWS_RSS_URL` — override the default Google News feeds.
+- `SECTOR_NEWS_RSS_URL` / `AI_NEWS_RSS_URL` / `BANKING_NEWS_RSS_URL` — override
+  the default Google News feeds.
+- `ACCOUNTABILITY_STATE_FILE` — where the accountability coach writes its streak
+  state (ephemeral on Actions — see the caveat above).
+- `OPS_BRIEFING_MAX_EMAILS` / `OPS_BRIEFING_EMAIL_WINDOW` — how much recent mail
+  the ops briefing looks at (defaults: 12 messages, `1d`).
 - `ANKA_WEBHOOK_URL` (+ optional `ANKA_API_KEY`) — the only agent with **no**
   default: without it the Anka bridge stays `skipped`.
+
+The **Gün Başı Operasyon Brifingi** needs the one-time Google OAuth login
+(`python -m ai_assistant.integrations.google_auth`, which stores a refresh
+token); until then it reports `skipped` on every scheduled run, which is
+expected and never fails the job.
 
 Any secret you omit falls back to its default (or leaves that advisor/notifier
 `skipped` when there is none); the workflow still succeeds.
@@ -219,6 +319,10 @@ Any secret you omit falls back to its default (or leaves that advisor/notifier
 │   │   ├── sector_intel.py        # sector & competitor intelligence
 │   │   ├── ai_news.py             # AI news (feed or LLM roundup)
 │   │   ├── free_certs.py          # free certifications & training
+│   │   ├── banking_cc_projects.py # bank contact-center outsourcing expert
+│   │   ├── accountability_coach.py# consolidates + chases the daily tasks
+│   │   ├── daily_ops_briefing.py  # Gmail + Calendar morning briefing
+│   │   ├── language_coach.py      # business English & executive presence
 │   │   └── anka_bridge.py         # generic HTTP connector to "Anka"
 │   ├── notifiers/
 │   │   ├── __init__.py
@@ -238,6 +342,8 @@ Any secret you omit falls back to its default (or leaves that advisor/notifier
     ├── test_health.py
     ├── test_google_auth.py
     ├── test_advisors.py
+    ├── test_new_advisors.py
+    ├── test_batch.py
     ├── test_operations_manager.py
     └── test_slack_notifier.py
 ```

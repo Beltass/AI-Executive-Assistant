@@ -134,6 +134,15 @@ DEFAULT_SETTINGS: Dict[str, str] = {
     # when no RSS secret is configured.
     "AI_NEWS_RSS_URL": _google_news_rss("yapay zeka"),
     "SECTOR_NEWS_RSS_URL": _google_news_rss("çağrı merkezi banka"),
+    # Banking / contact-center project expert: regulation + outsourcing news, so
+    # the deep-domain briefing can cite REAL links instead of inventing them.
+    "BANKING_NEWS_RSS_URL": _google_news_rss(
+        '"çağrı merkezi" bankacılık OR BDDK OR "dış kaynak"'
+    ),
+    # Accountability coach state. NOTE: on GitHub Actions the runner filesystem
+    # is ephemeral, so this file does not survive between scheduled runs; the
+    # advisor treats a missing file as a fresh start (see its module docstring).
+    "ACCOUNTABILITY_STATE_FILE": ".assistant_state/accountability.json",
 }
 
 

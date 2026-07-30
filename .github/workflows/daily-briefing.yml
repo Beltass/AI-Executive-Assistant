@@ -67,4 +67,16 @@ jobs:
           SECTOR_NEWS_RSS_URL: ${{ secrets.SECTOR_NEWS_RSS_URL }}
           ANKA_WEBHOOK_URL: ${{ secrets.ANKA_WEBHOOK_URL }}
           ANKA_API_KEY: ${{ secrets.ANKA_API_KEY }}
+          # Phase 3 advisors — all optional, all with built-in defaults.
+          # Banking & contact-center project expert: news feed for real links.
+          BANKING_NEWS_RSS_URL: ${{ secrets.BANKING_NEWS_RSS_URL }}
+          # Accountability coach state file. NOTE: the runner filesystem is
+          # ephemeral, so this does NOT persist between scheduled runs — the
+          # coach treats every run as a fresh start (see the README caveat).
+          ACCOUNTABILITY_STATE_FILE: ${{ secrets.ACCOUNTABILITY_STATE_FILE }}
+          # Start-of-day ops briefing (Gmail + Calendar). It stays `skipped`
+          # until the one-time OAuth login has produced a token; these only
+          # bound how much recent mail is read.
+          OPS_BRIEFING_MAX_EMAILS: ${{ secrets.OPS_BRIEFING_MAX_EMAILS }}
+          OPS_BRIEFING_EMAIL_WINDOW: ${{ secrets.OPS_BRIEFING_EMAIL_WINDOW }}
         run: python -m ai_assistant.notifiers.slack_notifier

@@ -18,6 +18,9 @@ from ai_assistant.advisors.job_scout import JobScoutAdvisor
 from ai_assistant.advisors.sector_intel import SectorIntelAdvisor
 from ai_assistant.advisors.ai_news import AiNewsAdvisor
 from ai_assistant.advisors.free_certs import FreeCertsAdvisor
+from ai_assistant.advisors.banking_cc_projects import BankingCcProjectsAdvisor
+from ai_assistant.advisors.daily_ops_briefing import DailyOpsBriefingAdvisor
+from ai_assistant.advisors.language_coach import LanguageCoachAdvisor
 from ai_assistant.advisors.anka_bridge import AnkaBridgeAdvisor
 from ai_assistant.integrations import STATUS_OK, STATUS_SKIPPED
 
@@ -37,6 +40,12 @@ _ENV_VARS = [
     "ANKA_API_URL",
     "ANKA_API_KEY",
     "ANKA_HTTP_METHOD",
+    "BANKING_NEWS_RSS_URL",
+    "ACCOUNTABILITY_STATE_FILE",
+    "GOOGLE_CLIENT_ID",
+    "GOOGLE_CLIENT_SECRET",
+    "GOOGLE_CREDENTIALS_FILE",
+    "GOOGLE_TOKEN_FILE",
 ]
 
 
@@ -57,7 +66,7 @@ def no_config(monkeypatch):
 
 def test_all_advisors_discovered():
     advisors = all_advisors()
-    assert len(advisors) == 9
+    assert len(advisors) == 13
     keys = {a.key for a in advisors}
     assert keys == {
         "weather",
@@ -68,8 +77,17 @@ def test_all_advisors_discovered():
         "sector_intel",
         "ai_news",
         "free_certs",
+        "banking_cc_projects",
+        "daily_ops_briefing",
+        "language_coach",
         "anka_bridge",
+        "accountability_coach",
     }
+
+
+def test_accountability_coach_runs_last():
+    """It consolidates the OTHER advisors' tasks, so it must see them first."""
+    assert all_advisors()[-1].key == "accountability_coach"
 
 
 def test_weather_skipped_without_city(no_config):
@@ -117,7 +135,8 @@ def test_job_scout_skipped_without_llm_key(no_config, monkeypatch):
 
 @pytest.mark.parametrize(
     "advisor_cls",
-    [SectorIntelAdvisor, FreeCertsAdvisor],
+    [SectorIntelAdvisor, FreeCertsAdvisor, BankingCcProjectsAdvisor,
+     LanguageCoachAdvisor],
 )
 def test_llm_new_personas_skipped_without_key(no_config, advisor_cls):
     briefing = advisor_cls().generate_briefing()
@@ -162,6 +181,10 @@ def test_defaults_activate_the_whole_team(defaults_only):
     assert config.setting("SECTOR_NEWS_RSS_URL").startswith(
         "https://news.google.com/rss/search?q="
     )
+    assert config.setting("BANKING_NEWS_RSS_URL").startswith(
+        "https://news.google.com/rss/search?q="
+    )
+    assert config.setting("ACCOUNTABILITY_STATE_FILE").endswith(".json")
 
 
 def test_env_var_overrides_the_default(monkeypatch, defaults_only):
@@ -246,7 +269,8 @@ def test_job_scout_uses_defaults_but_still_skips_without_llm_key(defaults_only):
 @pytest.mark.parametrize(
     "advisor_cls",
     [LeadershipCoachAdvisor, KidsDevelopmentAdvisor, CareerHrAdvisor,
-     SectorIntelAdvisor, FreeCertsAdvisor],
+     SectorIntelAdvisor, FreeCertsAdvisor, BankingCcProjectsAdvisor,
+     LanguageCoachAdvisor],
 )
 def test_llm_advisors_still_skip_with_defaults_but_no_key(defaults_only, advisor_cls):
     briefing = advisor_cls().generate_briefing()
