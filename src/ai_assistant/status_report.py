@@ -35,6 +35,7 @@ import re
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
+from .config import MODE_FULL, mode_label
 from .integrations import STATUS_FAILED, STATUS_OK, STATUS_SKIPPED
 
 logger = logging.getLogger(__name__)
@@ -76,6 +77,8 @@ ADVISOR_META: Dict[str, Dict[str, str]] = {
     "ai_news": {"emoji": "🤖", "category": CATEGORY_SECTOR},
     "free_certs": {"emoji": "🎓", "category": CATEGORY_GROWTH},
     "banking_cc_projects": {"emoji": "🏦", "category": CATEGORY_SECTOR},
+    "ai_mastery": {"emoji": "🧠", "category": CATEGORY_GROWTH},
+    "cx_research": {"emoji": "🎧", "category": CATEGORY_SECTOR},
     "daily_ops_briefing": {"emoji": "📋", "category": CATEGORY_OPS},
     "language_coach": {"emoji": "🗣️", "category": CATEGORY_GROWTH},
     "anka_bridge": {"emoji": "🕊️", "category": CATEGORY_OPS},
@@ -245,6 +248,7 @@ def _advisor_entry(briefing: Any) -> Dict[str, Any]:
     status = str(getattr(briefing, "status", "") or STATUS_SKIPPED)
     text = getattr(briefing, "text", "") or ""
     meta = ADVISOR_META.get(key, DEFAULT_META)
+    new_findings = getattr(briefing, "new_findings", None)
     return {
         "id": key,
         "name": str(getattr(briefing, "title", "") or key),
@@ -256,6 +260,11 @@ def _advisor_entry(briefing: Any) -> Dict[str, Any]:
         "detail": "" if status == STATUS_OK else sanitize(text),
         "emoji": meta["emoji"],
         "category": meta["category"],
+        # How much of this section was genuinely NEW (null for advisors that
+        # have no notion of new findings), and whether the advisor deliberately
+        # stayed quiet on an incremental run.
+        "new_findings": int(new_findings) if new_findings is not None else None,
+        "nothing_new": bool(getattr(briefing, "nothing_new", False)),
     }
 
 
@@ -291,6 +300,13 @@ def build_status(
     duration = round(float(duration_seconds), 1) if duration_seconds is not None else None
     batch = _batch_snapshot()
 
+    # How this run was asked to work, and how much of it was actually new.
+    mode = str(getattr(supervision, "mode", MODE_FULL) or MODE_FULL)
+    new_findings = sum(
+        entry["new_findings"] or 0 for entry in advisors
+    )
+    quiet = sum(1 for entry in advisors if entry["nothing_new"])
+
     if slack_result is None:
         slack = {"status": STATUS_SKIPPED, "detail": "gönderim denenmedi"}
     else:
@@ -309,6 +325,8 @@ def build_status(
         "total": len(advisors),
         "duration_seconds": duration,
         "slack": slack["status"],
+        "mode": mode,
+        "new_findings": new_findings,
     }
 
     history = list(previous_history or [])
@@ -327,6 +345,12 @@ def build_status(
             "skipped": counts[STATUS_SKIPPED],
             "duration_seconds": duration,
             "batch": batch,
+            # Run mode + how much of it was genuinely new, so the dashboard can
+            # tell the flagship 10:00 briefing apart from a quiet top-up run.
+            "mode": mode,
+            "mode_label": mode_label(mode),
+            "new_findings": new_findings,
+            "nothing_new_count": quiet,
         },
         "slack": slack,
         "advisors": advisors,

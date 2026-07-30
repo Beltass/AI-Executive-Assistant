@@ -16,7 +16,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import List, Optional, Sequence
 
+from ..config import is_incremental
 from ..integrations import STATUS_FAILED, STATUS_OK, STATUS_SKIPPED
+
+# What an advisor says on an incremental run when it has nothing to add.
+NOTHING_NEW_NOTE = "yeni bulgu yok"
 
 
 @dataclass
@@ -50,12 +54,18 @@ class Briefing:
         title: Human-readable, Turkish advisor title shown in reports.
         status: One of ``ok``, ``failed`` or ``skipped``.
         text: The briefing body (Turkish) or a short reason when not ``ok``.
+        new_findings: How many genuinely NEW findings fed this section, for
+            finding-driven advisors. ``None`` means "not applicable".
+        nothing_new: True for the compact "yeni bulgu yok" section an
+            incremental run produces when an advisor has nothing to add.
     """
 
     key: str
     title: str
     status: str
     text: str = ""
+    new_findings: Optional[int] = None
+    nothing_new: bool = False
 
     @property
     def ok(self) -> bool:
@@ -81,6 +91,13 @@ class Advisor:
 
     key: str = "advisor"
     title: str = "Danışman"
+
+    #: Whether this advisor can produce genuinely NEW findings between two runs
+    #: on the same day. Feed-driven advisors set it to ``True``; the timeless
+    #: coaching personas leave it ``False`` and stay quiet on incremental runs
+    #: (see :func:`is_quiet`), which is what keeps four runs a day inside the
+    #: free LLM quota.
+    incremental_source: bool = False
 
     def _generate(self) -> Briefing:  # pragma: no cover - overridden
         raise NotImplementedError
@@ -123,15 +140,72 @@ class Advisor:
         """
         return self.ok(text.strip())
 
+    # -- deduplication hooks ---------------------------------------------
+    def new_finding_count(self) -> int:
+        """How many genuinely new findings this advisor has for this run.
+
+        Feed-driven advisors override it (after filtering their fetched items
+        through :mod:`ai_assistant.memory`). Everyone else has no notion of
+        "new", so the base returns 0.
+        """
+        return 0
+
     # -- helpers for subclasses ------------------------------------------
     def ok(self, text: str) -> Briefing:
-        return Briefing(key=self.key, title=self.title, status=STATUS_OK, text=text)
+        return Briefing(
+            key=self.key,
+            title=self.title,
+            status=STATUS_OK,
+            text=text,
+            new_findings=self.new_finding_count() if self.incremental_source else None,
+        )
 
     def failed(self, text: str) -> Briefing:
         return Briefing(key=self.key, title=self.title, status=STATUS_FAILED, text=text)
 
     def skipped(self, text: str) -> Briefing:
         return Briefing(key=self.key, title=self.title, status=STATUS_SKIPPED, text=text)
+
+    def nothing_new(self, note: str = "") -> Briefing:
+        """The compact "yeni bulgu yok" section for an incremental run.
+
+        Reported as ``skipped`` — this advisor deliberately produced nothing —
+        but flagged with ``nothing_new`` so the digest and the dashboard can
+        render it as "nothing new" rather than "not configured".
+        """
+        return Briefing(
+            key=self.key,
+            title=self.title,
+            status=STATUS_SKIPPED,
+            text=note or NOTHING_NEW_NOTE,
+            new_findings=0,
+            nothing_new=True,
+        )
+
+
+def is_quiet(advisor: Advisor) -> bool:
+    """Whether ``advisor`` should stay silent on THIS run.
+
+    Only ever true in ``incremental`` mode, where an advisor works if — and
+    only if — it found something the user has not already been told:
+
+    * feed-driven advisors (``incremental_source``) run when their deduplicated
+      item list is non-empty;
+    * the timeless coaching personas always stay quiet, because "today's
+      leadership lesson" is not a *new finding* and re-running it would both
+      repeat yesterday and burn free-tier quota.
+
+    Never raises: an advisor whose count blows up is treated as having
+    something to say, which fails towards informing the user.
+    """
+    if not is_incremental():
+        return False
+    if not getattr(advisor, "incremental_source", False):
+        return True
+    try:
+        return advisor.new_finding_count() <= 0
+    except Exception:  # pragma: no cover - defensive only
+        return False
 
 
 def all_advisors() -> List[Advisor]:
@@ -149,6 +223,8 @@ def all_advisors() -> List[Advisor]:
     from .ai_news import AiNewsAdvisor
     from .free_certs import FreeCertsAdvisor
     from .banking_cc_projects import BankingCcProjectsAdvisor
+    from .ai_mastery import AiMasteryAdvisor
+    from .cx_research import CxResearchAdvisor
     from .daily_ops_briefing import DailyOpsBriefingAdvisor
     from .language_coach import LanguageCoachAdvisor
     from .anka_bridge import AnkaBridgeAdvisor
@@ -164,6 +240,8 @@ def all_advisors() -> List[Advisor]:
         AiNewsAdvisor(),
         FreeCertsAdvisor(),
         BankingCcProjectsAdvisor(),
+        AiMasteryAdvisor(),
+        CxResearchAdvisor(),
         DailyOpsBriefingAdvisor(),
         LanguageCoachAdvisor(),
         AnkaBridgeAdvisor(),
@@ -173,4 +251,11 @@ def all_advisors() -> List[Advisor]:
     ]
 
 
-__all__ = ["Advisor", "BatchSection", "Briefing", "all_advisors"]
+__all__ = [
+    "Advisor",
+    "BatchSection",
+    "Briefing",
+    "NOTHING_NEW_NOTE",
+    "all_advisors",
+    "is_quiet",
+]

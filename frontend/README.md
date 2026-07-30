@@ -31,10 +31,13 @@ aynı veriler tablo olarak da bulunur.
 
 ## Veri nereden geliyor?
 
-`status.json`'u `ai_assistant.status_report` üretir. Günlük brifing (Slack
-teslimi denendikten **sonra**) bu dosyayı yazar, `Daily Briefing` iş akışı da
-`main`'e geri commit'ler. Böylece pano her sabah 10:00 İstanbul'daki gerçek
-çalıştırmayı yansıtır.
+`status.json`'u `ai_assistant.status_report` üretir. Brifing (Slack teslimi
+denendikten **sonra**) bu dosyayı yazar, `Daily Briefing` iş akışı da `main`'e
+geri commit'ler. Böylece pano gerçek çalıştırmaları yansıtır: 10:00 İstanbul'da
+**tam brifing**, 14:00 / 18:00 / 22:00'de yalnızca yeni bulguları getiren
+**artımlı** çalıştırmalar. Artımlı bir çalıştırmada yeni bir şey yoksa Slack'e
+mesaj gitmez ama `status.json` yine yazılır — pano "artımlı" rozetini, ajan
+başına yeni bulgu sayısını ve "yeni bulgu yok" durumunu gösterir.
 
 Yol `STATUS_REPORT_FILE` ile değiştirilebilir (varsayılan
 `frontend/status.json`).

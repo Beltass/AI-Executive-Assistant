@@ -239,6 +239,63 @@ with the exercise), and a weekly executive-communication focus that rotates off
 the ISO week number: veriyle hikâye anlatma → yönetim kuruluna sunum → ikna &
 müzakere → toplantı yönetimi.
 
+### Phase 4 advisors
+
+Two more supervised agents, discovered the same way and degrading to `skipped`
+without an LLM key.
+
+| Advisor                                        | Persona                                                         | Needs                                     |
+| ---------------------------------------------- | --------------------------------------------------------------- | ----------------------------------------- |
+| Yapay Zeka Ustalığı Koçu                       | AI enablement coach: teaches AI tools from zero to advanced      | An LLM key (`AI_MASTERY_LEVEL` / `AI_MASTERY_RSS_URL` have defaults) |
+| Çağrı Merkezi & Müşteri Deneyimi Araştırmacısı | Evidence-driven CX / contact-center researcher                   | An LLM key (`CX_RESEARCH_RSS_URL` has a default) |
+
+**Yapay Zeka Ustalığı Koçu** works through a rotating syllabus (prompt
+engineering, system prompts and context, chain-of-thought and structured output,
+RAG, agents and tool use, automation with n8n/Zapier/Make, API usage, evaluating
+outputs, avoiding hallucinations, data privacy, cost control, choosing the right
+model) at the level set by `AI_MASTERY_LEVEL` (`temel` → `orta` → `ileri`).
+Every section carries a **hap bilgi**, **eğitim videoları**, **ücretsiz
+sertifikalı eğitimler** and a hands-on `✅ Bugünün görevi` to run in a real AI
+tool. Course links come from its feed or from stable providers by ROOT domain
+(Google Cloud Skills Boost, Microsoft Learn, DeepLearning.AI, Coursera, edX,
+Hugging Face, Kaggle Learn, freeCodeCamp, Anthropic/OpenAI docs) — never an
+invented deep URL.
+
+**Çağrı Merkezi & Müşteri Deneyimi Araştırmacısı** teaches with evidence: new
+trends, new technologies, academic and industry research, success stories with
+concrete before/after metrics, measurement methodology (NPS/CSAT/CES, journey
+mapping, churn prediction, VoC, FCR, effort reduction), retention programmes and
+the employee-experience ↔ customer-experience link. Its hard rule is that a
+figure may only appear when it can be ATTRIBUTED — the source organisation is
+named next to it, unverifiable numbers are simply not given, and a standing
+caveat tells the user to confirm anything at the source.
+
+### Deduplication + incremental runs
+
+Running four times a day is only useful if the later runs do not repeat the
+morning. `ai_assistant.memory` keeps a small ledger of everything already
+**delivered**, per advisor:
+
+- feed items are fingerprinted by normalised URL (lowercased host, no tracking
+  parameters, no fragment) *and* normalised title, so the same story behind two
+  links is recognised once;
+- LLM prose is fingerprinted by a content hash plus the links it cited;
+- only irreversible hashes are stored — never the briefing text — so the file is
+  safe in a public repository;
+- entries expire after `FINDINGS_MEMORY_DAYS` (default 30), letting a genuinely
+  recurring topic resurface later;
+- fingerprints are written **only after Slack accepted the digest**, so a
+  finding that never reached the user stays new;
+- a corrupt, unreadable or unwritable ledger degrades to "everything is new" and
+  logs — it can never break a run.
+
+With `BRIEFING_MODE=incremental` the advisors with nothing new collapse to a
+one-line "yeni bulgu yok", they are kept out of the batched prompt (so a quiet
+run costs **no** model tokens), and when nobody has anything new the notifier
+skips Slack entirely while still writing `status.json`
+(`SKIP_SLACK_WHEN_NOTHING_NEW`, default `true`). The `full` daily briefing always
+sends.
+
 ### Defaults: the whole team is active out of the box
 
 `config.DEFAULT_SETTINGS` pre-fills the **non-secret** configuration so every
@@ -343,13 +400,20 @@ python -m ai_assistant.notifiers.slack_notifier
 
 ### Scheduled daily delivery
 
-`.github/workflows/daily-briefing.yml` runs on a daily `schedule` (cron
-`0 7 * * *` UTC = 10:00 İstanbul, UTC+3 — adjust the time in the workflow;
-GitHub Actions cron is always UTC) and on manual
-`workflow_dispatch`. It installs the package, runs the Slack notifier, and then
-commits the accountability coach's state file back to `main` (see
-[Phase 3 advisors](#phase-3-advisors) above) — which is why the job declares
-`permissions: contents: write`.
+`.github/workflows/daily-briefing.yml` runs **four times a day** (GitHub Actions
+cron is always UTC) and on manual `workflow_dispatch` (which takes a `mode`
+input, `full` or `incremental`, defaulting to `full`):
+
+| Cron (UTC)       | İstanbul | Mode          | What it does                          |
+| ---------------- | -------- | ------------- | ------------------------------------- |
+| `0 7 * * *`      | 10:00    | `full`        | The complete daily briefing            |
+| `0 11,15,19 * * *` | 14:00 / 18:00 / 22:00 | `incremental` | Only findings that are NEW since the last run |
+
+A step derives the mode from `github.event.schedule`, the job declares a
+`concurrency` group so runs queue instead of racing each other's commits, and it
+installs the package, runs the Slack notifier, and then commits the
+accountability state, the findings ledger and `frontend/status.json` back to
+`main` — which is why the job declares `permissions: contents: write`.
 
 To turn on **live daily delivery**, add these GitHub repository **Secrets**
 (Settings → Secrets and variables → Actions):
@@ -428,10 +492,13 @@ Any secret you omit falls back to its default (or leaves that advisor/notifier
 │   │   ├── ai_news.py             # AI news (feed or LLM roundup)
 │   │   ├── free_certs.py          # free certifications & training
 │   │   ├── banking_cc_projects.py # bank contact-center outsourcing expert
+│   │   ├── ai_mastery.py          # AI enablement coach (temel→ileri)
+│   │   ├── cx_research.py         # CX / contact-center researcher
 │   │   ├── accountability_coach.py# consolidates + chases the daily tasks
 │   │   ├── daily_ops_briefing.py  # Gmail + Calendar morning briefing
 │   │   ├── language_coach.py      # business English & executive presence
 │   │   └── anka_bridge.py         # generic HTTP connector to "Anka"
+│   ├── memory.py                  # findings ledger (dedup across runs)
 │   ├── notifiers/
 │   │   ├── __init__.py
 │   │   └── slack_notifier.py      # webhook / chat.postMessage delivery

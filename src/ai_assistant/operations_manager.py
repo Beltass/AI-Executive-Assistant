@@ -24,16 +24,42 @@ import sys
 from dataclasses import dataclass, field
 from typing import List, Optional
 
-from .advisors import Advisor, Briefing, all_advisors
+from .advisors import Advisor, Briefing, all_advisors, is_quiet
 from .advisors._batch import run_batch
+from .config import MODE_FULL, briefing_mode, mode_label
 from .integrations import STATUS_FAILED, STATUS_OK, STATUS_SKIPPED, llm
 
 
 @dataclass
 class Supervision:
-    """Aggregated outcome of one supervised advisor run."""
+    """Aggregated outcome of one supervised advisor run.
+
+    ``mode`` records HOW the team ran: the flagship ``full`` briefing or an
+    ``incremental`` top-up that reports only what is new (see
+    :mod:`ai_assistant.memory`).
+    """
 
     briefings: List[Briefing] = field(default_factory=list)
+    mode: str = MODE_FULL
+
+    @property
+    def mode_label(self) -> str:
+        """Turkish label for the run mode (``tam brifing`` / ``artımlı``)."""
+        return mode_label(self.mode)
+
+    @property
+    def new_findings(self) -> int:
+        """Total number of genuinely new findings across the whole team."""
+        return sum(b.new_findings or 0 for b in self.briefings)
+
+    @property
+    def has_new_findings(self) -> bool:
+        """True when at least one advisor found something not yet reported."""
+        return self.new_findings > 0
+
+    @property
+    def nothing_new(self) -> List[Briefing]:
+        return [b for b in self.briefings if b.nothing_new]
 
     @property
     def counts(self) -> dict:
@@ -74,6 +100,11 @@ class OperationsManager:
         the whole team if the batched call failed — transparently falls back to
         its own per-advisor path.
 
+        On an ``incremental`` run (``BRIEFING_MODE=incremental``) the advisors
+        with nothing NEW to report never reach either path: they return a
+        one-line "yeni bulgu yok" section and are kept out of the batched
+        prompt, so a quiet run costs no model tokens at all.
+
         All LLM work shares one wall-clock budget
         (``LLM_TIME_BUDGET_SECONDS``), so an exhausted provider quota can never
         stretch the run past it: once spent, the remaining sections fail fast
@@ -95,6 +126,11 @@ class OperationsManager:
                 # the other personas' "✅ Bugünün görevi" items; for everyone
                 # else it is a no-op.
                 self._observe(advisor, briefings)
+                if is_quiet(advisor):
+                    # Incremental run, nothing new from this advisor: say so in
+                    # one line instead of repeating this morning's section.
+                    briefings.append(advisor.nothing_new())
+                    continue
                 text = batched.get(advisor.key)
                 if text:
                     briefings.append(advisor.briefing_from_batch(text))
@@ -109,7 +145,7 @@ class OperationsManager:
                         text=f"denetleyici yakaladı, beklenmeyen hata: {exc}",
                     )
                 )
-        return Supervision(briefings=briefings)
+        return Supervision(briefings=briefings, mode=briefing_mode())
 
     @staticmethod
     def _observe(advisor: Advisor, briefings: List[Briefing]) -> None:
@@ -135,7 +171,12 @@ def _render_rich(supervision: Supervision) -> None:
     from rich.table import Table
 
     console = Console()
-    table = Table(title="Operasyon Yöneticisi — Günlük Danışman Denetimi")
+    table = Table(
+        title=(
+            "Operasyon Yöneticisi — Günlük Danışman Denetimi "
+            f"({supervision.mode_label})"
+        )
+    )
     table.add_column("Danışman", style="bold")
     table.add_column("Durum")
     table.add_column("Özet", overflow="fold")
@@ -155,7 +196,10 @@ def _render_rich(supervision: Supervision) -> None:
 
 
 def _render_plain(supervision: Supervision) -> None:
-    print("Operasyon Yöneticisi — Günlük Danışman Denetimi")
+    print(
+        "Operasyon Yöneticisi — Günlük Danışman Denetimi "
+        f"({supervision.mode_label})"
+    )
     print("-" * 60)
     for b in supervision.briefings:
         label = _STATUS_STYLE.get(b.status, (b.status.upper(), ""))[0]

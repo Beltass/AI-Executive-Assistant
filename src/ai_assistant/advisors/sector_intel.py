@@ -24,8 +24,9 @@ from typing import List, Optional
 from . import Advisor, BatchSection, Briefing
 from ..config import setting
 from ..integrations import llm
+from ..memory import filter_new_items
 from ._llm_base import RICH_BRIEFING_GUIDE
-from ._rss import fetch_feed_items
+from ._rss import FeedItem, fetch_feed_items
 
 DEFAULT_SECTOR = "banka çağrı merkezleri"
 
@@ -47,6 +48,14 @@ CAVEAT = (
 class SectorIntelAdvisor(Advisor):
     key = "sector_intel"
     title = "Sektör & Rakip İstihbaratı"
+
+    # Its news feed is a genuine source of NEW findings between runs.
+    incremental_source = True
+
+    def __init__(self) -> None:
+        # Fetched once per run and reused by the batched path.
+        self._items: List[FeedItem] = []
+        self._fetched = False
 
     def _generate(self) -> Briefing:
         if not llm.is_configured():
@@ -110,14 +119,27 @@ class SectorIntelAdvisor(Advisor):
         return user_prompt
 
     def _recent_headlines(self) -> List[str]:
+        return [
+            item.title + (f" ({item.link})" if item.link else "")
+            for item in self._fetch_items()
+        ]
+
+    # -- deduplication ---------------------------------------------------
+    def new_finding_count(self) -> int:
+        return len(self._fetch_items())
+
+    def _fetch_items(self) -> List[FeedItem]:
+        """Fetch the sector feed once, keeping only NOT-YET-REPORTED items."""
+        if self._fetched:
+            return self._items
+        self._fetched = True
         url = setting("SECTOR_NEWS_RSS_URL")
         if not url:
-            return []
+            return self._items
         try:
-            items = fetch_feed_items(url, limit=6)
+            fetched = fetch_feed_items(url, limit=6)
         except Exception:
             # Optional enrichment only — never fail the briefing over the feed.
-            return []
-        return [
-            item.title + (f" ({item.link})" if item.link else "") for item in items
-        ]
+            return self._items
+        self._items = filter_new_items(self.key, fetched)
+        return self._items

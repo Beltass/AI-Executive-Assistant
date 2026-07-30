@@ -25,6 +25,22 @@
     failed: { label: "Gönderilemedi", cls: "failed", icon: "⚠️" },
     skipped: { label: "Atlandı", cls: "skipped", icon: "⏭️" }
   };
+  // The 10:00 run is the full briefing; the 14:00/18:00/22:00 ones only carry
+  // what is new since the previous run.
+  var MODE = {
+    full: {
+      label: "Tam brifing",
+      icon: "🗓️",
+      cls: "ok",
+      note: "Tüm ajanlar, tüm bölümler."
+    },
+    incremental: {
+      label: "Artımlı",
+      icon: "🔄",
+      cls: "partial",
+      note: "Yalnızca önceki çalıştırmadan sonraki yeni bulgular."
+    }
+  };
 
   var state = { data: null, category: "*", lastFetch: null };
 
@@ -66,8 +82,11 @@
 
   function shortTime(entry) {
     // Prefer the pre-formatted Istanbul label the producer wrote; fall back to
-    // the raw timestamp so an older file still renders.
-    return entry.at_istanbul || entry.at || "–";
+    // the raw timestamp so an older file still renders. The mode icon tells the
+    // 10:00 full briefing apart from the incremental top-ups at a glance.
+    var label = entry.at_istanbul || entry.at || "–";
+    var mode = MODE[entry.mode];
+    return mode ? mode.icon + " " + label : label;
   }
 
   /* --- state screens ----------------------------------------------------- */
@@ -95,6 +114,15 @@
     text($("stat-failed"), run.failed != null ? run.failed : "–");
     text($("stat-skipped"), run.skipped != null ? run.skipped : "–");
     text($("stat-duration"), duration(run.duration_seconds));
+
+    // Run mode. Older status files have no mode at all — they were all full
+    // briefings back then, so that is the safe fallback.
+    var mode = MODE[run.mode] || MODE.full;
+    var modeBadge = $("mode-badge");
+    modeBadge.className = "badge badge--" + mode.cls;
+    modeBadge.textContent = mode.icon + " " + mode.label;
+    text($("mode-note"), mode.note);
+    text($("stat-new"), run.new_findings != null ? run.new_findings : "–");
 
     var conclusion = CONCLUSION[run.conclusion] || CONCLUSION.idle;
     var slack = SLACK_LABEL[(data.slack || {}).status] || SLACK_LABEL.skipped;
@@ -181,6 +209,9 @@
 
     visible.forEach(function (advisor) {
       var status = STATUS_LABEL[advisor.status] ? advisor.status : "skipped";
+      // "Nothing new" is not the same as "not configured": the advisor ran and
+      // deliberately stayed quiet because the user already knows.
+      var quiet = advisor.nothing_new === true;
       var card = document.createElement("article");
       card.className = "card card--" + status;
 
@@ -203,7 +234,9 @@
       // Icon + word, never color alone.
       var badge = document.createElement("span");
       badge.className = "badge badge--" + status;
-      badge.textContent = STATUS_ICON[status] + " " + STATUS_LABEL[status];
+      badge.textContent = quiet
+        ? "🟰 Yeni bulgu yok"
+        : STATUS_ICON[status] + " " + STATUS_LABEL[status];
 
       head.appendChild(emoji);
       head.appendChild(name);
@@ -223,7 +256,15 @@
       tag.className = "tag";
       tag.textContent = advisor.category || "—";
       var size = document.createElement("span");
-      size.textContent = status === "ok" ? bytesish(advisor.content_length) : "—";
+      if (quiet) {
+        size.textContent = "0 yeni bulgu";
+      } else if (status === "ok") {
+        size.textContent =
+          bytesish(advisor.content_length) +
+          (advisor.new_findings ? " · 🆕 " + advisor.new_findings : "");
+      } else {
+        size.textContent = "—";
+      }
       foot.appendChild(tag);
       foot.appendChild(size);
       card.appendChild(foot);
@@ -436,8 +477,9 @@
           missing ? "🕰️" : "⚠️",
           missing ? "Henüz veri yok" : "Durum dosyası okunamadı",
           missing
-            ? "status.json henüz oluşturulmamış. Günlük brifing bir kez " +
-              "çalıştığında (her gün 10:00 İstanbul) bu pano dolacak."
+            ? "status.json henüz oluşturulmamış. Brifing bir kez " +
+              "çalıştığında (İstanbul saatiyle 10:00 / 14:00 / 18:00 / 22:00) " +
+              "bu pano dolacak."
             : "status.json alınamadı: " + (error && error.message ? error.message : "bilinmeyen hata")
         );
       })

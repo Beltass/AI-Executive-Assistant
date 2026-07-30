@@ -23,14 +23,17 @@ venv/
 env/
 ENV/
 
-# Local advisor state. The accountability coach's streak/task file is the ONE
-# exception: the Daily Briefing workflow commits it back to the repository after
-# every run, which is what makes the coach's memory survive the ephemeral
-# GitHub Actions runner. Everything else in this directory stays local.
+# Local advisor state. Two files are the exception: the accountability coach's
+# streak/task file and the findings ledger (what the team has already reported).
+# The Daily Briefing workflow commits both back to the repository after every
+# run, which is what makes them survive the ephemeral GitHub Actions runner —
+# the streak, and the promise that the 14:00/18:00/22:00 runs do not repeat the
+# morning briefing. Everything else in this directory stays local.
 # (The directory itself must NOT be ignored wholesale — git cannot re-include a
 # file inside an ignored directory.)
 .assistant_state/*
 !.assistant_state/accountability.json
+!.assistant_state/findings.json
 
 # Test / tooling caches
 .pytest_cache/

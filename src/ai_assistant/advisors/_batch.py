@@ -30,7 +30,7 @@ import re
 from dataclasses import dataclass
 from typing import Dict, List, Sequence
 
-from . import Advisor, BatchSection
+from . import Advisor, BatchSection, is_quiet
 from ..integrations import llm
 
 logger = logging.getLogger(__name__)
@@ -129,10 +129,17 @@ def collect_sections(advisors: Sequence[Advisor]) -> List[BatchSection]:
     An advisor that raises while preparing its section (e.g. a wobbly RSS
     fetch) is simply left out of the batch and later handled by its own
     per-advisor path.
+
+    On an ``incremental`` run the advisors with nothing new to say are left out
+    BEFORE the prompt is built (see :func:`~ai_assistant.advisors.is_quiet`), so
+    their tokens are never spent. When nobody has anything new the section list
+    is empty and :func:`run_batch` makes no model call at all.
     """
     sections: List[BatchSection] = []
     for advisor in advisors:
         try:
+            if is_quiet(advisor):
+                continue
             section = advisor.batch_section()
         except Exception as exc:  # never let one advisor break batching
             logger.warning(

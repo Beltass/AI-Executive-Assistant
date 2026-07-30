@@ -24,6 +24,7 @@ from typing import List, Optional
 from . import Advisor, BatchSection, Briefing
 from ..config import setting
 from ..integrations import llm
+from ..memory import filter_new_items
 from ._llm_base import RICH_BRIEFING_GUIDE
 from ._rss import FeedItem, fetch_feed_items
 
@@ -47,6 +48,9 @@ LLM_CAVEAT = (
 class AiNewsAdvisor(Advisor):
     key = "ai_news"
     title = "Yapay Zeka Haberleri"
+
+    # Its feed is a genuine source of NEW findings between runs.
+    incremental_source = True
 
     def __init__(self) -> None:
         # Feed items are fetched once per run and reused by the batched path.
@@ -89,9 +93,18 @@ class AiNewsAdvisor(Advisor):
         caveat = FEED_CAVEAT if self._items else LLM_CAVEAT
         return self.ok(f"{text.strip()}\n\n{caveat}")
 
+    # -- deduplication ---------------------------------------------------
+    def new_finding_count(self) -> int:
+        return len(self._fetch_items())
+
     # -- helpers ---------------------------------------------------------
     def _fetch_items(self) -> List[FeedItem]:
-        """Fetch the feed once, degrading to an empty list on any error."""
+        """Fetch the feed once, keeping only NOT-YET-REPORTED headlines.
+
+        Degrades to an empty list on any error. Everything that survives the
+        :mod:`ai_assistant.memory` ledger is genuinely new to the user, so the
+        extra runs during the day never repeat the morning's stories.
+        """
         if self._fetched:
             return self._items
         self._fetched = True
@@ -99,10 +112,11 @@ class AiNewsAdvisor(Advisor):
         if not url:
             return self._items
         try:
-            self._items = fetch_feed_items(url, limit=8)
+            fetched = fetch_feed_items(url, limit=8)
         except Exception:
             # Guarded: an unreachable feed falls back to the LLM-only path.
-            self._items = []
+            return self._items
+        self._items = filter_new_items(self.key, fetched)
         return self._items
 
     @staticmethod

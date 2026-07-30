@@ -65,7 +65,7 @@ class _CrashingAdvisor(Advisor):
 
 def test_manager_runs_all_advisors_offline(no_config):
     supervision = OperationsManager().run()
-    assert len(supervision.briefings) == 13
+    assert len(supervision.briefings) == 15
     for b in supervision.briefings:
         assert b.status in {STATUS_OK, STATUS_FAILED, STATUS_SKIPPED}
 
