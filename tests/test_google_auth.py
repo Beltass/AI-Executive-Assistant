@@ -57,3 +57,8 @@ def test_google_checks_skip_without_credentials(no_google, module):
     result = module.check_connection()
     assert result.status == STATUS_SKIPPED
     assert result.detail
+
+
+def test_create_draft_without_credentials_raises(no_google):
+    with pytest.raises(google_auth.GoogleAuthError):
+        gmail.create_draft("Subject", "Body", to="someone@example.com")

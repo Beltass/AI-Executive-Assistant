@@ -37,9 +37,12 @@ from typing import TYPE_CHECKING, Optional
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from google.oauth2.credentials import Credentials
 
-# Read-only scopes: this assistant only ever *reads* from Google services.
+# Google scopes. Calendar and Drive remain read-only; Gmail additionally
+# requests ``gmail.compose`` so the assistant can create drafts (it still
+# never sends mail on its own).
 SCOPES = [
     "https://www.googleapis.com/auth/gmail.readonly",
+    "https://www.googleapis.com/auth/gmail.compose",
     "https://www.googleapis.com/auth/calendar.readonly",
     "https://www.googleapis.com/auth/drive.metadata.readonly",
 ]
