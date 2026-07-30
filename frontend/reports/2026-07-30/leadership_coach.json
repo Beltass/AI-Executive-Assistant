@@ -1,0 +1,15 @@
+{
+  "id": "leadership_coach",
+  "name": "Liderlik Koçu",
+  "emoji": "🧭",
+  "category": "kişisel gelişim",
+  "headline": "Ekibinin haftalık ritmini 20 dakikalık tek bir kontrol toplantısıyla sabitle.",
+  "excerpt": "Bir ekipte \"acil\" kelimesi haftada kaç kez geçiyorsa, takvimde o kadar boşluk vardır. Sabit ritmi olmayan ekipler, planlamadıkları her şeyi eskalasyon yoluyla halleder.",
+  "words": 220,
+  "read_minutes": 1,
+  "generated_at": "2026-07-30T21:38:17+03:00",
+  "generated_at_istanbul": "30.07.2026 21:38",
+  "schema_version": 1,
+  "date": "2026-07-30",
+  "markdown": "**Öne çıkan:** Ekibinin haftalık ritmini 20 dakikalık tek bir kontrol toplantısıyla sabitle.\n\n## Merak uyandıran giriş\n\nBir ekipte \"acil\" kelimesi haftada kaç kez geçiyorsa, takvimde o kadar boşluk\nvardır. Sabit ritmi olmayan ekipler, planlamadıkları her şeyi eskalasyon\nyoluyla halleder.\n\n## Derinlemesine\n\n### 1. Haftalık ritim (Cadence)\n\nAndy Grove'un *High Output Management* kitabındaki \"bir yöneticinin çıktısı,\netkilediği ekiplerin çıktısıdır\" ilkesi burada işler: 20 dakikalık sabit bir\nkontrol toplantısı, haftanın geri kalanındaki 5-6 kesintiyi ortadan kaldırır.\n\n- **Ne zaman:** Pazartesi 09:40, her hafta aynı saat.\n- **Gündem:** 3 sabit soru — neyi bitirdik, neye takıldık, bu hafta neye\n  odaklanıyoruz.\n- **Süre:** 20 dakika, uzatma yok.\n\n### 2. Yaygın hata\n\nToplantıyı \"durum raporu\" hâline getirmek. Rapor yazıyla verilir; toplantı\nyalnızca *takılan* konular içindir.\n\n## Neden işe yarar\n\nÖngörülebilirlik, bilişsel yükü azaltır: ekip bir sonraki karar noktasının ne\nzaman olduğunu bildiğinde araya girme ihtiyacı düşer.\n\n## 📚 Kaynaklar\n\n- [Coursera](https://www.coursera.org) — \"Leading People and Teams\" programı;\n  ritim ve geri bildirim modülleri için.\n- Kitap: *High Output Management* — Andrew S. Grove.\n\n🔎 Bağlantıları açılışta doğrulayın.\n\n## ✅ Bugünün görevi\n\nTakvime önümüzdeki 4 hafta için tekrarlayan 20 dakikalık kontrol toplantısı koy\nve davete yukarıdaki 3 soruyu gündem olarak yaz. Başarı ölçütü: dördü de\ntakvimde ve gündem alanı dolu.\n\n---\n\n_Bu, panonun ilk yayınında görünsün diye hazırlanmış **örnek** bir bölümdür. İlk gerçek brifing çalıştığında yerini alır._"
+}

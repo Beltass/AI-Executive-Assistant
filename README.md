@@ -387,12 +387,44 @@ short supervision line (`Operasyon Yöneticisi: 3 ok, 1 skipped`).
 python -m ai_assistant.daily_digest
 ```
 
-### Slack notifier
+### Report documents (one reading page per advisor)
 
-`ai_assistant.notifiers.slack_notifier` builds the digest and posts it to Slack
-via an Incoming Webhook (`SLACK_WEBHOOK_URL`) or a bot token
-(`SLACK_BOT_TOKEN` + `SLACK_CHANNEL`, `chat.postMessage`). With neither set it
+Fifteen advisors writing 300-500 words each used to arrive as ONE Slack message.
+That is unreadable on a phone, so the run is now split apart.
+`ai_assistant.reports` writes every successful section as its own document:
+
+```
+frontend/reports/index.json                       # archive, newest day first
+frontend/reports/2026-07-31/index.json            # that day's cards
+frontend/reports/2026-07-31/leadership_coach.json # one advisor's full report
+```
+
+The dashboard renders those as typeset, mobile-first reading pages behind a
+hash router (`#/rapor/2026-07-31/leadership_coach`). An `incremental` run merges
+into the day rather than replacing it, and days older than
+`REPORTS_RETENTION_DAYS` (default 30) are pruned so the repository cannot grow
+without bound.
+
+**Privacy.** The dashboard is PUBLIC. An advisor whose section can contain
+personal data sets `private = True` (today: the Gmail/Calendar
+`Gün Başı Operasyon Brifingi`). Its content is never written to
+`frontend/reports/` — it is delivered inline in Slack instead. The rule is
+enforced twice, by the flag and by a hard-coded key list, and it has its own
+test.
+
+### Slack notifier (a compact index, not the briefing)
+
+`ai_assistant.notifiers.slack_notifier` publishes the report documents and then
+posts a short **Block Kit** index to Slack: a date header, one context line with
+the run summary, and ONE line per advisor — emoji, name, the advisor's own
+`**Öne çıkan:**` headline and a `📄 Tam rapor` link to its document. Private
+sections travel inline, because they have no public link to point at. Delivery
+is via an Incoming Webhook (`SLACK_WEBHOOK_URL`) or a bot token
+(`SLACK_BOT_TOKEN` + `SLACK_CHANNEL`, `chat.postMessage`); with neither set it
 reports `skipped` and exits `0`.
+
+`DASHBOARD_BASE_URL` says where those links point (default:
+<https://beltass.github.io/AI-Executive-Assistant/>).
 
 ```bash
 python -m ai_assistant.notifiers.slack_notifier
@@ -466,11 +498,13 @@ Any secret you omit falls back to its default (or leaves that advisor/notifier
 ├── .github/workflows/ci.yml       # GitHub Actions: install + pytest
 ├── .github/workflows/daily-briefing.yml  # scheduled Slack daily digest
 ├── .github/workflows/pages.yml    # publishes the dashboard to GitHub Pages
-├── frontend/                      # the live agent dashboard (static site)
+├── frontend/                      # dashboard + report reading pages (static)
 │   ├── index.html                 # Turkish UI, no framework, no build step
-│   ├── styles.css                 # dark-first, mobile-first
-│   ├── app.js                     # reads status.json, refreshes every 60 s
-│   └── status.json                # written by every briefing run
+│   ├── styles.css                 # dark-first, mobile-first, reading type
+│   ├── markdown.js                # small, SAFE markdown → HTML renderer
+│   ├── app.js                     # data + hash router, refreshes every 60 s
+│   ├── status.json                # run status, written by every briefing run
+│   └── reports/                   # per-advisor documents, last 30 days
 ├── src/ai_assistant/
 │   ├── __init__.py
 │   ├── config.py                  # loads .env, defines integration specs
@@ -478,6 +512,7 @@ Any secret you omit falls back to its default (or leaves that advisor/notifier
 │   ├── operations_manager.py      # supervising agent over the advisors
 │   ├── daily_digest.py            # build_digest() + CLI entrypoint
 │   ├── status_report.py           # writes frontend/status.json for the dashboard
+│   ├── reports.py                 # writes frontend/reports/ (public sections only)
 │   ├── advisors/
 │   │   ├── __init__.py            # Advisor/Briefing base + discovery
 │   │   ├── _llm_base.py           # shared LLM persona base + rich guide
@@ -501,7 +536,7 @@ Any secret you omit falls back to its default (or leaves that advisor/notifier
 │   ├── memory.py                  # findings ledger (dedup across runs)
 │   ├── notifiers/
 │   │   ├── __init__.py
-│   │   └── slack_notifier.py      # webhook / chat.postMessage delivery
+│   │   └── slack_notifier.py      # compact Block Kit index → Slack
 │   └── integrations/
 │       ├── __init__.py            # CheckResult + status constants
 │       ├── _common.py             # shared HTTP helpers
@@ -521,8 +556,14 @@ Any secret you omit falls back to its default (or leaves that advisor/notifier
     ├── test_batch.py
     ├── test_operations_manager.py
     ├── test_status_report.py
+    ├── test_reports.py             # report documents + PRIVACY assertions
+    ├── test_frontend_markdown.py   # the dashboard renderer, under node
     └── test_slack_notifier.py
 ```
+
+`scripts/seed_dashboard.py` writes a sample set of report documents offline (no
+network, no model) so a freshly published dashboard has something true to
+render.
 
 ## Live dashboard
 
@@ -537,6 +578,10 @@ It contains **no briefing content** — only statuses, reasons and character
 counts — because the repository is public. Reasons are sanitised for API keys
 on top of the redaction the LLM layer already does.
 
+Alongside it, `frontend/reports/` carries the readable per-advisor documents
+(see above) — that is the part with actual briefing text in it, minus every
+`private` advisor.
+
 Two hosts, no build step in either:
 
 - **Vercel** — the connected project's root directory is `frontend`, so the
@@ -545,6 +590,28 @@ Two hosts, no build step in either:
   and asks GitHub to enable Pages on its first run. If that is not permitted,
   do it by hand once: **Settings → Pages → Source: GitHub Actions**. Either way
   the dashboard then lives at <https://beltass.github.io/AI-Executive-Assistant/>.
+
+#### Why the live dashboard used to go stale
+
+The briefing commits its data back to `main`, and that commit reached the
+repository and stopped there: the published site kept serving an older build,
+so the dashboard showed an old run while the file in git was already fresh. Two
+independent causes, both real:
+
+1. the commit message carried `[skip ci]`, which skips **every** workflow for
+   that push — including the Pages deploy. It is gone.
+2. more fundamentally, a push made with the default `GITHUB_TOKEN` never
+   triggers another workflow run. No commit message can change that.
+
+So `pages.yml` now also listens for the `Daily Briefing` **workflow** finishing
+(`workflow_run`), which is not subject to that rule and fires after the new
+files are already on `main`. No loop is possible: `pages.yml` only reads and
+publishes, and `daily-briefing.yml` is triggered solely by `schedule` and
+`workflow_dispatch`.
+
+The page defends itself too: `status.json` is fetched with a cache-buster, the
+run timestamp is shown at the top, and data older than ~12 hours raises a
+"veri eski görünüyor" banner instead of quietly looking current.
 
 See [`frontend/README.md`](frontend/README.md) for details and local preview.
 

@@ -1,4 +1,4 @@
-"""Slack notifier — deliver the daily digest to Slack.
+"""Slack notifier — deliver a compact briefing INDEX to Slack.
 
 Two delivery modes are supported, in priority order:
 
@@ -7,10 +7,32 @@ Two delivery modes are supported, in priority order:
 
 If neither is configured the notifier is ``skipped`` (never crashes).
 
+WHAT GOES TO SLACK
+------------------
+
+Not the briefing. Fifteen advisors writing 300-500 words each used to arrive as
+ONE message, which is unreadable on a phone. Slack now carries a short, scannable
+**index** built with Block Kit:
+
+* a date header and one context line with the run summary;
+* ONE line per advisor — emoji, name, the advisor's own "öne çıkan bulgu"
+  headline, and a ``📄 Tam rapor`` link to that advisor's document on the
+  dashboard;
+* the PRIVATE sections (Gmail/Calendar) inline, because those must never be
+  published to the public dashboard and therefore have no link to point at.
+
+The documents themselves are written by :mod:`ai_assistant.reports` into
+``frontend/reports/<date>/<advisor>.json`` and rendered as mobile-first reading
+pages by the static dashboard. ``DASHBOARD_BASE_URL`` says where that dashboard
+is published (default: the GitHub Pages URL).
+
+WHEN IT SENDS
+-------------
+
 The daily ``full`` briefing always goes out. An ``incremental`` run (see
 ``BRIEFING_MODE``) only posts when at least one advisor found something the user
 has not been told yet — otherwise the channel stays quiet and only the dashboard
-status file is written (``SKIP_SLACK_WHEN_NOTHING_NEW``, default true). After a
+files are written (``SKIP_SLACK_WHEN_NOTHING_NEW``, default true). After a
 successful delivery — and only then — the delivered findings are written to the
 :mod:`ai_assistant.memory` ledger so the next run does not repeat them.
 
@@ -23,10 +45,13 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import sys
 import time
+from datetime import datetime
+from typing import Any, List, Optional, Tuple
 
-from .. import memory
+from .. import memory, reports
 from ..config import MODE_INCREMENTAL, skip_slack_when_nothing_new
 from ..daily_digest import Digest, build_digest
 from ..integrations import (
@@ -36,18 +61,37 @@ from ..integrations import (
     STATUS_SKIPPED,
 )
 from ..integrations._common import failed, http_post, ok, skipped_reason
+from ..reports import Publication, PublishedReport
+from ..status_report import ISTANBUL
 
 WEBHOOK_ENV = "SLACK_WEBHOOK_URL"
 BOT_TOKEN_ENV = "SLACK_BOT_TOKEN"
 CHANNEL_ENV = "SLACK_CHANNEL"
 POST_MESSAGE_URL = "https://slack.com/api/chat.postMessage"
 
+#: Where the published dashboard lives, so the Slack index can link into it.
+DASHBOARD_BASE_URL_ENV = "DASHBOARD_BASE_URL"
+DEFAULT_DASHBOARD_BASE_URL = "https://beltass.github.io/AI-Executive-Assistant/"
+
 NAME = "Slack Notifier"
 
+# --- Block Kit limits -------------------------------------------------------
+# Slack rejects the whole message if any of these is exceeded, and a rejected
+# briefing is a lost briefing, so every builder below clamps itself.
+MAX_BLOCKS = 45  # Slack's hard limit is 50; leave room for the footer.
+MAX_SECTION_CHARS = 2900  # Slack's hard limit is 3000.
+MAX_HEADER_CHARS = 145  # Slack's hard limit is 150.
+MAX_FALLBACK_CHARS = 300  # The notification preview; short on purpose.
+#: How many chunks one private section may occupy before it is cut short.
+MAX_PRIVATE_CHUNKS = 3
 
-def _post_webhook(url: str, text: str) -> CheckResult:
+
+def _post_webhook(url: str, text: str, blocks: Optional[list] = None) -> CheckResult:
+    payload = {"text": text}
+    if blocks:
+        payload["blocks"] = blocks
     try:
-        resp = http_post(url, json={"text": text})
+        resp = http_post(url, json=payload)
     except Exception as exc:
         return failed(NAME, f"request error (webhook): {exc}")
     if resp.is_success:
@@ -56,12 +100,17 @@ def _post_webhook(url: str, text: str) -> CheckResult:
     return failed(NAME, f"webhook — HTTP {resp.status_code}: {snippet}")
 
 
-def _post_bot(token: str, channel: str, text: str) -> CheckResult:
+def _post_bot(
+    token: str, channel: str, text: str, blocks: Optional[list] = None
+) -> CheckResult:
+    payload = {"channel": channel, "text": text}
+    if blocks:
+        payload["blocks"] = blocks
     try:
         resp = http_post(
             POST_MESSAGE_URL,
             headers={"Authorization": f"Bearer {token}"},
-            json={"channel": channel, "text": text},
+            json=payload,
         )
     except Exception as exc:
         return failed(NAME, f"request error (chat.postMessage): {exc}")
@@ -74,16 +123,20 @@ def _post_bot(token: str, channel: str, text: str) -> CheckResult:
     return failed(NAME, f"chat.postMessage error: {data.get('error', 'unknown')}")
 
 
-def send_message(text: str) -> CheckResult:
-    """Send a plain-text message to Slack using whichever mode is configured."""
+def send_message(text: str, blocks: Optional[list] = None) -> CheckResult:
+    """Send a message to Slack using whichever mode is configured.
+
+    ``text`` is always sent: Block Kit messages need it as the notification /
+    accessibility fallback. ``blocks`` is what actually renders in the channel.
+    """
     webhook = os.getenv(WEBHOOK_ENV)
     if webhook:
-        return _post_webhook(webhook, text)
+        return _post_webhook(webhook, text, blocks)
 
     token = os.getenv(BOT_TOKEN_ENV)
     channel = os.getenv(CHANNEL_ENV)
     if token and channel:
-        return _post_bot(token, channel, text)
+        return _post_bot(token, channel, text, blocks)
 
     return skipped_reason(
         NAME,
@@ -91,10 +144,217 @@ def send_message(text: str) -> CheckResult:
     )
 
 
+# --- the compact index ------------------------------------------------------
+
+
+def dashboard_base_url() -> str:
+    """Public base URL of the dashboard, always with a trailing slash."""
+    raw = (os.getenv(DASHBOARD_BASE_URL_ENV) or "").strip() or DEFAULT_DASHBOARD_BASE_URL
+    return raw if raw.endswith("/") else raw + "/"
+
+
+def report_url(report: PublishedReport, base: str = "") -> str:
+    """Deep link to one advisor's document on the dashboard."""
+    return (base or dashboard_base_url()) + report.route
+
+
+_MD_BOLD = re.compile(r"\*\*(.+?)\*\*", re.DOTALL)
+_MD_HEADING = re.compile(r"^\s{0,3}#{1,6}\s*", re.MULTILINE)
+_MD_LINK = re.compile(r"\[([^\]]*)\]\((https?://[^)\s]+)\)")
+
+
+def to_mrkdwn(text: str) -> str:
+    """Translate the advisors' Markdown into Slack's ``mrkdwn`` dialect.
+
+    Slack uses ``*bold*`` (not ``**bold**``), ``<url|label>`` links and has no
+    headings at all. Everything else (bullets, ``_italic_``, ``code``) already
+    matches closely enough.
+    """
+    out = _MD_LINK.sub(r"<\2|\1>", str(text or ""))
+    out = _MD_BOLD.sub(r"*\1*", out)
+    out = _MD_HEADING.sub("", out)
+    return out.strip()
+
+
+def _escape_header(text: str) -> str:
+    """Header blocks are plain_text: no markup, and a hard length cap."""
+    flat = " ".join(str(text or "").split())
+    return flat[: MAX_HEADER_CHARS - 1] + "…" if len(flat) > MAX_HEADER_CHARS else flat
+
+
+def _section(text: str) -> dict:
+    return {
+        "type": "section",
+        "text": {"type": "mrkdwn", "text": text[:MAX_SECTION_CHARS]},
+    }
+
+
+def _context(text: str) -> dict:
+    return {
+        "type": "context",
+        "elements": [{"type": "mrkdwn", "text": text[:MAX_SECTION_CHARS]}],
+    }
+
+
+def _chunks(text: str, size: int = MAX_SECTION_CHARS) -> List[str]:
+    """Split a long body on paragraph boundaries so no block exceeds ``size``."""
+    body = str(text or "").strip()
+    if not body:
+        return []
+    parts: List[str] = []
+    current = ""
+    for paragraph in body.split("\n\n"):
+        candidate = f"{current}\n\n{paragraph}" if current else paragraph
+        if len(candidate) <= size:
+            current = candidate
+            continue
+        if current:
+            parts.append(current)
+        while len(paragraph) > size:
+            parts.append(paragraph[:size])
+            paragraph = paragraph[size:]
+        current = paragraph
+    if current:
+        parts.append(current)
+    return parts
+
+
+def _report_line(report: PublishedReport, base: str) -> dict:
+    """One advisor = one section block: emoji, name, headline, link."""
+    headline = to_mrkdwn(report.headline) or "_(özet çıkarılamadı)_"
+    return _section(
+        f"{report.emoji} *{report.name}*\n"
+        f"{headline}\n"
+        f"<{report_url(report, base)}|📄 Tam rapor> · ~{report.read_minutes} dk okuma"
+    )
+
+
+def _private_blocks(briefing: Any) -> List[dict]:
+    """A private advisor's FULL section, inline — it has no public link.
+
+    This is the Gmail/Calendar briefing: personal data that must never reach the
+    public dashboard, so Slack is the only place it can live.
+    """
+    body = to_mrkdwn(str(getattr(briefing, "text", "") or "").strip())
+    if not body:
+        return []
+    title = str(getattr(briefing, "title", "") or "Özel bölüm")
+    blocks: List[dict] = [
+        _section(f"🔒 *{title}*\n_Kişisel veri — panoya yazılmaz, yalnızca burada._")
+    ]
+    parts = _chunks(body)
+    for part in parts[:MAX_PRIVATE_CHUNKS]:
+        blocks.append(_section(part))
+    if len(parts) > MAX_PRIVATE_CHUNKS:
+        blocks.append(_context("… bölümün kalanı uzunluk sınırı nedeniyle kısaltıldı."))
+    return blocks
+
+
+def build_index_message(
+    supervision: Any,
+    publication: Publication,
+    base_url: str = "",
+    now: Optional[datetime] = None,
+) -> Tuple[str, List[dict]]:
+    """Build the compact Slack index. Returns ``(fallback_text, blocks)``.
+
+    Never raises and never grows past Slack's limits: the per-advisor lines are
+    trimmed to fit :data:`MAX_BLOCKS` and every body is chunked to fit
+    :data:`MAX_SECTION_CHARS`.
+    """
+    base = base_url or dashboard_base_url()
+    moment = now or datetime.now(ISTANBUL)
+    day_label = moment.astimezone(ISTANBUL).strftime("%d.%m.%Y")
+
+    briefings = list(getattr(supervision, "briefings", []) or [])
+    incremental = str(getattr(supervision, "mode", "")) == MODE_INCREMENTAL
+    counts = dict(getattr(supervision, "counts", {}) or {})
+    ran = int(counts.get(STATUS_OK, 0) or 0)
+    broke = int(counts.get(STATUS_FAILED, 0) or 0)
+    quiet = [b for b in briefings if getattr(b, "nothing_new", False)]
+    published = list(publication.reports if publication else [])
+    private = [
+        b
+        for b in briefings
+        if reports.is_private(b) and str(getattr(b, "status", "")) == STATUS_OK
+    ]
+
+    heading = "🔄 Ara Brifing" if incremental else "🗓️ Günlük Brifing"
+    summary_bits = [
+        f"{ran} ajan çalıştı",
+        f"{len(published)} rapor hazır",
+    ]
+    new_findings = int(getattr(supervision, "new_findings", 0) or 0)
+    if new_findings:
+        summary_bits.append(f"🆕 {new_findings} yeni bulgu")
+    if broke:
+        summary_bits.append(f"⚠️ {broke} bölüm hazırlanamadı")
+    if quiet:
+        summary_bits.append(f"🟰 {len(quiet)} ajanda yeni yok")
+
+    blocks: List[dict] = [
+        {
+            "type": "header",
+            "text": {
+                "type": "plain_text",
+                "text": _escape_header(f"{heading} — {day_label}"),
+                "emoji": True,
+            },
+        },
+        _context(" · ".join(summary_bits)),
+        {"type": "divider"},
+    ]
+
+    for report in published:
+        if len(blocks) >= MAX_BLOCKS - 4:
+            blocks.append(
+                _context(
+                    f"… ve {len(published) - (len(blocks) - 3)} rapor daha — "
+                    f"hepsi panoda."
+                )
+            )
+            break
+        blocks.append(_report_line(report, base))
+
+    for briefing in private:
+        if len(blocks) >= MAX_BLOCKS - 2:
+            break
+        blocks.append({"type": "divider"})
+        for block in _private_blocks(briefing):
+            if len(blocks) >= MAX_BLOCKS - 1:
+                break
+            blocks.append(block)
+
+    if not published and not private:
+        blocks.append(
+            _section(
+                "_Bu çalıştırmada yayınlanacak yeni bir bölüm çıkmadı._"
+                if incremental
+                else "_Bu çalıştırmada hiçbir bölüm hazırlanamadı; panodaki "
+                "durum sayfasında ayrıntılar var._"
+            )
+        )
+
+    blocks.append({"type": "divider"})
+    blocks.append(_context(f"<{base}|📊 Tüm raporlar ve pano> · rapor arşivi 30 gün"))
+
+    fallback = f"{heading} — {day_label}: {len(published)} rapor hazır. {base}"
+    return fallback[:MAX_FALLBACK_CHARS], blocks[:MAX_BLOCKS]
+
+
+def send_briefing_index(
+    supervision: Any, publication: Publication, base_url: str = ""
+) -> CheckResult:
+    """Post the compact index for an already-published run."""
+    text, blocks = build_index_message(supervision, publication, base_url=base_url)
+    return send_message(text, blocks=blocks)
+
+
 def send_daily_digest() -> CheckResult:
-    """Build the daily digest and post it to Slack."""
+    """Run the team, publish the documents and post the compact Slack index."""
     digest = build_digest()
-    return send_message(digest.text)
+    publication = reports.publish(digest.supervision)
+    return send_briefing_index(digest.supervision, publication)
 
 
 NOTHING_NEW_DETAIL = "artımlı çalıştırma — yeni bulgu yok, mesaj gönderilmedi"
@@ -204,6 +464,32 @@ def _write_status_report(digest: Digest, result: CheckResult, started: float) ->
         print(f"Durum raporu yazılamadı: {exc}")
 
 
+def _publish_reports(digest: Digest) -> Publication:
+    """Write this run's per-advisor documents for the dashboard.
+
+    Best-effort, exactly like the status file: a read-only checkout costs the
+    dashboard a day, never the briefing. Prints only counts and paths — never a
+    report body, because the workflow log is public.
+    """
+    try:
+        publication = reports.publish(digest.supervision)
+    except Exception as exc:  # pragma: no cover - publish already guards itself
+        print(f"Rapor belgeleri yazılamadı: {exc}")
+        return Publication()
+    print(
+        f"Yayınlanan rapor belgesi: {len(publication.reports)} "
+        f"({publication.directory or '—'})"
+    )
+    if publication.private:
+        print(
+            f"Panoya yazılmayan özel bölüm: {len(publication.private)} "
+            "(yalnızca Slack)"
+        )
+    if publication.pruned:
+        print(f"Arşivden silinen eski gün: {', '.join(publication.pruned)}")
+    return publication
+
+
 def main() -> int:
     """CLI entrypoint. Builds + sends the digest. Returns the exit code."""
     _configure_logging()
@@ -211,8 +497,12 @@ def main() -> int:
     digest = build_digest()
     _print_run_report(digest)
 
+    # Documents first: the dashboard must be up to date even on a quiet run
+    # where Slack deliberately stays silent.
+    publication = _publish_reports(digest)
+
     if should_send(digest):
-        result = send_message(digest.text)
+        result = send_briefing_index(digest.supervision, publication)
     else:
         # Quiet incremental run: no message, but the dashboard still learns the
         # run happened (status.json is written below either way).

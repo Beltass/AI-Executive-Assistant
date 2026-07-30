@@ -121,12 +121,16 @@ _SECRET_PATTERNS = (
 REDACTED = "***"
 
 
-def sanitize(text: Any) -> str:
+def sanitize(text: Any, limit: int = MAX_DETAIL_CHARS) -> str:
     """Return ``text`` with every known secret removed and its length capped.
 
     Belt and braces: the LLM layer already redacts its own key from the errors
     it raises, but this file is committed to a PUBLIC repository, so every
     string that reaches it is scrubbed again here.
+
+    ``limit`` caps the result; pass ``0`` to keep the full length, which is what
+    :mod:`ai_assistant.reports` needs when it scrubs a whole report line by line
+    (a report must stay readable, only its secrets must go).
     """
     if not text:
         return ""
@@ -141,8 +145,8 @@ def sanitize(text: Any) -> str:
     for pattern in _SECRET_PATTERNS:
         cleaned = pattern.sub(REDACTED, cleaned)
 
-    if len(cleaned) > MAX_DETAIL_CHARS:
-        cleaned = cleaned[:MAX_DETAIL_CHARS].rstrip() + "…"
+    if limit and len(cleaned) > limit:
+        cleaned = cleaned[:limit].rstrip() + "…"
     return cleaned
 
 

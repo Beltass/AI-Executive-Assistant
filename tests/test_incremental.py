@@ -215,7 +215,7 @@ def test_quiet_incremental_can_be_forced_to_send(blank_env, monkeypatch):
 def _capture_sends(monkeypatch):
     sent = []
 
-    def fake_send(text):
+    def fake_send(text, blocks=None):
         sent.append(text)
         from ai_assistant.integrations._common import ok
 

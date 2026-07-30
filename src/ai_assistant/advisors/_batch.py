@@ -76,6 +76,12 @@ def last_outcome() -> BatchOutcome:
 # Marker the model must emit before each section; also what we split on.
 SECTION_MARKER = "### SECTION:"
 
+# The bolded one-liner every section must open with. The compact Slack index
+# lifts it straight out of the section (see
+# :func:`ai_assistant.reports.extract_headline`), which is what turns the old
+# wall of text into fifteen scannable lines.
+HEADLINE_LABEL = "Öne çıkan"
+
 # Tolerant matcher: accepts any heading depth, optional bold/brackets and
 # trailing text, so a slightly creative model response still parses.
 _SECTION_RE = re.compile(
@@ -162,7 +168,11 @@ def build_batch_prompt(sections: Sequence[BatchSection]) -> str:
         "ÇIKTI SÖZLEŞMESİ (kesinlikle uy):\n"
         f"- Her bölüme tam olarak şu satırla başla: `{SECTION_MARKER} <bölüm_kimliği>`\n"
         "- Bölüm kimliğini aynen kopyala, çevirme, değiştirme.\n"
-        "- Marker satırından sonra o bölümün içeriğini yaz.\n"
+        "- Marker satırından sonra o bölümün İLK satırı şu olmalı: "
+        f"`**{HEADLINE_LABEL}:** <tek cümlelik ana bulgu>` — en fazla 200 "
+        "karakter, kendi başına anlaşılır. Bu satır Slack'te o bölümün "
+        "başlığı olarak kullanılıyor, o yüzden atlanamaz.\n"
+        "- Bu satırdan sonra bölümün asıl içeriğini yaz.\n"
         f"- Bölümleri şu sırayla ve yalnızca şu kimliklerle ver: {keys}\n"
         "- Marker satırlarının dışında başka bir '### SECTION:' ifadesi kullanma.\n"
         "- Bölümler arasında özet, giriş veya kapanış metni ekleme.\n"

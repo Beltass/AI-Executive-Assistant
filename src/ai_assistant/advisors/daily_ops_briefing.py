@@ -114,6 +114,13 @@ class DailyOpsBriefingAdvisor(Advisor):
     key = "daily_ops_briefing"
     title = "Gün Başı Operasyon Brifingi"
 
+    # PERSONAL DATA. This is the only advisor that reads the user's own mail
+    # and calendar, so its section carries real names, subjects and meetings.
+    # The dashboard is PUBLIC (public repo, GitHub Pages + Vercel), so this
+    # section is never written to ``frontend/reports/``: it is delivered inline
+    # in the Slack message instead (see :mod:`ai_assistant.reports`).
+    private = True
+
     def __init__(self) -> None:
         self._facts: Optional[OpsFacts] = None
         self._error: str = ""

@@ -2,6 +2,14 @@ name: CI
 
 on:
   push:
+    # The Daily Briefing job commits its run artefacts back to `main` several
+    # times a day. Those commits contain no code, so re-running the test matrix
+    # on them is pure noise. Pull requests are unaffected (the `pull_request`
+    # trigger below has no filter), so nothing can merge without a green suite.
+    paths-ignore:
+      - "frontend/status.json"
+      - "frontend/reports/**"
+      - ".assistant_state/**"
   pull_request:
 
 jobs:

@@ -4,9 +4,9 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="color-scheme" content="dark light" />
-    <meta name="description" content="AI Executive Assistant danışman ekibinin günlük çalışma panosu." />
+    <meta name="description" content="AI Executive Assistant danışman ekibinin günlük raporları ve çalışma panosu." />
     <meta name="theme-color" content="#1a1a19" />
-    <title>AI Executive Assistant — Ajan Panosu</title>
+    <title>AI Executive Assistant — Günlük Raporlar</title>
     <!-- Everything is local: no CDN, no font download, no build step. The page
          must render instantly on a phone and keep working offline. -->
     <link rel="stylesheet" href="./styles.css" />
@@ -21,7 +21,10 @@
     <header class="topbar">
       <div class="topbar__inner">
         <div class="topbar__titles">
-          <h1>AI Executive Assistant <span aria-hidden="true">—</span> Ajan Panosu</h1>
+          <h1>
+            <a class="topbar__home" href="#/">AI Executive Assistant</a>
+            <span aria-hidden="true">—</span> Günlük Raporlar
+          </h1>
           <p class="topbar__sub">
             <span id="last-run-label">Yükleniyor…</span>
             <span class="dot" aria-hidden="true">·</span>
@@ -39,143 +42,218 @@
       </div>
     </header>
 
+    <!-- The one thing a stale dashboard must say out loud, before anything
+         else on the page: this data is old. -->
+    <div id="stale-banner" class="banner" role="status" aria-live="polite" hidden>
+      <span id="stale-text"></span>
+    </div>
+
     <main id="main" class="wrap">
-      <!-- Loading / empty / error take over the whole page; the real content
-           stays hidden until there is something true to show. -->
-      <section id="state" class="state" hidden>
-        <div class="state__icon" id="state-icon" aria-hidden="true">⏳</div>
-        <h2 id="state-title">Yükleniyor…</h2>
-        <p id="state-text"></p>
-      </section>
+      <!-- ============================ PANO ============================ -->
+      <div id="view-dashboard">
+        <!-- When the briefing last ran, spelled out, at the top. -->
+        <p id="stamp" class="stamp">
+          <span class="stamp__label">Son brifing</span>
+          <strong id="stamp-value" class="stamp__value">–</strong>
+          <span id="stamp-relative" class="stamp__rel"></span>
+        </p>
 
-      <div id="content" hidden>
-        <!-- Summary strip -->
-        <section class="tiles" aria-label="Çalıştırma özeti">
-          <div class="tile">
-            <span class="tile__label">Çalıştırma türü</span>
-            <span class="tile__value tile__value--sm">
-              <span id="mode-badge" class="badge">–</span>
-            </span>
-            <span class="tile__note" id="mode-note"></span>
+        <!-- ---------------------- 📄 Raporlar ---------------------- -->
+        <section aria-labelledby="reports-title" class="reports">
+          <div class="section-head">
+            <h2 id="reports-title"><span aria-hidden="true">📄</span> Raporlar</h2>
+            <a class="btn btn--ghost" href="#/raporlar">🗂️ Arşiv</a>
           </div>
-          <div class="tile">
-            <span class="tile__label">Toplam ajan</span>
-            <span class="tile__value" id="stat-total">–</span>
-          </div>
-          <div class="tile">
-            <span class="tile__label"><span aria-hidden="true">🆕</span> Yeni bulgu</span>
-            <span class="tile__value" id="stat-new">–</span>
-          </div>
-          <div class="tile tile--good">
-            <span class="tile__label"><span aria-hidden="true">✅</span> Çalıştı</span>
-            <span class="tile__value" id="stat-ok">–</span>
-          </div>
-          <div class="tile tile--critical">
-            <span class="tile__label"><span aria-hidden="true">⚠️</span> Hata</span>
-            <span class="tile__value" id="stat-failed">–</span>
-          </div>
-          <div class="tile tile--muted">
-            <span class="tile__label"><span aria-hidden="true">⏭️</span> Atlandı</span>
-            <span class="tile__value" id="stat-skipped">–</span>
-          </div>
-          <div class="tile">
-            <span class="tile__label">Süre</span>
-            <span class="tile__value" id="stat-duration">–</span>
-          </div>
-          <div class="tile tile--wide">
-            <span class="tile__label">Slack teslimi</span>
-            <span class="tile__value tile__value--sm">
-              <span id="slack-badge" class="badge">–</span>
-            </span>
-            <span class="tile__note" id="slack-detail"></span>
-          </div>
+          <p class="section-note" id="reports-note">Yükleniyor…</p>
+          <div class="report-grid" id="report-grid"></div>
+          <p class="empty-filter" id="reports-empty" hidden>
+            Henüz yayınlanmış rapor yok.
+          </p>
         </section>
 
-        <!-- Accountability + run engine -->
-        <section class="panels">
-          <article class="panel panel--streak" aria-label="Hesap sorucu koç">
-            <h2 class="panel__title">Hesap Sorucu Koç</h2>
-            <div class="streak">
-              <div class="streak__flame" aria-hidden="true">🔥</div>
-              <div>
-                <div class="streak__value"><span id="streak-value">0</span> <small>gün</small></div>
-                <div class="streak__label">üst üste görev serisi</div>
-              </div>
+        <!-- Loading / empty / error take over the rest of the page; the run
+             detail stays hidden until there is something true to show. -->
+        <section id="state" class="state" hidden>
+          <div class="state__icon" id="state-icon" aria-hidden="true">⏳</div>
+          <h2 id="state-title">Yükleniyor…</h2>
+          <p id="state-text"></p>
+        </section>
+
+        <div id="content" hidden>
+          <!-- Summary strip -->
+          <section class="tiles" aria-label="Çalıştırma özeti">
+            <div class="tile">
+              <span class="tile__label">Çalıştırma türü</span>
+              <span class="tile__value tile__value--sm">
+                <span id="mode-badge" class="badge">–</span>
+              </span>
+              <span class="tile__note" id="mode-note"></span>
             </div>
-            <p class="panel__row">
-              <span>Bugünün görev sayısı</span>
-              <strong id="task-count">0</strong>
-            </p>
-            <p class="panel__note" id="streak-note"></p>
-          </article>
+            <div class="tile">
+              <span class="tile__label">Toplam ajan</span>
+              <span class="tile__value" id="stat-total">–</span>
+            </div>
+            <div class="tile">
+              <span class="tile__label"><span aria-hidden="true">🆕</span> Yeni bulgu</span>
+              <span class="tile__value" id="stat-new">–</span>
+            </div>
+            <div class="tile tile--good">
+              <span class="tile__label"><span aria-hidden="true">✅</span> Çalıştı</span>
+              <span class="tile__value" id="stat-ok">–</span>
+            </div>
+            <div class="tile tile--critical">
+              <span class="tile__label"><span aria-hidden="true">⚠️</span> Hata</span>
+              <span class="tile__value" id="stat-failed">–</span>
+            </div>
+            <div class="tile tile--muted">
+              <span class="tile__label"><span aria-hidden="true">⏭️</span> Atlandı</span>
+              <span class="tile__value" id="stat-skipped">–</span>
+            </div>
+            <div class="tile">
+              <span class="tile__label">Süre</span>
+              <span class="tile__value" id="stat-duration">–</span>
+            </div>
+            <div class="tile tile--wide">
+              <span class="tile__label">Slack teslimi</span>
+              <span class="tile__value tile__value--sm">
+                <span id="slack-badge" class="badge">–</span>
+              </span>
+              <span class="tile__note" id="slack-detail"></span>
+            </div>
+          </section>
 
-          <article class="panel" aria-label="Çalıştırma motoru">
-            <h2 class="panel__title">Çalıştırma motoru</h2>
-            <p class="panel__row">
-              <span>Toplu tek çağrı</span>
-              <strong id="batch-used">–</strong>
-            </p>
-            <p class="panel__row">
-              <span>Tek çağrıda üretilen bölüm</span>
-              <strong id="batch-sections">–</strong>
-            </p>
-            <p class="panel__row">
-              <span>Model</span>
-              <strong id="batch-model">–</strong>
-            </p>
-            <p class="panel__note">
-              Tüm danışman ekibi ücretsiz kotaya sığsın diye tek bir model
-              çağrısıyla servis edilir; kapsanmayan bölümler kendi yoluna düşer.
-            </p>
-          </article>
+          <!-- Accountability + run engine -->
+          <section class="panels">
+            <article class="panel panel--streak" aria-label="Hesap sorucu koç">
+              <h2 class="panel__title">Hesap Sorucu Koç</h2>
+              <div class="streak">
+                <div class="streak__flame" aria-hidden="true">🔥</div>
+                <div>
+                  <div class="streak__value"><span id="streak-value">0</span> <small>gün</small></div>
+                  <div class="streak__label">üst üste görev serisi</div>
+                </div>
+              </div>
+              <p class="panel__row">
+                <span>Bugünün görev sayısı</span>
+                <strong id="task-count">0</strong>
+              </p>
+              <p class="panel__note" id="streak-note"></p>
+            </article>
+
+            <article class="panel" aria-label="Çalıştırma motoru">
+              <h2 class="panel__title">Çalıştırma motoru</h2>
+              <p class="panel__row">
+                <span>Toplu tek çağrı</span>
+                <strong id="batch-used">–</strong>
+              </p>
+              <p class="panel__row">
+                <span>Tek çağrıda üretilen bölüm</span>
+                <strong id="batch-sections">–</strong>
+              </p>
+              <p class="panel__row">
+                <span>Model</span>
+                <strong id="batch-model">–</strong>
+              </p>
+              <p class="panel__note">
+                Tüm danışman ekibi ücretsiz kotaya sığsın diye tek bir model
+                çağrısıyla servis edilir; kapsanmayan bölümler kendi yoluna düşer.
+              </p>
+            </article>
+          </section>
+
+          <!-- Advisor cards -->
+          <section aria-labelledby="advisors-title">
+            <div class="section-head">
+              <h2 id="advisors-title">Danışman ekibi</h2>
+              <div class="filters" id="filters" role="group" aria-label="Kategoriye göre filtrele"></div>
+            </div>
+            <div class="grid" id="advisor-grid"></div>
+            <p class="empty-filter" id="empty-filter" hidden>Bu kategoride ajan yok.</p>
+          </section>
+
+          <!-- History -->
+          <section aria-labelledby="history-title" class="history">
+            <div class="section-head">
+              <h2 id="history-title">Son çalıştırmalar</h2>
+              <ul class="legend" aria-label="Grafik göstergesi">
+                <li><span class="swatch swatch--ok" aria-hidden="true"></span> Çalıştı</li>
+                <li><span class="swatch swatch--failed" aria-hidden="true"></span> Hata</li>
+                <li><span class="swatch swatch--skipped" aria-hidden="true"></span> Atlandı</li>
+              </ul>
+            </div>
+
+            <figure class="chart-figure">
+              <!-- role="group", not role="img": the bars below are focusable and
+                   must stay reachable by assistive tech; the table underneath is
+                   the equivalent text view. -->
+              <div class="chart" id="chart" role="group" aria-label="Son çalıştırmaların durum dağılımı"></div>
+              <figcaption class="chart-caption" id="chart-caption"></figcaption>
+            </figure>
+
+            <div class="table-wrap">
+              <table class="table">
+                <caption class="visually-hidden">Son çalıştırmaların tablo görünümü</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Zaman</th>
+                    <th scope="col">Sonuç</th>
+                    <th scope="col" class="num">✅</th>
+                    <th scope="col" class="num">⚠️</th>
+                    <th scope="col" class="num">⏭️</th>
+                    <th scope="col" class="num">Süre</th>
+                    <th scope="col">Slack</th>
+                  </tr>
+                </thead>
+                <tbody id="history-body"></tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <!-- ======================= TEK RAPOR (okuma) ======================= -->
+      <div id="view-report" hidden>
+        <nav class="doc-nav" aria-label="Rapor gezinmesi">
+          <a class="btn btn--ghost" href="#/">← Panoya dön</a>
+          <a class="btn btn--ghost" id="doc-back-day" href="#/raporlar">🗂️ O günün raporları</a>
+        </nav>
+        <article class="doc">
+          <header class="doc__head">
+            <div class="doc__emoji" id="doc-emoji" aria-hidden="true">📄</div>
+            <h1 class="doc__title" id="doc-title">Yükleniyor…</h1>
+            <p class="doc__meta" id="doc-meta"></p>
+          </header>
+          <p class="doc__lead" id="doc-lead" hidden></p>
+          <div class="doc__body" id="doc-body"></div>
+          <footer class="doc__foot">
+            <a class="btn btn--ghost" href="#/">← Panoya dön</a>
+          </footer>
+        </article>
+      </div>
+
+      <!-- ============================ ARŞİV ============================ -->
+      <div id="view-archive" hidden>
+        <nav class="doc-nav" aria-label="Arşiv gezinmesi">
+          <a class="btn btn--ghost" href="#/">← Panoya dön</a>
+        </nav>
+        <section class="archive">
+          <h2>🗂️ Rapor arşivi</h2>
+          <p class="section-note" id="archive-note"></p>
+          <div id="archive-list" class="archive-list"></div>
+          <p class="empty-filter" id="archive-empty" hidden>Arşivde henüz gün yok.</p>
         </section>
+      </div>
 
-        <!-- Advisor cards -->
-        <section aria-labelledby="advisors-title">
-          <div class="section-head">
-            <h2 id="advisors-title">Danışman ekibi</h2>
-            <div class="filters" id="filters" role="group" aria-label="Kategoriye göre filtrele"></div>
-          </div>
-          <div class="grid" id="advisor-grid"></div>
-          <p class="empty-filter" id="empty-filter" hidden>Bu kategoride ajan yok.</p>
-        </section>
-
-        <!-- History -->
-        <section aria-labelledby="history-title" class="history">
-          <div class="section-head">
-            <h2 id="history-title">Son çalıştırmalar</h2>
-            <ul class="legend" aria-label="Grafik göstergesi">
-              <li><span class="swatch swatch--ok" aria-hidden="true"></span> Çalıştı</li>
-              <li><span class="swatch swatch--failed" aria-hidden="true"></span> Hata</li>
-              <li><span class="swatch swatch--skipped" aria-hidden="true"></span> Atlandı</li>
-            </ul>
-          </div>
-
-          <figure class="chart-figure">
-            <!-- role="group", not role="img": the bars below are focusable and
-                 must stay reachable by assistive tech; the table underneath is
-                 the equivalent text view. -->
-            <div class="chart" id="chart" role="group" aria-label="Son çalıştırmaların durum dağılımı"></div>
-            <figcaption class="chart-caption" id="chart-caption"></figcaption>
-          </figure>
-
-          <div class="table-wrap">
-            <table class="table">
-              <caption class="visually-hidden">Son çalıştırmaların tablo görünümü</caption>
-              <thead>
-                <tr>
-                  <th scope="col">Zaman</th>
-                  <th scope="col">Sonuç</th>
-                  <th scope="col" class="num">✅</th>
-                  <th scope="col" class="num">⚠️</th>
-                  <th scope="col" class="num">⏭️</th>
-                  <th scope="col" class="num">Süre</th>
-                  <th scope="col">Slack</th>
-                </tr>
-              </thead>
-              <tbody id="history-body"></tbody>
-            </table>
-          </div>
+      <!-- ========================== BİR GÜN =========================== -->
+      <div id="view-day" hidden>
+        <nav class="doc-nav" aria-label="Gün gezinmesi">
+          <a class="btn btn--ghost" href="#/">← Panoya dön</a>
+          <a class="btn btn--ghost" href="#/raporlar">🗂️ Arşiv</a>
+        </nav>
+        <section class="reports">
+          <h2 id="day-title">—</h2>
+          <p class="section-note" id="day-note"></p>
+          <div class="report-grid" id="day-grid"></div>
         </section>
       </div>
     </main>
@@ -197,13 +275,15 @@
         </a>
       </p>
       <p class="footer__note">
-        Bu pano yalnızca <em>durum</em> gösterir: brifing metinleri kişiseldir ve
-        bu depoya hiç yazılmaz.
+        Bu pano <strong>herkese açıktır</strong>. Kişisel veri içerebilecek
+        bölümler (Gmail/Takvim brifingi) buraya <em>hiç</em> yazılmaz; onlar
+        yalnızca Slack'e gider.
       </p>
     </footer>
 
     <div id="tooltip" class="tooltip" role="status" aria-live="polite" hidden></div>
 
+    <script src="./markdown.js"></script>
     <script src="./app.js"></script>
   </body>
 </html>

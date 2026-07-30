@@ -58,6 +58,9 @@ class Briefing:
             finding-driven advisors. ``None`` means "not applicable".
         nothing_new: True for the compact "yeni bulgu yok" section an
             incremental run produces when an advisor has nothing to add.
+        private: True when this section may contain PERSONAL data and must
+            therefore never be published to the public dashboard (see
+            :mod:`ai_assistant.reports`). Such sections go to Slack inline.
     """
 
     key: str
@@ -66,6 +69,7 @@ class Briefing:
     text: str = ""
     new_findings: Optional[int] = None
     nothing_new: bool = False
+    private: bool = False
 
     @property
     def ok(self) -> bool:
@@ -98,6 +102,14 @@ class Advisor:
     #: (see :func:`is_quiet`), which is what keeps four runs a day inside the
     #: free LLM quota.
     incremental_source: bool = False
+
+    #: Whether this advisor's briefing may contain PERSONAL data (mail
+    #: subjects, calendar entries, names). The dashboard is public — a public
+    #: repository served from GitHub Pages and Vercel — so a ``private``
+    #: advisor is NEVER written to ``frontend/reports/``; its section is
+    #: delivered inline in the Slack message instead. Default ``False``: most
+    #: advisors summarise public sources and are safe to publish.
+    private: bool = False
 
     def _generate(self) -> Briefing:  # pragma: no cover - overridden
         raise NotImplementedError
@@ -158,13 +170,26 @@ class Advisor:
             status=STATUS_OK,
             text=text,
             new_findings=self.new_finding_count() if self.incremental_source else None,
+            private=self.private,
         )
 
     def failed(self, text: str) -> Briefing:
-        return Briefing(key=self.key, title=self.title, status=STATUS_FAILED, text=text)
+        return Briefing(
+            key=self.key,
+            title=self.title,
+            status=STATUS_FAILED,
+            text=text,
+            private=self.private,
+        )
 
     def skipped(self, text: str) -> Briefing:
-        return Briefing(key=self.key, title=self.title, status=STATUS_SKIPPED, text=text)
+        return Briefing(
+            key=self.key,
+            title=self.title,
+            status=STATUS_SKIPPED,
+            text=text,
+            private=self.private,
+        )
 
     def nothing_new(self, note: str = "") -> Briefing:
         """The compact "yeni bulgu yok" section for an incremental run.
@@ -180,6 +205,7 @@ class Advisor:
             text=note or NOTHING_NEW_NOTE,
             new_findings=0,
             nothing_new=True,
+            private=self.private,
         )
 
 
