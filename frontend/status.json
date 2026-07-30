@@ -1,107 +1,107 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-30T15:01:11+00:00",
-  "generated_at_istanbul": "30.07.2026 18:01",
+  "generated_at": "2026-07-30T15:11:51+00:00",
+  "generated_at_istanbul": "30.07.2026 18:11",
   "run": {
-    "conclusion": "partial",
+    "conclusion": "ok",
     "total": 13,
-    "ok": 1,
-    "failed": 1,
-    "skipped": 11,
-    "duration_seconds": 0.8,
+    "ok": 11,
+    "failed": 0,
+    "skipped": 2,
+    "duration_seconds": 145.0,
     "batch": {
       "enabled": true,
-      "attempted": false,
-      "used": false,
-      "sections_requested": 0,
-      "sections_produced": 0,
-      "model": "",
-      "provider": ""
+      "attempted": true,
+      "used": true,
+      "sections_requested": 9,
+      "sections_produced": 9,
+      "model": "gemini-2.5-flash",
+      "provider": "gemini"
     }
   },
   "slack": {
-    "status": "skipped",
-    "detail": "missing env var(s): SLACK_WEBHOOK_URL or (SLACK_BOT_TOKEN + SLACK_CHANNEL)"
+    "status": "ok",
+    "detail": "webhook — HTTP 200"
   },
   "advisors": [
     {
       "id": "weather",
       "name": "Hava Durumu Meteoroloğu",
-      "status": "failed",
-      "content_length": 0,
-      "detail": "beklenmeyen hata: 403 Forbidden",
+      "status": "ok",
+      "content_length": 279,
+      "detail": "",
       "emoji": "🌤️",
       "category": "operasyon"
     },
     {
       "id": "leadership_coach",
       "name": "Liderlik Koçu",
-      "status": "skipped",
-      "content_length": 0,
-      "detail": "missing env var(s): GEMINI_API_KEY or OPENAI_API_KEY",
+      "status": "ok",
+      "content_length": 5001,
+      "detail": "",
       "emoji": "🧭",
       "category": "kişisel gelişim"
     },
     {
       "id": "kids_development",
       "name": "Çocuk Gelişimi Danışmanı",
-      "status": "skipped",
-      "content_length": 0,
-      "detail": "missing env var(s): GEMINI_API_KEY or OPENAI_API_KEY",
+      "status": "ok",
+      "content_length": 5847,
+      "detail": "",
       "emoji": "👨‍👩‍👧",
       "category": "aile"
     },
     {
       "id": "career_hr",
       "name": "Kariyer & İK Danışmanı",
-      "status": "skipped",
-      "content_length": 0,
-      "detail": "missing env var(s): GEMINI_API_KEY or OPENAI_API_KEY",
+      "status": "ok",
+      "content_length": 4658,
+      "detail": "",
       "emoji": "💼",
       "category": "kariyer"
     },
     {
       "id": "job_scout",
       "name": "İş Avcısı & Başvuru Hazırlayıcı",
-      "status": "skipped",
-      "content_length": 0,
-      "detail": "missing env var(s): GEMINI_API_KEY or OPENAI_API_KEY",
+      "status": "ok",
+      "content_length": 7912,
+      "detail": "",
       "emoji": "🔎",
       "category": "kariyer"
     },
     {
       "id": "sector_intel",
       "name": "Sektör & Rakip İstihbaratı",
-      "status": "skipped",
-      "content_length": 0,
-      "detail": "missing env var(s): GEMINI_API_KEY or OPENAI_API_KEY",
+      "status": "ok",
+      "content_length": 8489,
+      "detail": "",
       "emoji": "📊",
       "category": "sektör"
     },
     {
       "id": "ai_news",
       "name": "Yapay Zeka Haberleri",
-      "status": "skipped",
-      "content_length": 0,
-      "detail": "missing env var(s): AI_NEWS_RSS_URL or GEMINI_API_KEY/OPENAI_API_KEY",
+      "status": "ok",
+      "content_length": 8506,
+      "detail": "",
       "emoji": "🤖",
       "category": "sektör"
     },
     {
       "id": "free_certs",
       "name": "Ücretsiz Sertifika & Eğitim Araştırmacısı",
-      "status": "skipped",
-      "content_length": 0,
-      "detail": "missing env var(s): GEMINI_API_KEY or OPENAI_API_KEY",
+      "status": "ok",
+      "content_length": 5847,
+      "detail": "",
       "emoji": "🎓",
       "category": "kişisel gelişim"
     },
     {
       "id": "banking_cc_projects",
       "name": "Banka & Çağrı Merkezi Proje Uzmanı",
-      "status": "skipped",
-      "content_length": 0,
-      "detail": "missing env var(s): GEMINI_API_KEY or OPENAI_API_KEY",
+      "status": "ok",
+      "content_length": 13238,
+      "detail": "",
       "emoji": "🏦",
       "category": "sektör"
     },
@@ -117,9 +117,9 @@
     {
       "id": "language_coach",
       "name": "İngilizce & Yönetici İletişimi Koçu",
-      "status": "skipped",
-      "content_length": 0,
-      "detail": "missing env var(s): GEMINI_API_KEY or OPENAI_API_KEY",
+      "status": "ok",
+      "content_length": 8392,
+      "detail": "",
       "emoji": "🗣️",
       "category": "kişisel gelişim"
     },
@@ -136,7 +136,7 @@
       "id": "accountability_coach",
       "name": "Hesap Sorucu Koç",
       "status": "ok",
-      "content_length": 578,
+      "content_length": 3934,
       "detail": "",
       "emoji": "🔥",
       "category": "kişisel gelişim"
@@ -159,6 +159,17 @@
       "total": 13,
       "duration_seconds": 0.8,
       "slack": "skipped"
+    },
+    {
+      "at": "2026-07-30T15:11:51+00:00",
+      "at_istanbul": "30.07.2026 18:11",
+      "conclusion": "ok",
+      "ok": 11,
+      "failed": 0,
+      "skipped": 2,
+      "total": 13,
+      "duration_seconds": 145.0,
+      "slack": "ok"
     }
   ]
 }
