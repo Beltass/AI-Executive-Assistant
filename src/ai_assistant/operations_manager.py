@@ -90,6 +90,11 @@ class OperationsManager:
 
         for advisor in self.advisors:
             try:
+                # Let an advisor see what the team produced before it. The
+                # accountability coach (registered last) needs this to collect
+                # the other personas' "✅ Bugünün görevi" items; for everyone
+                # else it is a no-op.
+                self._observe(advisor, briefings)
                 text = batched.get(advisor.key)
                 if text:
                     briefings.append(advisor.briefing_from_batch(text))
@@ -105,6 +110,14 @@ class OperationsManager:
                     )
                 )
         return Supervision(briefings=briefings)
+
+    @staticmethod
+    def _observe(advisor: Advisor, briefings: List[Briefing]) -> None:
+        """Feed an advisor the run so far, never letting the hook break it."""
+        try:
+            advisor.observe(list(briefings))
+        except Exception:  # a broken hook must not cost us the briefing
+            return
 
     # Alias to make the supervisory intent explicit.
     supervise = run

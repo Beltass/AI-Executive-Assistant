@@ -14,7 +14,7 @@ and degrade to a ``failed`` (something configured broke) or ``skipped``
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List, Optional, Sequence
 
 from ..integrations import STATUS_FAILED, STATUS_OK, STATUS_SKIPPED
 
@@ -92,6 +92,17 @@ class Advisor:
         except Exception as exc:  # defensive: never let one advisor crash
             return self.failed(f"beklenmeyen hata: {exc}")
 
+    # -- ordering hook ----------------------------------------------------
+    def observe(self, briefings: Sequence["Briefing"]) -> None:
+        """Receive the briefings produced EARLIER in the same run.
+
+        A no-op for almost every advisor. The accountability coach uses it to
+        read the other personas' ``✅ Bugünün görevi`` items, which is why it is
+        registered last in :func:`all_advisors`. Implementations must never
+        raise; the supervisor guards this call anyway.
+        """
+        return None
+
     # -- batching hooks ---------------------------------------------------
     def batch_section(self) -> Optional[BatchSection]:
         """LLM work to fold into the shared batched call, or ``None``.
@@ -137,7 +148,11 @@ def all_advisors() -> List[Advisor]:
     from .sector_intel import SectorIntelAdvisor
     from .ai_news import AiNewsAdvisor
     from .free_certs import FreeCertsAdvisor
+    from .banking_cc_projects import BankingCcProjectsAdvisor
+    from .daily_ops_briefing import DailyOpsBriefingAdvisor
+    from .language_coach import LanguageCoachAdvisor
     from .anka_bridge import AnkaBridgeAdvisor
+    from .accountability_coach import AccountabilityCoachAdvisor
 
     return [
         WeatherAdvisor(),
@@ -148,7 +163,13 @@ def all_advisors() -> List[Advisor]:
         SectorIntelAdvisor(),
         AiNewsAdvisor(),
         FreeCertsAdvisor(),
+        BankingCcProjectsAdvisor(),
+        DailyOpsBriefingAdvisor(),
+        LanguageCoachAdvisor(),
         AnkaBridgeAdvisor(),
+        # LAST on purpose: the accountability coach consolidates the OTHER
+        # advisors' "✅ Bugünün görevi" items, so it must see them first.
+        AccountabilityCoachAdvisor(),
     ]
 
 

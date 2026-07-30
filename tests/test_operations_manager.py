@@ -31,6 +31,12 @@ _ENV_VARS = [
     "ANKA_API_URL",
     "ANKA_API_KEY",
     "ANKA_HTTP_METHOD",
+    "BANKING_NEWS_RSS_URL",
+    "ACCOUNTABILITY_STATE_FILE",
+    "GOOGLE_CLIENT_ID",
+    "GOOGLE_CLIENT_SECRET",
+    "GOOGLE_CREDENTIALS_FILE",
+    "GOOGLE_TOKEN_FILE",
 ]
 
 
@@ -59,7 +65,7 @@ class _CrashingAdvisor(Advisor):
 
 def test_manager_runs_all_advisors_offline(no_config):
     supervision = OperationsManager().run()
-    assert len(supervision.briefings) == 9
+    assert len(supervision.briefings) == 13
     for b in supervision.briefings:
         assert b.status in {STATUS_OK, STATUS_FAILED, STATUS_SKIPPED}
 
