@@ -43,20 +43,40 @@ class IntegrationSpec:
 
 # The canonical registry of integrations this assistant is meant to use.
 INTEGRATIONS: List[IntegrationSpec] = [
+    # Gmail, Calendar and Drive share a single Google OAuth consent. Whether
+    # they are "configured" is decided by
+    # ``integrations.google_auth.google_configured()`` (a stored token file or
+    # client credentials), not by a simple required-env list, so these specs
+    # only document the relevant optional variables.
     IntegrationSpec(
         key="gmail",
         name="Gmail (Google)",
-        required_env=["GOOGLE_OAUTH_ACCESS_TOKEN"],
+        optional_env=[
+            "GOOGLE_CLIENT_ID",
+            "GOOGLE_CLIENT_SECRET",
+            "GOOGLE_CREDENTIALS_FILE",
+            "GOOGLE_TOKEN_FILE",
+        ],
     ),
     IntegrationSpec(
         key="google_calendar",
         name="Google Calendar",
-        required_env=["GOOGLE_OAUTH_ACCESS_TOKEN"],
+        optional_env=[
+            "GOOGLE_CLIENT_ID",
+            "GOOGLE_CLIENT_SECRET",
+            "GOOGLE_CREDENTIALS_FILE",
+            "GOOGLE_TOKEN_FILE",
+        ],
     ),
     IntegrationSpec(
         key="google_drive",
         name="Google Drive",
-        required_env=["GOOGLE_OAUTH_ACCESS_TOKEN"],
+        optional_env=[
+            "GOOGLE_CLIENT_ID",
+            "GOOGLE_CLIENT_SECRET",
+            "GOOGLE_CREDENTIALS_FILE",
+            "GOOGLE_TOKEN_FILE",
+        ],
     ),
     IntegrationSpec(
         key="slack",

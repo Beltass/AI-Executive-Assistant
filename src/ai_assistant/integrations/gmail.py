@@ -1,26 +1,36 @@
-"""Gmail connection check."""
+"""Gmail connection check (Google OAuth)."""
 
 from __future__ import annotations
 
-import os
-
 from ..config import get_integration
 from . import CheckResult
-from ._common import classify_response, failed, http_get, skipped
+from . import google_auth
+from ._common import failed, ok, skipped_reason
 
 SPEC = get_integration("gmail")
-PROFILE_URL = "https://gmail.googleapis.com/gmail/v1/users/me/profile"
+
+_SKIP_DETAIL = (
+    "no Google credentials/token configured "
+    "(run: python -m ai_assistant.integrations.google_auth)"
+)
 
 
 def check_connection() -> CheckResult:
-    """Ping the Gmail profile endpoint using a Google OAuth access token."""
-    missing = SPEC.missing_env()
-    if missing:
-        return skipped(SPEC.name, missing)
+    """Call Gmail ``users.getProfile`` using shared Google OAuth credentials."""
+    if not google_auth.google_configured():
+        return skipped_reason(SPEC.name, _SKIP_DETAIL)
 
-    token = os.getenv("GOOGLE_OAUTH_ACCESS_TOKEN", "")
     try:
-        resp = http_get(PROFILE_URL, headers={"Authorization": f"Bearer {token}"})
-    except Exception as exc:  # network restricted, DNS, TLS, etc.
+        creds = google_auth.get_credentials()
+    except google_auth.GoogleAuthError as exc:
+        return failed(SPEC.name, str(exc))
+
+    try:
+        from googleapiclient.discovery import build
+
+        service = build("gmail", "v1", credentials=creds, cache_discovery=False)
+        profile = service.users().getProfile(userId="me").execute()
+    except Exception as exc:  # network restricted, auth error, etc.
         return failed(SPEC.name, f"request error: {exc}")
-    return classify_response(SPEC.name, resp)
+
+    return ok(SPEC.name, f"email: {profile.get('emailAddress', 'unknown')}")

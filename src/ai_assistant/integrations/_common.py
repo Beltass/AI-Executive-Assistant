@@ -20,6 +20,11 @@ def skipped(name: str, missing: List[str]) -> CheckResult:
     )
 
 
+def skipped_reason(name: str, detail: str) -> CheckResult:
+    """Build a ``skipped`` result with a free-form reason string."""
+    return CheckResult(name=name, status=STATUS_SKIPPED, detail=detail)
+
+
 def ok(name: str, detail: str = "authenticated") -> CheckResult:
     return CheckResult(name=name, status=STATUS_OK, detail=detail)
 

@@ -3,6 +3,11 @@
 .env.*
 !.env.example
 
+# Google OAuth token + client secrets (never commit)
+.google_token.json
+*credentials*.json
+client_secret*.json
+
 # Python
 __pycache__/
 *.py[cod]

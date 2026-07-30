@@ -15,6 +15,9 @@ from ai_assistant.integrations import STATUS_FAILED, STATUS_OK, STATUS_SKIPPED
 # Env vars used by any integration; cleared so checks skip deterministically.
 _ALL_ENV_VARS = [
     "GOOGLE_OAUTH_ACCESS_TOKEN",
+    "GOOGLE_CLIENT_ID",
+    "GOOGLE_CLIENT_SECRET",
+    "GOOGLE_CREDENTIALS_FILE",
     "SLACK_BOT_TOKEN",
     "TODOIST_API_TOKEN",
     "NOTION_API_KEY",
@@ -24,9 +27,13 @@ _ALL_ENV_VARS = [
 
 
 @pytest.fixture()
-def no_credentials(monkeypatch):
+def no_credentials(monkeypatch, tmp_path):
     for var in _ALL_ENV_VARS:
         monkeypatch.delenv(var, raising=False)
+    # Point the Google token file at a path that does not exist so the
+    # Google checks deterministically report ``skipped`` regardless of the
+    # developer's working directory.
+    monkeypatch.setenv("GOOGLE_TOKEN_FILE", str(tmp_path / "no_such_token.json"))
     yield
 
 
