@@ -61,8 +61,12 @@ görmez — kök dizini farklı olduğu için etkilenmez.
 `.github/workflows/pages.yml`, `main`'e her push'ta `frontend/` klasörünü
 Pages'e dağıtır.
 
-**Tek seferlik açma adımı:** GitHub'da → **Settings → Pages → Source: GitHub
-Actions** seçilmeli. Bu yapıldıktan sonra adres:
+İş akışı Pages'i ilk çalıştırmada kendisi açmaya çalışır
+(`configure-pages` → `enablement: true`). Bu yetkiyle yapılamazsa iş akışı
+"Get Pages site failed" ile durur; o durumda **tek seferlik** olarak GitHub'da
+→ **Settings → Pages → Source: GitHub Actions** seçilmesi yeterlidir.
+
+Adres:
 
 ```
 https://beltass.github.io/AI-Executive-Assistant/
