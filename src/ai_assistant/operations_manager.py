@@ -26,7 +26,7 @@ from typing import List, Optional
 
 from .advisors import Advisor, Briefing, all_advisors
 from .advisors._batch import run_batch
-from .integrations import STATUS_FAILED, STATUS_OK, STATUS_SKIPPED
+from .integrations import STATUS_FAILED, STATUS_OK, STATUS_SKIPPED, llm
 
 
 @dataclass
@@ -73,7 +73,18 @@ class OperationsManager:
         batch did not cover — non-LLM ones, or sections the model omitted, or
         the whole team if the batched call failed — transparently falls back to
         its own per-advisor path.
+
+        All LLM work shares one wall-clock budget
+        (``LLM_TIME_BUDGET_SECONDS``), so an exhausted provider quota can never
+        stretch the run past it: once spent, the remaining sections fail fast
+        and the digest is still delivered on time.
         """
+        # One shared wall-clock budget for the whole team. Without it, a spent
+        # quota makes every advisor repeat the same doomed retry-and-fallback
+        # dance and the job runs for over an hour (see
+        # ``llm.DEFAULT_LLM_TIME_BUDGET_SECONDS``).
+        llm.start_time_budget()
+
         briefings: List[Briefing] = []
         batched = run_batch(self.advisors)
 

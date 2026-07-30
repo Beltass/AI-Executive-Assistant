@@ -41,6 +41,12 @@ jobs:
           DIGEST_BATCH_MODE: "true"
           # That single answer carries every section, so give it room and time.
           GEMINI_TIMEOUT_SECONDS: "300"
+          # Hard ceiling on ALL LLM work in one run. Retries multiply with the
+          # model fallback chain and again with the per-advisor path, so an
+          # exhausted free-tier quota could otherwise stretch this job past an
+          # hour. When the budget is spent the remaining sections fail fast and
+          # the digest still goes out (weather + real RSS headlines included).
+          LLM_TIME_BUDGET_SECONDS: "600"
           # Space out any remaining sequential Gemini calls (the per-advisor
           # fallback path) so the free-tier quota window doesn't 429 them.
           # Combined with the built-in 429/5xx retry + model fallback, this lets
