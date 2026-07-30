@@ -46,9 +46,9 @@ class IntegrationSpec:
 INTEGRATIONS: List[IntegrationSpec] = [
     # Gmail, Calendar and Drive share a single Google OAuth consent. Whether
     # they are "configured" is decided by
-    # ``integrations.google_auth.google_configured()`` (a stored token file or
-    # client credentials), not by a simple required-env list, so these specs
-    # only document the relevant optional variables.
+    # ``integrations.google_auth.google_configured()`` (a stored token file, an
+    # environment refresh token, or client credentials), not by a simple
+    # required-env list, so these specs only document the optional variables.
     IntegrationSpec(
         key="gmail",
         name="Gmail (Google)",
@@ -57,6 +57,7 @@ INTEGRATIONS: List[IntegrationSpec] = [
             "GOOGLE_CLIENT_SECRET",
             "GOOGLE_CREDENTIALS_FILE",
             "GOOGLE_TOKEN_FILE",
+            "GOOGLE_REFRESH_TOKEN",
         ],
     ),
     IntegrationSpec(
@@ -67,6 +68,7 @@ INTEGRATIONS: List[IntegrationSpec] = [
             "GOOGLE_CLIENT_SECRET",
             "GOOGLE_CREDENTIALS_FILE",
             "GOOGLE_TOKEN_FILE",
+            "GOOGLE_REFRESH_TOKEN",
         ],
     ),
     IntegrationSpec(
@@ -77,6 +79,7 @@ INTEGRATIONS: List[IntegrationSpec] = [
             "GOOGLE_CLIENT_SECRET",
             "GOOGLE_CREDENTIALS_FILE",
             "GOOGLE_TOKEN_FILE",
+            "GOOGLE_REFRESH_TOKEN",
         ],
     ),
     IntegrationSpec(
@@ -139,9 +142,17 @@ DEFAULT_SETTINGS: Dict[str, str] = {
     "BANKING_NEWS_RSS_URL": _google_news_rss(
         '"çağrı merkezi" bankacılık OR BDDK OR "dış kaynak"'
     ),
-    # Accountability coach state. NOTE: on GitHub Actions the runner filesystem
-    # is ephemeral, so this file does not survive between scheduled runs; the
-    # advisor treats a missing file as a fresh start (see its module docstring).
+    # Second, security/compliance-flavoured feed for the same advisor: KVKK,
+    # data breaches and information security in banking. Free Google News search
+    # again, so the outsourcing-governance briefing has current, REAL links for
+    # its compliance and security blocks too.
+    "BANKING_SECURITY_RSS_URL": _google_news_rss(
+        'KVKK OR "bilgi güvenliği" OR "veri ihlali" banka OR bankacılık'
+    ),
+    # Accountability coach state. On GitHub Actions the runner filesystem is
+    # ephemeral, so the daily-briefing workflow commits this file back to the
+    # repository after each run; that is what makes the streak durable. A
+    # missing file is still a legitimate fresh start (see the advisor docstring).
     "ACCOUNTABILITY_STATE_FILE": ".assistant_state/accountability.json",
 }
 

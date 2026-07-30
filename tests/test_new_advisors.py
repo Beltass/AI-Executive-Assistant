@@ -54,6 +54,7 @@ _ENV_VARS = [
     "OPENAI_API_KEY",
     "USER_SECTOR",
     "BANKING_NEWS_RSS_URL",
+    "BANKING_SECURITY_RSS_URL",
     "ACCOUNTABILITY_STATE_FILE",
     "GOOGLE_CLIENT_ID",
     "GOOGLE_CLIENT_SECRET",
@@ -135,6 +136,136 @@ def test_banking_persona_is_a_deep_domain_expert():
     assert "UYDURMA" in banking_module.SYSTEM_PROMPT
 
 
+def test_banking_persona_names_the_real_governance_frameworks():
+    """The persona is grounded in frameworks that actually exist, by name."""
+    prompt = banking_module.SYSTEM_PROMPT + banking_module._BRIEF
+    for framework in (
+        "BDDK",
+        "Destek Hizmeti",
+        "Bilgi Sistemleri",
+        "KVKK",
+        "VERBİS",
+        "ISO/IEC 27001",
+        "ISO/IEC 27002",
+        "SOC 2",
+        "PCI-DSS",
+    ):
+        assert framework in prompt, framework
+
+
+def test_banking_brief_covers_the_five_mandated_blocks():
+    brief = banking_module._BRIEF
+    for heading in (
+        "📦 Dış kaynak yönetişimi",
+        "🔐 Bilgi güvenliği kontrolleri",
+        "⚖️ Uyum",
+        "🚨 Riskler ve erken uyarı sinyalleri",
+        "🔬 Teknoloji ve yeni riskler",
+        "✅ Bugünün görevi",
+    ):
+        assert heading in brief, heading
+    # The security block must be concrete about contact-center controls.
+    for control in (
+        "right-to-audit",
+        "MFA",
+        "DTMF",
+        "VDI",
+        "DLP",
+        "SIEM",
+        "alt yüklenici",
+        "en az yetki",
+    ):
+        assert control in brief, control
+
+
+def test_banking_focus_rotates_day_by_day():
+    """Consecutive days must lead with a different deep-dive focus."""
+    start = date(2026, 1, 1)
+    focuses = [
+        banking_module._daily_focus(start + timedelta(days=offset))
+        for offset in range(len(banking_module.DAILY_FOCUS))
+    ]
+    # A full cycle visits every focus exactly once, so no two adjacent days
+    # (and no day within a cycle) repeat.
+    assert sorted(focuses) == sorted(banking_module.DAILY_FOCUS)
+    # And the cycle then repeats predictably.
+    assert banking_module._daily_focus(
+        start + timedelta(days=len(banking_module.DAILY_FOCUS))
+    ) == focuses[0]
+
+
+def test_banking_prompt_leads_with_todays_focus(monkeypatch, blank_env):
+    monkeypatch.setenv("GEMINI_API_KEY", FAKE_KEY)
+    monkeypatch.setattr(banking_module, "fetch_feed_items", lambda url, limit=5: [])
+    section = BankingCcProjectsAdvisor().batch_section()
+    assert "BUGÜNÜN DERİNLEŞME ODAĞI:" in section.user_prompt
+    assert banking_module._daily_focus() in section.user_prompt
+
+
+def test_banking_merges_both_news_feeds(monkeypatch, blank_env):
+    monkeypatch.setenv("GEMINI_API_KEY", FAKE_KEY)
+    monkeypatch.setenv("BANKING_NEWS_RSS_URL", "https://example.org/banking")
+    monkeypatch.setenv("BANKING_SECURITY_RSS_URL", "https://example.org/security")
+
+    def fake_fetch(url, limit=5):
+        if url.endswith("/security"):
+            return [
+                FeedItem(title="KVKK veri ihlali kararı", link="https://x.test/sec"),
+                # Duplicate title across feeds must be collapsed.
+                FeedItem(title="Ortak başlık", link="https://x.test/dup"),
+            ]
+        return [
+            FeedItem(title="Dış kaynak ihalesi", link="https://x.test/bank"),
+            FeedItem(title="Ortak başlık", link="https://x.test/dup"),
+        ]
+
+    monkeypatch.setattr(banking_module, "fetch_feed_items", fake_fetch)
+
+    advisor = BankingCcProjectsAdvisor()
+    prompt = advisor.batch_section().user_prompt
+    assert "https://x.test/sec" in prompt
+    assert "https://x.test/bank" in prompt
+    assert prompt.count("Ortak başlık") == 1
+    # Fetched once and reused, even across repeated prompt builds.
+    assert len(advisor._fetch_items()) == 3
+
+
+def test_banking_survives_one_dead_feed_of_two(monkeypatch, blank_env):
+    monkeypatch.setenv("GEMINI_API_KEY", FAKE_KEY)
+    monkeypatch.setenv("BANKING_NEWS_RSS_URL", "https://example.org/banking")
+    monkeypatch.setenv("BANKING_SECURITY_RSS_URL", "https://example.invalid/feed")
+
+    def fake_fetch(url, limit=5):
+        if "invalid" in url:
+            raise RuntimeError("feed unreachable")
+        return [FeedItem(title="Canlı başlık", link="https://x.test/live")]
+
+    monkeypatch.setattr(banking_module, "fetch_feed_items", fake_fetch)
+
+    prompt = BankingCcProjectsAdvisor().batch_section().user_prompt
+    assert "https://x.test/live" in prompt
+
+
+def test_banking_always_demands_official_sources(monkeypatch, blank_env):
+    monkeypatch.setenv("GEMINI_API_KEY", FAKE_KEY)
+    monkeypatch.setattr(banking_module, "fetch_feed_items", lambda url, limit=5: [])
+    prompt = BankingCcProjectsAdvisor().batch_section().user_prompt
+    assert "PCI Security Standards Council" in prompt
+    assert "derin URL" in prompt
+
+
+def test_banking_caveat_points_at_compliance_and_standards_bodies(blank_env):
+    briefing = BankingCcProjectsAdvisor().briefing_from_batch("Gövde.")
+    for domain in (
+        "https://www.bddk.org.tr",
+        "https://www.kvkk.gov.tr",
+        "https://www.iso.org",
+        "https://www.pcisecuritystandards.org",
+    ):
+        assert domain in briefing.text, domain
+    assert "mevzuat detaylarını" in briefing.text
+
+
 # --- Hesap Sorucu Koç ---------------------------------------------------------
 
 
@@ -181,6 +312,63 @@ def test_accountability_first_run_has_no_prior_state(monkeypatch, tmp_path, blan
     assert saved["streak"] == 1
     assert saved["last_date"] == date.today().isoformat()
     assert len(saved["last_tasks"]) == 1
+
+
+def test_accountability_state_round_trips_from_a_committed_file(
+    monkeypatch, tmp_path, blank_env
+):
+    """The CI path: yesterday's committed file is read back and grown.
+
+    This is what makes the streak durable — the workflow commits
+    ``.assistant_state/accountability.json`` back to ``main`` and the next run
+    checks it out. Here the "checkout" is simulated by writing the file that a
+    previous run produced, byte for byte, and re-reading it.
+    """
+    state_file = tmp_path / ".assistant_state" / "accountability.json"
+    state_file.parent.mkdir(parents=True)
+    monkeypatch.setenv("ACCOUNTABILITY_STATE_FILE", str(state_file))
+
+    # --- run 1: nothing committed yet, a fresh start that writes the file ---
+    first = AccountabilityCoachAdvisor()
+    first.observe([_briefing("career_hr", "Kariyer & İK", "CV'ni güncelle.")])
+    assert first.generate_briefing().status == STATUS_OK
+
+    committed = state_file.read_text(encoding="utf-8")
+    assert json.loads(committed)["streak"] == 1
+
+    # --- the commit-back: rewrite the file exactly as git would restore it ---
+    state_file.unlink()
+    state_file.parent.rmdir()
+    state_file.parent.mkdir()
+    state_file.write_text(committed, encoding="utf-8")
+
+    # --- run 2, one day later: the streak continues instead of restarting ---
+    today = date.today()
+    yesterday = (today - timedelta(days=1)).isoformat()
+    data = json.loads(state_file.read_text(encoding="utf-8"))
+    data["last_date"] = yesterday
+    data["history"] = {yesterday: data["last_tasks"]}
+    state_file.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+
+    second = AccountabilityCoachAdvisor()
+    second.observe([_briefing("career_hr", "Kariyer & İK", "Bugünkü görev.")])
+    briefing = second.generate_briefing()
+
+    assert briefing.status == STATUS_OK
+    assert "CV'ni güncelle." in briefing.text  # yesterday's ask, restated
+    assert "*2 gün*" in briefing.text
+    reloaded = json.loads(state_file.read_text(encoding="utf-8"))
+    assert reloaded["streak"] == 2
+    assert reloaded["last_date"] == today.isoformat()
+    assert reloaded["history"][yesterday]  # earlier day kept for the next run
+
+
+def test_accountability_default_state_path_is_the_committed_one():
+    """The default must match the path the workflow commits back."""
+    assert (
+        config.DEFAULT_SETTINGS["ACCOUNTABILITY_STATE_FILE"]
+        == ".assistant_state/accountability.json"
+    )
 
 
 def test_accountability_skipped_when_nothing_to_track(monkeypatch, tmp_path, blank_env):

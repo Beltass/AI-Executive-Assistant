@@ -25,15 +25,21 @@ hallucinate a task you were never given.
 
 Configuration (via environment):
     ACCOUNTABILITY_STATE_FILE  Where the small JSON state lives. Defaults to
-                               ``.assistant_state/accountability.json``.
+                               ``.assistant_state/accountability.json`` — the
+                               path the CI workflow commits back to the repo.
 
-⚠️ PERSISTENCE LIMITATION: on GitHub Actions the runner filesystem is
-EPHEMERAL — every scheduled run starts from a clean checkout, so the state file
-written yesterday is gone today. The advisor therefore treats "no prior state"
-as a legitimate fresh start (never an error): you still get today's consolidated
-task list and a day-1 streak. Durable cross-day tracking would require committing
-the state file back to the repo or moving it to an external store (Gist, Notion,
-a KV service); that is deliberately NOT done here.
+PERSISTENCE: the GitHub Actions runner filesystem is EPHEMERAL — every scheduled
+run starts from a clean checkout — so the state file is made durable by
+**committing it back to the repository**. The ``Daily Briefing`` workflow runs
+with ``contents: write`` and, after the briefing step, commits
+``.assistant_state/accountability.json`` to ``main`` when it changed. The next
+run checks that file out and the streak continues. ``.gitignore`` therefore
+carries an explicit exception for this one file.
+
+The advisor itself needs no knowledge of any of that: it just reads and writes a
+JSON file. "No prior state" remains a legitimate fresh start (never an error) —
+on a brand-new repository, when the commit-back step could not push, or when
+running locally you still get today's consolidated task list and a day-1 streak.
 """
 
 from __future__ import annotations
@@ -182,7 +188,8 @@ class AccountabilityCoachAdvisor(Advisor):
             with open(path, "w", encoding="utf-8") as fh:
                 json.dump(state.to_dict(), fh, ensure_ascii=False, indent=2)
         except Exception:
-            # Ephemeral/read-only filesystems are expected (GitHub Actions).
+            # A read-only or otherwise unwritable path must never break the
+            # briefing; the coach simply starts fresh next time.
             return
 
     @staticmethod
@@ -257,8 +264,9 @@ class AccountabilityCoachAdvisor(Advisor):
             )
         if not state.last_date:
             lines.append(
-                "_Not: kalıcı depolama olmadığından seri her temiz çalıştırmada "
-                "yeniden başlayabilir; asıl ölçüt senin işaretlediğin kutular._"
+                "_Not: önceki çalıştırmadan kayıt bulunamadı, o yüzden seri "
+                "sıfırdan başlıyor. Bundan sonrası kayıt altına alınıyor; asıl "
+                "ölçüt yine de senin işaretlediğin kutular._"
             )
 
         # 3. Today's consolidated list.

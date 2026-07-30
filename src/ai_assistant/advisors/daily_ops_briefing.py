@@ -12,8 +12,14 @@ invented. Until the one-time login has been done::
 
     python -m ai_assistant.integrations.google_auth
 
-the advisor reports ``skipped`` with that exact instruction — which is the
-expected state on a fresh checkout and on GitHub Actions.
+the advisor reports ``skipped`` with that exact instruction — the expected state
+on a fresh checkout.
+
+In the cloud there is no token file, so the same login's refresh token is passed
+through the environment instead: ``GOOGLE_CLIENT_ID``, ``GOOGLE_CLIENT_SECRET``
+and ``GOOGLE_REFRESH_TOKEN`` (GitHub Secrets). With those set the advisor runs on
+GitHub Actions exactly as it does locally; without them it still degrades to
+``skipped`` rather than failing.
 
 PRIVACY: only metadata (sender, subject, date) and Gmail's own short snippet are
 read — never a full message body — and the snippet is truncated before it ever
@@ -48,7 +54,9 @@ SNIPPET_LIMIT = 220
 
 SKIP_DETAIL = (
     "no Google credentials/token configured "
-    "(run: python -m ai_assistant.integrations.google_auth)"
+    "(run: python -m ai_assistant.integrations.google_auth, then set "
+    "GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / GOOGLE_REFRESH_TOKEN to run "
+    "in the cloud)"
 )
 
 SYSTEM_PROMPT = (
