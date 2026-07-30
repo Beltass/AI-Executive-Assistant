@@ -14,9 +14,19 @@ on:
 jobs:
   briefing:
     runs-on: ubuntu-latest
+    # The accountability coach's streak file is committed back to the default
+    # branch after every run, which is what makes its memory survive the
+    # ephemeral runner. Nothing else in this job writes to the repository.
+    permissions:
+      contents: write
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          # Commit the state file back to the default branch, not to a detached
+          # HEAD, and keep the token available for that push.
+          ref: main
+          persist-credentials: true
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -70,13 +80,58 @@ jobs:
           # Phase 3 advisors — all optional, all with built-in defaults.
           # Banking & contact-center project expert: news feed for real links.
           BANKING_NEWS_RSS_URL: ${{ secrets.BANKING_NEWS_RSS_URL }}
-          # Accountability coach state file. NOTE: the runner filesystem is
-          # ephemeral, so this does NOT persist between scheduled runs — the
-          # coach treats every run as a fresh start (see the README caveat).
+          BANKING_SECURITY_RSS_URL: ${{ secrets.BANKING_SECURITY_RSS_URL }}
+          # Accountability coach state file. Leave this secret UNSET so the
+          # built-in default (.assistant_state/accountability.json) is used —
+          # that is the path the commit-back step below persists. Pointing it
+          # somewhere else silently disables the durable streak.
           ACCOUNTABILITY_STATE_FILE: ${{ secrets.ACCOUNTABILITY_STATE_FILE }}
-          # Start-of-day ops briefing (Gmail + Calendar). It stays `skipped`
-          # until the one-time OAuth login has produced a token; these only
-          # bound how much recent mail is read.
+          # Start-of-day ops briefing (Gmail + Calendar). There is no token file
+          # on a runner, so the one-time local login's refresh token is passed
+          # through the environment instead. Without these three the section
+          # simply stays `skipped`.
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
+          # These only bound how much recent mail is read.
           OPS_BRIEFING_MAX_EMAILS: ${{ secrets.OPS_BRIEFING_MAX_EMAILS }}
           OPS_BRIEFING_EMAIL_WINDOW: ${{ secrets.OPS_BRIEFING_EMAIL_WINDOW }}
         run: python -m ai_assistant.notifiers.slack_notifier
+
+      # The runner filesystem is thrown away, so the coach's streak/task memory
+      # is persisted by committing it back to `main`. Runs even when the
+      # briefing step failed (partial state is still worth keeping) and NEVER
+      # fails the job: `continue-on-error` plus an always-succeeding script mean
+      # a race or a protected branch can cost the streak, never the briefing.
+      - name: Persist accountability state
+        if: always()
+        continue-on-error: true
+        env:
+          STATE_FILE: .assistant_state/accountability.json
+        run: |
+          set -u
+          if [ ! -f "$STATE_FILE" ]; then
+            echo "No state file at $STATE_FILE — nothing to persist."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- "$STATE_FILE"
+          if git diff --cached --quiet -- "$STATE_FILE"; then
+            echo "Accountability state unchanged — nothing to commit."
+            exit 0
+          fi
+          git commit -m "chore: persist accountability state [skip ci]" -- "$STATE_FILE"
+          # Another run (or a merge) may have moved main in the meantime, so
+          # rebase and retry a few times before giving up.
+          for attempt in 1 2 3; do
+            if git push origin HEAD:main; then
+              echo "Accountability state pushed on attempt $attempt."
+              exit 0
+            fi
+            echo "Push failed (attempt $attempt); rebasing onto origin/main."
+            git pull --rebase --autostash origin main || break
+            sleep $((attempt * 5))
+          done
+          echo "Could not persist accountability state; the streak restarts next run."
+          exit 0

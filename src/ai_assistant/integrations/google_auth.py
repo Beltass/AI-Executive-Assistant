@@ -17,10 +17,25 @@ Configuration (all via environment variables):
 * ``GOOGLE_TOKEN_FILE`` — where the authorized-user token (including the
   refresh token) is stored. Defaults to ``.google_token.json`` in the
   current working directory. This file is git-ignored.
+* ``GOOGLE_REFRESH_TOKEN`` — the refresh token on its own, so a machine
+  that has NO token file (a GitHub Actions runner, a container) can still
+  authenticate. Combined with ``GOOGLE_CLIENT_ID`` and
+  ``GOOGLE_CLIENT_SECRET`` this is a complete, file-free credential.
+
+Precedence in :func:`get_credentials`:
+
+1. a stored token file, if one exists;
+2. else ``GOOGLE_REFRESH_TOKEN`` + client id/secret from the environment;
+3. else :class:`GoogleAuthError` with a clear, actionable reason — which
+   the callers turn into a ``skipped`` briefing rather than a failure.
 
 Run the one-time login flow with::
 
     python -m ai_assistant.integrations.google_auth
+
+It stores the token locally and then prints the NAMES of the environment
+variables / GitHub Secrets to set for the cloud path. It never prints the
+secret values themselves — read them out of the token file.
 
 Everything that imports the ``google-auth`` libraries is done lazily so
 that this module can be imported (and ``google_configured()`` called) even
@@ -85,15 +100,45 @@ def _inline_client_config() -> Optional[dict]:
     }
 
 
+def _env_refresh_token() -> Optional[str]:
+    """Return a refresh token supplied purely through the environment.
+
+    Only useful together with an inline client id/secret, which is exactly
+    what the GitHub Actions path provides. Whitespace-only values count as
+    unset because Actions expands a missing secret to an empty string.
+    """
+    token = (os.getenv("GOOGLE_REFRESH_TOKEN") or "").strip()
+    if not token:
+        return None
+    if _inline_client_config() is None:
+        return None
+    return token
+
+
+def credentials_source() -> Optional[str]:
+    """Describe where usable credentials would come from right now.
+
+    Returns ``"token_file"``, ``"env"`` or ``None``. This mirrors the
+    precedence used by :func:`get_credentials` and exists so callers can
+    explain themselves without touching the credentials.
+    """
+    if os.path.exists(token_file_path()):
+        return "token_file"
+    if _env_refresh_token() is not None:
+        return "env"
+    return None
+
+
 def google_configured() -> bool:
     """Return True if Google auth *could* work.
 
     This is the signal the Gmail/Calendar/Drive checks use to decide
     between ``skipped`` (nothing configured) and actually attempting a
-    request. It is True when either a stored token file already exists, or
-    client credentials are available to run/refresh the OAuth flow.
+    request. It is True when a stored token file already exists, when a
+    refresh token is supplied through the environment, or when client
+    credentials are available to run/refresh the OAuth flow.
     """
-    if os.path.exists(token_file_path()):
+    if credentials_source() is not None:
         return True
     if _client_secrets_file() is not None:
         return True
@@ -108,11 +153,32 @@ def _save_credentials(creds: "Credentials") -> None:
         fh.write(creds.to_json())
 
 
+def _credentials_from_env(Credentials) -> "Credentials":
+    """Build authorized-user credentials from environment variables alone.
+
+    The access token is intentionally left empty: the caller refreshes it,
+    which is the whole point of holding a refresh token.
+    """
+    config = _inline_client_config()["installed"]  # guarded by the caller
+    return Credentials(
+        token=None,
+        refresh_token=_env_refresh_token(),
+        token_uri=_TOKEN_URI,
+        client_id=config["client_id"],
+        client_secret=config["client_secret"],
+        scopes=SCOPES,
+    )
+
+
 def get_credentials() -> "Credentials":
-    """Load stored credentials, refreshing the access token if needed.
+    """Load credentials, refreshing the access token if needed.
+
+    A stored token file wins; otherwise ``GOOGLE_REFRESH_TOKEN`` plus the
+    inline client id/secret are used, which is how this runs on GitHub
+    Actions where no token file can exist.
 
     Raises:
-        GoogleAuthError: if no token is stored, the ``google-auth`` libs
+        GoogleAuthError: if nothing is configured, the ``google-auth`` libs
             are missing, or the token is invalid and cannot be refreshed.
     """
     try:
@@ -124,13 +190,30 @@ def get_credentials() -> "Credentials":
             "`pip install -e \".[dev]\"`"
         ) from exc
 
-    path = token_file_path()
-    if not os.path.exists(path):
+    source = credentials_source()
+
+    if source == "env":
+        creds = _credentials_from_env(Credentials)
+        try:
+            creds.refresh(Request())
+        except Exception as exc:
+            # Never echo the token itself — only the failure class/message.
+            raise GoogleAuthError(
+                "GOOGLE_REFRESH_TOKEN could not be exchanged for an access "
+                f"token ({type(exc).__name__}); re-run the login flow and "
+                "update the secret"
+            ) from exc
+        return creds
+
+    if source is None:
         raise GoogleAuthError(
-            "no stored Google token; run "
-            "`python -m ai_assistant.integrations.google_auth` to log in"
+            "no stored Google token and no GOOGLE_REFRESH_TOKEN; run "
+            "`python -m ai_assistant.integrations.google_auth` to log in, "
+            "then set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET and "
+            "GOOGLE_REFRESH_TOKEN to run without a token file"
         )
 
+    path = token_file_path()
     creds = Credentials.from_authorized_user_file(path, SCOPES)
 
     if creds.valid:
@@ -211,14 +294,56 @@ def main(argv: Optional[list] = None) -> int:
     try:
         data = json.loads(creds.to_json())
         scopes = data.get("scopes", SCOPES)
+        has_refresh_token = bool(data.get("refresh_token"))
     except Exception:  # pragma: no cover - defensive
         scopes = SCOPES
+        has_refresh_token = bool(getattr(creds, "refresh_token", None))
 
-    print(f"Success! Token stored at: {token_file_path()}")
+    path = token_file_path()
+    print(f"Success! Token stored at: {path}")
     print("Granted scopes:")
     for scope in scopes:
         print(f"  - {scope}")
+    print()
+    print(cloud_setup_instructions(has_refresh_token))
     return 0
+
+
+def cloud_setup_instructions(has_refresh_token: bool) -> str:
+    """Explain how to move this login into GitHub Secrets.
+
+    Deliberately prints only the NAMES to set and where to read the values
+    from. Nothing secret is ever written to stdout, because this runs in
+    terminals and CI logs that get pasted around.
+    """
+    path = token_file_path()
+    if not has_refresh_token:
+        return (
+            "WARNING: no refresh token was returned, so this login cannot be "
+            "reused unattended.\n"
+            "Re-run this command after revoking the app's access at "
+            "https://myaccount.google.com/permissions so Google issues a new "
+            "refresh token."
+        )
+    lines = [
+        "Refresh token obtained — this login can now run unattended.",
+        "",
+        "To run the ops briefing in GitHub Actions, add these three "
+        "repository secrets (Settings -> Secrets and variables -> Actions):",
+        "  - GOOGLE_CLIENT_ID",
+        "  - GOOGLE_CLIENT_SECRET",
+        "  - GOOGLE_REFRESH_TOKEN",
+        "",
+        "Where to read the values from (they are NOT printed here on purpose):",
+        f"  - GOOGLE_REFRESH_TOKEN -> the \"refresh_token\" field in {path}",
+        f"  - GOOGLE_CLIENT_ID     -> the \"client_id\" field in {path}",
+        f"  - GOOGLE_CLIENT_SECRET -> the \"client_secret\" field in {path}",
+        "    (or from the OAuth client in the Google Cloud console)",
+        "",
+        f"Keep {path} out of git — it is already git-ignored — and never paste "
+        "these values into a chat, an issue or a log.",
+    ]
+    return "\n".join(lines)
 
 
 if __name__ == "__main__":

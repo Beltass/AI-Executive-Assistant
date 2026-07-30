@@ -78,33 +78,83 @@ Four more supervised agents, discovered the same way and degrading to
 
 | Advisor                              | Persona                                                            | Needs                                                     |
 | ------------------------------------ | ------------------------------------------------------------------ | --------------------------------------------------------- |
-| Banka & Çağrı Merkezi Proje Uzmanı   | Senior consultant on bank contact-center **outsourcing programs**   | An LLM key (`BANKING_NEWS_RSS_URL` has a default feed)     |
+| Banka & Çağrı Merkezi Proje Uzmanı   | Outsourcing **governance, security compliance & information security** for bank contact centers | An LLM key (both RSS feeds have defaults)   |
 | Hesap Sorucu Koç                     | Behaviour-science accountability coach over the other advisors' tasks | Nothing — **no LLM call at all** (`ACCOUNTABILITY_STATE_FILE` has a default) |
 | Gün Başı Operasyon Brifingi          | Chief-of-staff morning briefing from Gmail + Calendar               | The one-time **Google OAuth login** (+ an LLM key to deepen it) |
 | İngilizce & Yönetici İletişimi Koçu  | Business-English + executive-presence coach                          | An LLM key (opt. `USER_SECTOR`)                            |
 
 **Banka & Çağrı Merkezi Proje Uzmanı** is a deep *domain* expert, deliberately
-distinct from the broader `sector_intel` agent: it writes like a consultant who
-has run bank contact-center outsourcing programs. Every briefing covers
-outsourcing projects (RFP/ihale prep, vendor selection, pricing models —
-FTE / per-minute / hybrid / outcome-based —, transition risks, SLA & KPI design
-around AHT, FCR, NPS, occupancy, shrinkage, abandon rate, penalty–bonus
-mechanics), ⚠️ the rules a bank must respect (BDDK information-systems &
-outsourcing expectations, KVKK controller/processor split, retention, data
-residency & cross-border transfer, PCI-DSS, call-recording duties, audit trails,
-BCP/DR), 🚨 typical traps (data leakage, SLA gaps, hidden costs, quality-decay
-signals, vendor lock-in and a missing exit plan, subcontractor chains) and
-🔬 the latest technology (speech/text analytics, agent assist, voice & chat bots,
-CCaaS, WFM, omnichannel, generative AI in the contact center, QM automation).
+distinct from the broader `sector_intel` agent: it writes like a senior
+consultant who has both **run** bank contact-center outsourcing programs and
+**been audited** on them. Its centre of gravity is the question the regulator and
+your CISO will actually ask — *what rules must a bank observe when it outsources
+a contact center, and what do you watch for on security and information
+security?* Every briefing delivers five blocks:
 
-*Accuracy first:* because regulation changes and models invent article numbers,
-the persona is instructed to describe **principles and direction, never specific
-clauses or dates**, to flag whatever must be verified, and every briefing ends
-with a fixed caveat pointing at your bank's own compliance/legal team and the
-official regulator sites (BDDK, KVKK, TCMB — root domains only, per the shared
-anti-hallucinated-link rules). `BANKING_NEWS_RSS_URL` defaults to a Turkish
-Google News search feed so it can cite REAL links; an unreachable feed silently
-degrades to the LLM-only briefing.
+1. **📦 Dış kaynak yönetişimi** — pre-procurement due diligence and vendor
+   screening, the written risk analysis and cost/benefit assessment, board /
+   risk & audit committee approval, contract architecture (**right-to-audit**,
+   subcontractor approval & notification, data ownership and return, SLA with
+   penalty–bonus, liability and professional indemnity, exit plan), regulator
+   notification and inspection-readiness — plus the classic commercial layer
+   (RFP prep, pricing models FTE / per-minute / hybrid / outcome-based,
+   transition risk, SLA & KPI design around AHT, FCR, NPS, occupancy,
+   shrinkage, abandon rate).
+2. **🔐 Bilgi güvenliği kontrolleri** — the contact-center-specific control set,
+   grouped so it is usable: *access* (least privilege, role-based CRM/core
+   banking rights, MFA, privileged access management, entitlement reviews),
+   *recording & retention* (call and screen recording, encryption, retention and
+   destruction, card data — the weaknesses of pause-and-resume recording versus
+   **DTMF masking** for scope reduction, and the biometric dimension of voice),
+   *endpoint* (thin client / VDI, USB and clipboard restrictions, PII/PAN
+   masking on the agent screen, desktop DLP, no BYOD), *network & integration*
+   (segmentation, secure API integration, data minimisation), *people*
+   (background checks, NDAs, awareness training, insider threat), *physical*
+   (delivery-center access control, clean desk / clear screen, no phones or
+   cameras) and *monitoring* (log retention & SIEM, penetration-test cadence,
+   vulnerability management) — each with "what evidence do you ask for".
+3. **⚖️ Uyum** — KVKK duties (controller vs. processor and what belongs in the
+   processor contract, aydınlatma & açık rıza, retention-and-destruction policy,
+   VERBİS, breach notification and the notification SLA you demand from the
+   vendor, cross-border transfer safeguards), ISO/IEC 27001 & 27002 expectations
+   (does the certificate's **scope** actually cover the service?), SOC 2 Type 1
+   vs Type 2, PCI-DSS scope, and audit trails / evidence retention.
+4. **🚨 Riskler ve erken uyarı sinyalleri** — concentration risk, the fourth-party
+   subcontractor chain, remote/home-working agent exposure, data-leakage vectors
+   (screen photos, copy-paste, e-mail, USB, over-broad reporting rights), the
+   quality-versus-security trade-off, hidden costs and vendor lock-in — each with
+   its early-warning signal and the contract/operational counter-measure.
+5. **🔬 Teknoloji ve yeni riskler** — speech/text analytics, agent assist, voice
+   and chat bots, CCaaS, WFM, QM automation, and especially **generative AI in
+   the contact center**: transcripts and recordings reaching a model, prompt-level
+   data leakage, training on customer data, the vendor's AI tool inventory,
+   output review, and EU AI Act awareness.
+
+A **rotating daily focus** (`DAILY_FOCUS`, selected from the day number) decides
+which of these the briefing goes deepest on, so consecutive days never read the
+same. Each briefing ends with a ✅ *Bugünün görevi* that is a verifiable check —
+e.g. *"does your vendor contract carry a right-to-audit clause? open it today"*.
+
+*Accuracy first:* the persona is grounded in the **real framework and institution
+names** — BDDK's *Bankaların Destek Hizmeti Almalarına İlişkin Yönetmelik* and
+*Bankaların Bilgi Sistemleri ve Elektronik Bankacılık Hizmetleri Hakkında
+Yönetmelik*, KVKK / Law 6698 and its secondary regulation, ISO/IEC 27001 &
+27002, the PCI Security Standards Council's PCI-DSS, SOC 2, TSE's TS 13298 and
+e-imza/KEP, plus GDPR / DORA / EU AI Act as directional awareness — because those
+names are stable. It is simultaneously instructed to describe **principles,
+structure and direction, never specific article numbers, dates, thresholds or
+fines**, to flag whatever must be verified, and every briefing ends with a fixed
+caveat telling you to confirm the regulatory detail with your bank's own
+compliance/legal and information-security functions, pointing at official root
+domains only (BDDK, KVKK, TCMB, ISO, PCI SSC) plus the shared
+*"🔎 Bağlantıları açılışta doğrulayın."* note.
+
+It is grounded in **two** RSS feeds, both fetched locally (outside the LLM call)
+and merged with de-duplication: `BANKING_NEWS_RSS_URL` (banking / contact-center
+/ outsourcing) and `BANKING_SECURITY_RSS_URL` (KVKK, data breaches, information
+security). Both default to free Turkish Google News search feeds so the briefing
+can cite REAL links; either feed being unreachable silently degrades towards the
+LLM-only briefing with official root domains.
 
 **Hesap Sorucu Koç** reads the other advisors' `✅ Bugünün görevi` items from the
 **current run**, restates them as one checkable list, and asks yesterday's
@@ -115,25 +165,61 @@ the supervisor can hand it the briefings produced before it (via the
 against the free-tier quota and cannot invent a task you were never given. If the
 other sections failed or were skipped, it degrades to a generic restart nudge.
 
-> ⚠️ **Persistence limitation (read this).** The coach stores a small JSON file
-> (`ACCOUNTABILITY_STATE_FILE`, default `.assistant_state/accountability.json`)
-> with each day's tasks and the streak counter. On **GitHub Actions the runner
-> filesystem is ephemeral**: every scheduled run starts from a clean checkout, so
-> yesterday's file is gone. The advisor therefore treats "no prior state" as a
-> legitimate fresh start — it never crashes, you still get today's consolidated
-> list and a day-1 streak — but real cross-day tracking would need the state
-> committed back to the repo or moved to an external store (a Gist, Notion, a KV
-> service). That is deliberately **not** implemented here; locally (and within a
-> single run) the file works normally.
+> 💾 **How the memory survives (durable streaks).** The coach stores a small JSON
+> file (`ACCOUNTABILITY_STATE_FILE`, default
+> `.assistant_state/accountability.json`) with each day's tasks and the streak
+> counter. The **GitHub Actions runner filesystem is ephemeral**, so the *Daily
+> Briefing* workflow makes it durable by **committing that file back to `main`**:
+> the job runs with `permissions: contents: write`, and a final
+> *"Persist accountability state"* step commits and pushes the file as
+> `github-actions[bot]` whenever it changed. The next scheduled run checks it out
+> and the streak continues. `.gitignore` carries an explicit exception for this
+> one file (`.assistant_state/*` is ignored, `!.assistant_state/accountability.json`
+> is not).
+>
+> The step is deliberately **non-fatal**: it runs `if: always()` with
+> `continue-on-error: true`, retries with `git pull --rebase` to survive a race
+> with another push, and exits `0` even when it cannot push. Losing a streak must
+> never cost you the briefing. "No prior state" therefore remains a legitimate
+> fresh start — day-1 streak, no crash — on a brand-new repo, after a failed
+> push, or when you run locally.
+>
+> Keep the `ACCOUNTABILITY_STATE_FILE` secret **unset** in CI so the default
+> (committed) path is used; pointing it elsewhere silently disables persistence.
 
 **Gün Başı Operasyon Brifingi** uses the **existing** shared Google OAuth
 (read-only Gmail/Calendar scopes — no new auth is invented). Until you complete
 the one-time login it reports `skipped` with that exact instruction, which is the
-expected state on a fresh checkout and on GitHub Actions:
+expected state on a fresh checkout:
 
 ```bash
 python -m ai_assistant.integrations.google_auth
 ```
+
+> ☁️ **Running it in GitHub Actions.** A runner has no token file, which is why
+> this section used to be permanently `skipped` in the cloud. Credentials can now
+> also be supplied **entirely through environment variables**. The one-time login
+> above is still required — it is what produces the refresh token — but it only
+> ever has to be done **once, locally**.
+>
+> Precedence in `google_auth.get_credentials()`:
+> **token file (if present) → `GOOGLE_REFRESH_TOKEN` → `skipped` with a clear reason.**
+>
+> After the login the CLI prints exactly which secrets to set. It prints the
+> **names only** — never the values — so nothing sensitive lands in a terminal
+> scrollback or a CI log:
+>
+> | GitHub secret          | Where to read the value from                                |
+> | ---------------------- | ----------------------------------------------------------- |
+> | `GOOGLE_CLIENT_ID`     | the `client_id` field in `.google_token.json` (or the Google Cloud console) |
+> | `GOOGLE_CLIENT_SECRET` | the `client_secret` field in `.google_token.json` (or the console) |
+> | `GOOGLE_REFRESH_TOKEN` | the `refresh_token` field in `.google_token.json`            |
+>
+> Add them under **Settings → Secrets and variables → Actions**; the workflow
+> already passes all three through. `.google_token.json` stays git-ignored —
+> never commit it or paste its contents anywhere. With the three secrets set, the
+> ops briefing runs in the cloud exactly as it does locally; without them it
+> still degrades to `skipped` rather than failing the run.
 
 Once logged in it fetches a **bounded** slice of recent unread/important mail
 (`OPS_BRIEFING_EMAIL_WINDOW`, default `1d`; `OPS_BRIEFING_MAX_EMAILS`, default 12)
@@ -168,8 +254,9 @@ string) falls back to the default.
 | `JOB_LOCATION`        | `İstanbul`                                                      |
 | `AI_NEWS_RSS_URL`     | Google News RSS search for *yapay zeka* (Turkish)               |
 | `SECTOR_NEWS_RSS_URL` | Google News RSS search for *çağrı merkezi banka* (Turkish)      |
-| `BANKING_NEWS_RSS_URL` | Google News RSS search for banking / contact-center / regulation news (Turkish) |
-| `ACCOUNTABILITY_STATE_FILE` | `.assistant_state/accountability.json` (git-ignored, ephemeral on CI) |
+| `BANKING_NEWS_RSS_URL` | Google News RSS search for banking / contact-center / outsourcing news (Turkish) |
+| `BANKING_SECURITY_RSS_URL` | Google News RSS search for KVKK / bilgi güvenliği / veri ihlali in banking (Turkish) |
+| `ACCOUNTABILITY_STATE_FILE` | `.assistant_state/accountability.json` (committed back to `main` by the workflow) |
 
 Two deliberate exceptions: **no API key is ever defaulted** (without
 `GEMINI_API_KEY`/`OPENAI_API_KEY` the LLM advisors still report `skipped` and the
@@ -259,7 +346,10 @@ python -m ai_assistant.notifiers.slack_notifier
 `.github/workflows/daily-briefing.yml` runs on a daily `schedule` (cron
 `0 7 * * *` UTC = 10:00 İstanbul, UTC+3 — adjust the time in the workflow;
 GitHub Actions cron is always UTC) and on manual
-`workflow_dispatch`. It installs the package and runs the Slack notifier.
+`workflow_dispatch`. It installs the package, runs the Slack notifier, and then
+commits the accountability coach's state file back to `main` (see
+[Phase 3 advisors](#phase-3-advisors) above) — which is why the job declares
+`permissions: contents: write`.
 
 To turn on **live daily delivery**, add these GitHub repository **Secrets**
 (Settings → Secrets and variables → Actions):
@@ -275,18 +365,29 @@ when you want to override one:
 - `JOB_KEYWORDS` / `JOB_LOCATION` — override the default job-scout search.
 - `USER_SECTOR` — tailors the sector intel & free-cert advisors (default
   "banka çağrı merkezleri").
-- `SECTOR_NEWS_RSS_URL` / `AI_NEWS_RSS_URL` / `BANKING_NEWS_RSS_URL` — override
-  the default Google News feeds.
+- `SECTOR_NEWS_RSS_URL` / `AI_NEWS_RSS_URL` / `BANKING_NEWS_RSS_URL` /
+  `BANKING_SECURITY_RSS_URL` — override the default Google News feeds.
 - `ACCOUNTABILITY_STATE_FILE` — where the accountability coach writes its streak
-  state (ephemeral on Actions — see the caveat above).
+  state. **Leave this unset in CI**: the workflow only commits the default path
+  back to the repo, so overriding it disables the durable streak.
 - `OPS_BRIEFING_MAX_EMAILS` / `OPS_BRIEFING_EMAIL_WINDOW` — how much recent mail
   the ops briefing looks at (defaults: 12 messages, `1d`).
 - `ANKA_WEBHOOK_URL` (+ optional `ANKA_API_KEY`) — the only agent with **no**
   default: without it the Anka bridge stays `skipped`.
 
-The **Gün Başı Operasyon Brifingi** needs the one-time Google OAuth login
-(`python -m ai_assistant.integrations.google_auth`, which stores a refresh
-token); until then it reports `skipped` on every scheduled run, which is
+To activate the **Gün Başı Operasyon Brifingi** in the cloud, do the one-time
+local Google login once and add the three secrets it names:
+
+```bash
+python -m ai_assistant.integrations.google_auth
+```
+
+- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN` — read the
+  values out of your local `.google_token.json` (`client_id`, `client_secret`,
+  `refresh_token`). The CLI prints the **names** and where to find them, never
+  the values themselves.
+
+Until those exist the section reports `skipped` on every scheduled run, which is
 expected and never fails the job.
 
 Any secret you omit falls back to its default (or leaves that advisor/notifier
@@ -384,10 +485,17 @@ Google OAuth 2.0 flow (read-only scopes). You log in **once**:
    A browser opens for consent; on success a token (including the refresh
    token) is written to `GOOGLE_TOKEN_FILE` (default `.google_token.json`,
    which is git-ignored). From then on the connection checks refresh the
-   access token automatically — no further interaction required.
+   access token automatically — no further interaction required. The command
+   then prints which GitHub Secrets to set if you also want this to work in the
+   cloud (names only — the values stay in the token file).
 
-If no Google client credentials and no token file are present, the three
-Google checks simply report **SKIPPED**.
+3. *(Optional, for CI)* Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` and
+   `GOOGLE_REFRESH_TOKEN` as environment variables / repository secrets. That
+   is a complete, **file-free** credential: `get_credentials()` prefers a token
+   file when one exists and otherwise exchanges the refresh token directly.
+
+If no Google client credentials, no `GOOGLE_REFRESH_TOKEN` and no token file are
+present, the three Google checks simply report **SKIPPED**.
 
 ## Run the connection check
 
