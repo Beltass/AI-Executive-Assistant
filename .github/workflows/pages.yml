@@ -1,0 +1,58 @@
+name: Deploy Dashboard to Pages
+
+# Publishes the static agent dashboard in `frontend/` to GitHub Pages.
+#
+# This is the FALLBACK host: the primary is Vercel (the connected project's
+# root directory is `frontend`, so it serves these files with zero config).
+# Pages costs nothing and keeps the dashboard reachable even if the Vercel
+# project is disconnected.
+#
+# ONE-TIME SETUP: Settings → Pages → Source: "GitHub Actions". Until that is
+# done the deploy step fails with "Pages is not enabled"; nothing else in the
+# repository is affected.
+#
+# Published URL: https://beltass.github.io/AI-Executive-Assistant/
+on:
+  push:
+    branches: [main]
+    # Only the dashboard (and its data, committed back by the Daily Briefing
+    # job) is worth a redeploy.
+    paths:
+      - "frontend/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch: {}
+
+# Read the repo, mint the OIDC token deploy-pages needs, publish to Pages.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One live deployment at a time. `cancel-in-progress: false` lets an in-flight
+# publish finish rather than leaving the site half-updated.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload dashboard artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # A pure static site: no build step, the directory ships as-is.
+          path: frontend
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

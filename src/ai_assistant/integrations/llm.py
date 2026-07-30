@@ -93,6 +93,26 @@ def clear_time_budget() -> None:
     _budget_started_at = None
 
 
+# Which model actually served the last successful generation. Purely
+# observational (the monitoring dashboard reports it); never a secret, since it
+# is only a public model NAME such as ``gemini-2.5-flash``.
+_last_model: Optional[str] = None
+
+
+def _record_model(model: str) -> None:
+    global _last_model
+    _last_model = model
+
+
+def last_model() -> Optional[str]:
+    """Name of the model that served the last successful generation.
+
+    ``None`` when nothing has been generated in this process yet (no provider
+    configured, or every attempt failed).
+    """
+    return _last_model
+
+
 def _time_budget_seconds() -> float:
     """The configured budget; ``0`` or less disables it."""
     try:
@@ -422,6 +442,7 @@ def _generate_gemini(
 
         # Log WHICH model actually served the answer (never the key).
         logger.info("gemini yanıtı '%s' modelinden alındı", model)
+        _record_model(model)
         return text
 
     raise RuntimeError(
@@ -460,4 +481,5 @@ def _generate_openai(
     text = (choices[0].get("message", {}).get("content") or "").strip()
     if not text:
         raise RuntimeError("openai returned empty text")
+    _record_model(OPENAI_MODEL)
     return text

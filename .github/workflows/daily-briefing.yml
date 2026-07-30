@@ -14,9 +14,10 @@ on:
 jobs:
   briefing:
     runs-on: ubuntu-latest
-    # The accountability coach's streak file is committed back to the default
-    # branch after every run, which is what makes its memory survive the
-    # ephemeral runner. Nothing else in this job writes to the repository.
+    # The accountability coach's streak file and the dashboard's status.json
+    # are committed back to the default branch after every run, which is what
+    # makes the coach's memory survive the ephemeral runner and what feeds the
+    # static dashboard. Nothing else in this job writes to the repository.
     permissions:
       contents: write
     steps:
@@ -98,40 +99,53 @@ jobs:
           OPS_BRIEFING_EMAIL_WINDOW: ${{ secrets.OPS_BRIEFING_EMAIL_WINDOW }}
         run: python -m ai_assistant.notifiers.slack_notifier
 
-      # The runner filesystem is thrown away, so the coach's streak/task memory
-      # is persisted by committing it back to `main`. Runs even when the
-      # briefing step failed (partial state is still worth keeping) and NEVER
-      # fails the job: `continue-on-error` plus an always-succeeding script mean
-      # a race or a protected branch can cost the streak, never the briefing.
-      - name: Persist accountability state
+      # The runner filesystem is thrown away, so two artefacts are persisted by
+      # committing them back to `main`:
+      #   * the coach's streak/task memory, which is what makes its memory
+      #     survive the ephemeral runner;
+      #   * the dashboard's status.json, which is what the static site in
+      #     `frontend/` renders (and what makes the run visible to the user).
+      # Runs even when the briefing step failed (a failed run is exactly what
+      # the dashboard must show) and NEVER fails the job: `continue-on-error`
+      # plus an always-succeeding script mean a race or a protected branch can
+      # cost the streak, never the briefing.
+      - name: Persist accountability state and dashboard status
         if: always()
         continue-on-error: true
         env:
-          STATE_FILE: .assistant_state/accountability.json
+          STATE_FILES: ".assistant_state/accountability.json frontend/status.json"
         run: |
           set -u
-          if [ ! -f "$STATE_FILE" ]; then
-            echo "No state file at $STATE_FILE — nothing to persist."
+          PRESENT=""
+          for file in $STATE_FILES; do
+            if [ -f "$file" ]; then
+              PRESENT="$PRESENT $file"
+            else
+              echo "No file at $file — skipping it."
+            fi
+          done
+          if [ -z "$PRESENT" ]; then
+            echo "Nothing to persist."
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -- "$STATE_FILE"
-          if git diff --cached --quiet -- "$STATE_FILE"; then
-            echo "Accountability state unchanged — nothing to commit."
+          git add -- $PRESENT
+          if git diff --cached --quiet -- $PRESENT; then
+            echo "Persisted files unchanged — nothing to commit."
             exit 0
           fi
-          git commit -m "chore: persist accountability state [skip ci]" -- "$STATE_FILE"
+          git commit -m "chore: persist accountability state and dashboard status [skip ci]" -- $PRESENT
           # Another run (or a merge) may have moved main in the meantime, so
           # rebase and retry a few times before giving up.
           for attempt in 1 2 3; do
             if git push origin HEAD:main; then
-              echo "Accountability state pushed on attempt $attempt."
+              echo "Persisted files pushed on attempt $attempt."
               exit 0
             fi
             echo "Push failed (attempt $attempt); rebasing onto origin/main."
             git pull --rebase --autostash origin main || break
             sleep $((attempt * 5))
           done
-          echo "Could not persist accountability state; the streak restarts next run."
+          echo "Could not persist state; the streak restarts and the dashboard keeps the previous run."
           exit 0
