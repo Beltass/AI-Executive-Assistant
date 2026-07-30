@@ -58,6 +58,66 @@ RETRYABLE_STATUS_CODES = (429, 500, 502, 503, 504)
 # available on this endpoint/key.
 FALLBACK_STATUS_CODES = RETRYABLE_STATUS_CODES + (404,)
 
+# Wall-clock ceiling for ALL LLM work in one run (``LLM_TIME_BUDGET_SECONDS``).
+#
+# WHY: retries and model fallback multiply. One generation can spend ~3 minutes
+# retrying a rate-limited model, times three models in the chain, and if the
+# batched call still fails every advisor repeats that dance on its own. In
+# practice a fallback model has so far always answered (gemini-2.5-flash is
+# routinely 429 on the free tier, gemini-flash-latest picks it up), but if the
+# WHOLE chain is rate limited nothing bounds the fan-out: simulating that case
+# costs ~79 minutes and ~120 requests to rediscover, over and over, that the
+# quota is still spent — and every attempt digs the hole deeper.
+#
+# The budget makes the run bounded: once it is spent, further attempts fail
+# fast, the remaining sections degrade gracefully (the news advisors still show
+# their real RSS headlines, weather is unaffected) and the digest is delivered
+# on time instead of an hour late. It only ever cuts short waiting that was
+# already failing, so the healthy path is unchanged.
+DEFAULT_LLM_TIME_BUDGET_SECONDS = 600.0
+
+# Set by :func:`start_time_budget`. ``None`` means "no budget" — the default for
+# library/test use, so importing this module never imposes a deadline.
+_budget_started_at: Optional[float] = None
+
+
+def start_time_budget() -> None:
+    """Start (or restart) the shared LLM time budget for this run."""
+    global _budget_started_at
+    _budget_started_at = time.monotonic()
+
+
+def clear_time_budget() -> None:
+    """Remove the budget, restoring unlimited behaviour."""
+    global _budget_started_at
+    _budget_started_at = None
+
+
+def _time_budget_seconds() -> float:
+    """The configured budget; ``0`` or less disables it."""
+    try:
+        return float(
+            os.getenv("LLM_TIME_BUDGET_SECONDS") or DEFAULT_LLM_TIME_BUDGET_SECONDS
+        )
+    except ValueError:
+        return DEFAULT_LLM_TIME_BUDGET_SECONDS
+
+
+def time_budget_remaining() -> Optional[float]:
+    """Seconds left in the budget, or ``None`` when no budget applies."""
+    if _budget_started_at is None:
+        return None
+    budget = _time_budget_seconds()
+    if budget <= 0:
+        return None
+    return budget - (time.monotonic() - _budget_started_at)
+
+
+def time_budget_exhausted() -> bool:
+    """True once this run has spent its whole LLM time budget."""
+    remaining = time_budget_remaining()
+    return remaining is not None and remaining <= 0
+
 
 def _redact_key(text: str, key: str = "") -> str:
     """Strip any API key from an error/log string.
@@ -182,7 +242,17 @@ def _post_gemini_with_retry(url: str, headers: dict, payload: dict) -> httpx.Res
         resp = http_post(url, headers=headers, json=payload, timeout=_gemini_timeout())
         if resp.status_code not in RETRYABLE_STATUS_CODES or attempt >= max_retries:
             return resp
-        time.sleep(_retry_delay(resp, attempt, base))
+        delay = _retry_delay(resp, attempt, base)
+        # Never sleep past the run's budget: waiting out a quota window we no
+        # longer have time for only delays the digest.
+        remaining = time_budget_remaining()
+        if remaining is not None and delay >= remaining:
+            logger.warning(
+                "kalan süre bütçesi (%.0fs) yeniden denemeye yetmiyor, vazgeçiliyor",
+                max(0.0, remaining),
+            )
+            return resp
+        time.sleep(delay)
         attempt += 1
 
 
@@ -304,6 +374,15 @@ def _generate_gemini(
     last_error = "bilinmeyen hata"
 
     for model in models:
+        if time_budget_exhausted():
+            # Every remaining model would hit the same exhausted quota window;
+            # fail fast so the digest still goes out with what we do have.
+            last_error = f"süre bütçesi doldu, denenmedi: {model}"
+            logger.warning(
+                "süre bütçesi doldu; '%s' ve sonraki modeller denenmiyor", model
+            )
+            break
+
         url = f"{GEMINI_MODELS_URL}/{model}:generateContent"
         _apply_request_spacing()
         try:

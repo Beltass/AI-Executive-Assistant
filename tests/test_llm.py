@@ -39,7 +39,10 @@ def gemini_env(monkeypatch):
     monkeypatch.delenv("GEMINI_MODEL", raising=False)
     monkeypatch.setenv("GEMINI_RETRY_BASE_SECONDS", "0")
     monkeypatch.setenv("GEMINI_REQUEST_SPACING_SECONDS", "0")
+    monkeypatch.delenv("LLM_TIME_BUDGET_SECONDS", raising=False)
+    llm.clear_time_budget()  # no deadline unless a test starts one
     yield
+    llm.clear_time_budget()
 
 
 def _single_model_chain(monkeypatch):
@@ -309,3 +312,104 @@ def test_gemini_hard_error_fails_fast_and_is_redacted(monkeypatch, gemini_env):
 
     assert calls["n"] == 1
     assert FAKE_KEY not in str(excinfo.value)
+
+
+# --- shared LLM time budget -------------------------------------------------
+#
+# Retries multiply with the model fallback chain, and again with the
+# per-advisor path, so an exhausted quota could stretch a run past an hour.
+# One shared wall-clock budget keeps the job bounded.
+
+
+def test_no_budget_by_default(gemini_env):
+    """Library/test use must stay unlimited unless a run starts a budget."""
+    assert llm.time_budget_remaining() is None
+    assert llm.time_budget_exhausted() is False
+
+
+def test_budget_can_be_disabled_with_zero(monkeypatch, gemini_env):
+    monkeypatch.setenv("LLM_TIME_BUDGET_SECONDS", "0")
+    llm.start_time_budget()
+    assert llm.time_budget_remaining() is None
+    assert llm.time_budget_exhausted() is False
+
+
+def test_exhausted_budget_skips_every_remaining_model(monkeypatch, gemini_env):
+    """Once the budget is spent, no further model is even attempted."""
+    monkeypatch.setenv("LLM_TIME_BUDGET_SECONDS", "600")
+    llm.start_time_budget()
+    # Jump the clock past the budget.
+    monkeypatch.setattr(llm.time, "monotonic", lambda: llm._budget_started_at + 601)
+
+    calls = {"n": 0}
+
+    def fake_post(url, headers=None, json=None, timeout=None):
+        calls["n"] += 1
+        return _resp(200)
+
+    monkeypatch.setattr(llm, "http_post", fake_post)
+
+    with pytest.raises(RuntimeError) as excinfo:
+        llm.generate_text("sys", "user")
+
+    assert calls["n"] == 0  # not a single request was made
+    assert "süre bütçesi" in str(excinfo.value)
+    assert FAKE_KEY not in str(excinfo.value)
+
+
+def test_retry_does_not_sleep_past_the_budget(monkeypatch, gemini_env):
+    """A backoff longer than the time left is abandoned, not slept through."""
+    _single_model_chain(monkeypatch)
+    monkeypatch.setenv("GEMINI_MAX_RETRIES", "4")
+    monkeypatch.setenv("GEMINI_RETRY_BASE_SECONDS", "20")
+    monkeypatch.setenv("LLM_TIME_BUDGET_SECONDS", "600")
+
+    llm.start_time_budget()
+    started = llm._budget_started_at
+    # Only 5 seconds left — shorter than the 20s first backoff.
+    monkeypatch.setattr(llm.time, "monotonic", lambda: started + 595)
+
+    calls = {"n": 0}
+    sleeps = []
+
+    def fake_post(url, headers=None, json=None, timeout=None):
+        calls["n"] += 1
+        return _resp(429)
+
+    monkeypatch.setattr(llm, "http_post", fake_post)
+    monkeypatch.setattr(llm.time, "sleep", lambda s: sleeps.append(s))
+
+    with pytest.raises(RuntimeError):
+        llm.generate_text("sys", "user")
+
+    assert sleeps == []  # never waited out a window we had no time for
+    assert calls["n"] == 1  # one attempt, then gave up instead of 5
+
+
+def test_budget_still_allows_a_retry_that_fits(monkeypatch, gemini_env):
+    """A backoff shorter than the remaining time is still honoured."""
+    _single_model_chain(monkeypatch)
+    monkeypatch.setenv("GEMINI_MAX_RETRIES", "1")
+    monkeypatch.setenv("GEMINI_RETRY_BASE_SECONDS", "20")
+    monkeypatch.setenv("LLM_TIME_BUDGET_SECONDS", "600")
+
+    llm.start_time_budget()
+    started = llm._budget_started_at
+    monkeypatch.setattr(llm.time, "monotonic", lambda: started + 100)  # 500s left
+
+    responses = [_resp(429), _resp(200)]
+    sleeps = []
+
+    monkeypatch.setattr(
+        llm, "http_post", lambda url, **kw: responses.pop(0)
+    )
+    monkeypatch.setattr(llm.time, "sleep", lambda s: sleeps.append(s))
+    monkeypatch.setattr(
+        httpx.Response,
+        "json",
+        lambda self: {"candidates": [{"content": {"parts": [{"text": "ok"}]}}]},
+        raising=False,
+    )
+
+    assert llm.generate_text("sys", "user") == "ok"
+    assert sleeps == [20.0]
