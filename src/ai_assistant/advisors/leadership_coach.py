@@ -13,8 +13,14 @@ SYSTEM_PROMPT = (
 )
 
 USER_PROMPT = (
-    "Bugün için doyurucu bir günlük liderlik gelişimi briefingi hazırla; "
-    "gerçek bir liderlik içgörüsüne, ilkeye veya çerçeveye odaklan.\n\n"
+    "Bugün için derinlikli bir günlük liderlik gelişimi briefingi hazırla. "
+    "TEK bir gerçek liderlik teması seç (örneğin geri bildirim, güven inşası, "
+    "zor karar alma, delegasyon, kriz iletişimi) ve onu sonuna kadar işle: "
+    "adı olan bir çerçeve/model tanıt ve kısaca kaynağını belirt, çerçeveyi "
+    "adım adım uygulamalı örnekle göster (kısa bir diyalog veya vaka), "
+    "yöneticilerin bu konuda en sık yaptığı hatayı ve düzeltmesini anlat, "
+    "sonra ekipte etkisini nasıl ölçebileceğini söyle. Genel geçer "
+    "tavsiyelerden kaçın; her cümlede bir işe yarar bilgi olsun.\n\n"
     + RICH_BRIEFING_GUIDE
 )
 

@@ -11,7 +11,8 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
-from typing import List
+from typing import Dict, List
+from urllib.parse import quote_plus
 
 from dotenv import load_dotenv
 
@@ -103,6 +104,49 @@ INTEGRATIONS: List[IntegrationSpec] = [
 
 # Shared timeout (seconds) for outbound health requests.
 REQUEST_TIMEOUT = float(os.getenv("AI_ASSISTANT_HTTP_TIMEOUT", "10"))
+
+
+def _google_news_rss(query: str) -> str:
+    """Build a Turkish Google News RSS search feed URL for ``query``."""
+    return (
+        "https://news.google.com/rss/search?"
+        f"q={quote_plus(query)}&hl=tr&gl=TR&ceid=TR:tr"
+    )
+
+
+# --- Non-secret defaults ----------------------------------------------------
+# Sensible out-of-the-box values so the WHOLE advisor team produces content
+# without any manual setup. Every entry is overridable: a non-empty environment
+# variable (or GitHub secret) always wins, and an empty/unset secret — which
+# GitHub Actions passes through as an empty string — falls back to the default
+# here.
+#
+# SAFETY: only NON-SECRET configuration lives here. API keys and tokens are
+# never defaulted, so a missing LLM key still yields a ``skipped`` briefing and
+# a zero exit code. The Anka bridge is deliberately absent too: its endpoint is
+# user-specific and must never be invented.
+DEFAULT_SETTINGS: Dict[str, str] = {
+    "WEATHER_CITY": "Istanbul",
+    "USER_SECTOR": "banka çağrı merkezleri",
+    "JOB_KEYWORDS": "çağrı merkezi müdürü, müşteri deneyimi yöneticisi, operasyon müdürü",
+    "JOB_LOCATION": "İstanbul",
+    # Real, verifiable feeds so the news advisors link to actual articles even
+    # when no RSS secret is configured.
+    "AI_NEWS_RSS_URL": _google_news_rss("yapay zeka"),
+    "SECTOR_NEWS_RSS_URL": _google_news_rss("çağrı merkezi banka"),
+}
+
+
+def setting(name: str, default: str = "") -> str:
+    """Return a non-secret setting: env var if set, else the built-in default.
+
+    Whitespace-only environment values count as unset (GitHub Actions expands a
+    missing secret to an empty string), so the default takes over.
+    """
+    value = (os.getenv(name) or "").strip()
+    if value:
+        return value
+    return DEFAULT_SETTINGS.get(name, default)
 
 
 def get_integration(key: str) -> IntegrationSpec:

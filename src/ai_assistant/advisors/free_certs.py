@@ -12,8 +12,7 @@ the advisor is ``skipped``.
 
 from __future__ import annotations
 
-import os
-
+from ..config import setting
 from ._llm_base import LLMAdvisor, RICH_BRIEFING_GUIDE
 
 DEFAULT_SECTOR = "banka çağrı merkezleri"
@@ -29,14 +28,20 @@ SYSTEM_PROMPT = (
 
 
 def _user_prompt() -> str:
-    sector = (os.getenv("USER_SECTOR") or "").strip() or DEFAULT_SECTOR
+    sector = setting("USER_SECTOR") or DEFAULT_SECTOR
     return (
         f"Alan/sektör: {sector}\n\n"
         "Bu alana uygun ücretsiz sertifikalar/kurslar ve dil öğrenme "
-        "kaynaklarını derinlemesine ele al. '📚 Kaynaklar' bölümünde önerdiğin "
-        "her kaynak için kısa bir 'neden' ve 'ücretsiz olduğunu doğrulayın' "
-        "notu ekle; tercihen Coursera, edX, Khan Academy, freeCodeCamp gibi "
-        "bilinen ücretsiz/açık platformların ana adreslerini kullan.\n\n"
+        "kaynaklarını derinlemesine ele al. Şunları ayrı alt başlıklarda ver: "
+        "(1) bu alanda İŞE YARAYAN 3-4 ücretsiz sertifika/kurs — her biri için "
+        "sağlayıcı, yaklaşık süre, zorluk seviyesi, hangi beceriyi kazandırdığı "
+        "ve CV'de nasıl konumlandırılacağı; (2) dil pratiği için somut bir "
+        "haftalık rutin (hangi kaynak, günde kaç dakika, hangi çıktı); "
+        "(3) öğrenmeyi tamamlama oranını artıran 2-3 taktik. '📚 Kaynaklar' "
+        "bölümünde önerdiğin her kaynak için kısa bir 'neden' ve 'ücretsiz "
+        "olduğunu doğrulayın' notu ekle; tercihen Coursera, edX, Khan Academy, "
+        "freeCodeCamp gibi bilinen ücretsiz/açık platformların ana adreslerini "
+        "kullan.\n\n"
         + RICH_BRIEFING_GUIDE
     )
 

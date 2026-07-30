@@ -14,9 +14,31 @@ and degrade to a ``failed`` (something configured broke) or ``skipped``
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List
+from typing import List, Optional
 
 from ..integrations import STATUS_FAILED, STATUS_OK, STATUS_SKIPPED
+
+
+@dataclass
+class BatchSection:
+    """One advisor's LLM work, to be folded into a single batched request.
+
+    The free Gemini tier only allows a couple of ``generateContent`` calls per
+    quota window, so instead of one call per advisor the Operations Manager
+    collects these sections and asks the model for the whole briefing at once
+    (see :mod:`ai_assistant.advisors._batch`).
+
+    Attributes:
+        key: The advisor key, used as the section marker in the response.
+        title: Human-readable Turkish title shown to the model.
+        system_prompt: The persona the model should adopt for this section.
+        user_prompt: What that persona should produce today.
+    """
+
+    key: str
+    title: str
+    system_prompt: str
+    user_prompt: str
 
 
 @dataclass
@@ -70,6 +92,26 @@ class Advisor:
         except Exception as exc:  # defensive: never let one advisor crash
             return self.failed(f"beklenmeyen hata: {exc}")
 
+    # -- batching hooks ---------------------------------------------------
+    def batch_section(self) -> Optional[BatchSection]:
+        """LLM work to fold into the shared batched call, or ``None``.
+
+        ``None`` means "leave me out of the batch": the advisor either does not
+        use an LLM at all (weather, Anka bridge) or cannot run right now (no
+        provider key, missing config). Non-LLM data gathering — Open-Meteo,
+        RSS feeds — always stays outside the batch and runs per advisor.
+        """
+        return None
+
+    def briefing_from_batch(self, text: str) -> Briefing:
+        """Turn this advisor's slice of the batched response into a briefing.
+
+        Only called when :meth:`batch_section` returned a section and the model
+        actually produced content for it. Subclasses override to append their
+        own deterministic extras (search links, caveats).
+        """
+        return self.ok(text.strip())
+
     # -- helpers for subclasses ------------------------------------------
     def ok(self, text: str) -> Briefing:
         return Briefing(key=self.key, title=self.title, status=STATUS_OK, text=text)
@@ -110,4 +152,4 @@ def all_advisors() -> List[Advisor]:
     ]
 
 
-__all__ = ["Advisor", "Briefing", "all_advisors"]
+__all__ = ["Advisor", "BatchSection", "Briefing", "all_advisors"]

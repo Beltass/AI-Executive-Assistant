@@ -4,37 +4,60 @@ Each persona provides a strong Turkish SYSTEM prompt plus a daily USER
 prompt and reuses ``integrations.llm`` for generation. If no LLM provider
 key is configured the briefing is ``skipped``; any request/transport error
 degrades to ``failed``.
+
+Personas also expose :meth:`LLMAdvisor.batch_section` so the Operations
+Manager can fold every persona into ONE batched Gemini call instead of one
+call per advisor (see :mod:`ai_assistant.advisors._batch`).
 """
 
 from __future__ import annotations
 
-from . import Advisor, Briefing
+from typing import Optional
+
+from . import Advisor, BatchSection, Briefing
 from ..integrations import llm
 
 
 # Shared structure appended to persona USER prompts so every daily briefing is
-# rich, curiosity-provoking, source-linked and developmental — well-formatted
+# deep, curiosity-provoking, source-linked and developmental — well-formatted
 # for Slack (Markdown headings/bullets). Personas can inline it via
 # ``RICH_BRIEFING_GUIDE``.
+#
+# The goal is a substantial read (~300-500 words per advisor), not a paragraph:
+# multiple structured subsections with concrete specifics — named frameworks,
+# numbers, worked examples, step-by-step reasoning — instead of generic advice.
 RICH_BRIEFING_GUIDE = (
+    "YAZIM VE DERİNLİK KURALLARI (hepsine uy):\n"
     "Brifingi Slack'te güzel görünecek şekilde Markdown ile biçimlendir "
-    "(kısa başlıklar ve madde işaretleri kullan) ve şu bölümleri MUTLAKA içer:\n"
-    "1. *Merak uyandıran giriş*: ilgi çekici bir soru, çarpıcı bir bilgi veya "
-    "içgörüyle başla; okuyucuyu okumaya devam etmeye teşvik et.\n"
-    "2. *Derinlemesine rehberlik*: tek bir genel paragraf değil; kişiye ve "
-    "konuya özel, somut, örnekli ve doyurucu açıklamalar ver.\n"
-    "3. *📚 Kaynaklar*: 1-3 kaliteli kaynak öner (kitap: başlık + yazar; "
-    "Coursera, edX, Khan Academy gibi saygın platformlar; resmi dokümanlar; "
-    "bilinen YouTube kanalları; makaleler; araçlar) ve her birine BAĞLANTI ekle. "
-    "SADECE gerçek ve KALICI olduğundan emin olduğun bağlantıları ver; tercihen "
-    "resmi ana sayfalar / bilinen kök alan adları (örn. https://www.coursera.org, "
-    "https://www.edx.org, https://developers.google.com). Belirli bir derin "
-    "URL'in var olduğundan emin değilsen tam yolu UYDURMA; bunun yerine "
-    "platformun ana adresini ver ve önerilen bir arama terimi ekle. Bu bölümün "
-    "sonuna '🔎 Bağlantıları açılışta doğrulayın.' notunu ekle.\n"
-    "4. *Bugünün görevi*: bugün yapılabilecek somut, gelişimsel bir eylem, "
-    "alıştırma veya ödev ver.\n"
-    "Tümü akıcı, sıcak ve anlaşılır Türkçe olsun."
+    "(kısa başlıklar, madde işaretleri, gerektiğinde numaralı adımlar) ve "
+    "yaklaşık 300-500 kelime yaz. Kısa, genel geçer bir paragrafla YETİNME; "
+    "aşağıdaki bölümlerin HEPSİNİ sırayla ver:\n"
+    "1. *Merak uyandıran giriş* (2-3 cümle): çarpıcı bir soru, şaşırtıcı bir "
+    "bulgu veya küçük bir vaka ile başla; okuyucuyu içeri çek.\n"
+    "2. *Derinlemesine bölümler* (EN AZ 3 alt başlık): her alt başlıkta "
+    "somut ve spesifik ol — adı olan bir çerçeve/model/yöntem (ve kimin "
+    "geliştirdiği), sayılar veya oranlar, gerçek hayattan kısa bir örnek ya da "
+    "diyalog, ve adım adım nasıl uygulanacağı. 'İletişim önemlidir' gibi "
+    "klişelerden kaçın; 'şu durumda şunu şöyle söyle' düzeyinde netlik ver. "
+    "Uygun olduğunda yaygın bir hatayı ve nasıl düzeltileceğini de göster.\n"
+    "3. *Neden işe yarar*: kısa bir gerekçe — arkasındaki mantık, araştırma "
+    "geleneği veya sektör pratiği; abartmadan ve emin olmadığın iddiaları "
+    "'kesin' diye sunmadan.\n"
+    "4. *📚 Kaynaklar*: 2-4 özenle seçilmiş kaynak öner (kitap: başlık + "
+    "yazar; Coursera, edX, Khan Academy gibi saygın platformlar; resmi "
+    "dokümanlar; bilinen YouTube kanalları; makaleler; araçlar) ve her birine "
+    "BAĞLANTI ile birlikte tek cümlelik bir 'neden bu?' notu ekle. "
+    "SADECE gerçek ve KALICI olduğundan emin olduğun bağlantıları ver; "
+    "tercihen resmi ana sayfalar / bilinen kök alan adları (örn. "
+    "https://www.coursera.org, https://www.edx.org, "
+    "https://developers.google.com). Belirli bir derin URL'in var olduğundan "
+    "emin değilsen tam yolu UYDURMA; bunun yerine platformun ana adresini ver "
+    "ve önerilen bir arama terimi ekle. Bu bölümün sonuna "
+    "'🔎 Bağlantıları açılışta doğrulayın.' notunu ekle.\n"
+    "5. *✅ Bugünün görevi*: bugün 15-30 dakikada yapılabilecek TEK bir somut "
+    "eylem; ne yapılacağını, nasıl yapılacağını ve başarının nasıl "
+    "anlaşılacağını (küçük bir ölçüt) yaz.\n"
+    "Tümü akıcı, sıcak ve anlaşılır Türkçe olsun; yapay kurumsal dilden kaçın."
 )
 
 
@@ -55,3 +78,14 @@ class LLMAdvisor(Advisor):
         except Exception as exc:
             return self.failed(f"LLM isteği başarısız: {exc}")
         return self.ok(text)
+
+    def batch_section(self) -> Optional[BatchSection]:
+        """Join the batched call whenever a provider key is configured."""
+        if not llm.is_configured():
+            return None
+        return BatchSection(
+            key=self.key,
+            title=self.title,
+            system_prompt=self.system_prompt,
+            user_prompt=self.user_prompt,
+        )

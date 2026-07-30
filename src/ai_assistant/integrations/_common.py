@@ -38,9 +38,24 @@ def http_get(url: str, headers: Optional[dict] = None) -> httpx.Response:
     return httpx.get(url, headers=headers, timeout=REQUEST_TIMEOUT)
 
 
-def http_post(url: str, headers: Optional[dict] = None, json: Optional[dict] = None) -> httpx.Response:
-    """Perform a POST with a shared timeout. Raises on transport errors."""
-    return httpx.post(url, headers=headers, json=json, timeout=REQUEST_TIMEOUT)
+def http_post(
+    url: str,
+    headers: Optional[dict] = None,
+    json: Optional[dict] = None,
+    timeout: Optional[float] = None,
+) -> httpx.Response:
+    """Perform a POST with a timeout. Raises on transport errors.
+
+    ``timeout`` defaults to the shared :data:`REQUEST_TIMEOUT`; callers that
+    talk to slow endpoints (e.g. LLM generation) pass a longer one so a hung
+    request can never stall the daily job indefinitely.
+    """
+    return httpx.post(
+        url,
+        headers=headers,
+        json=json,
+        timeout=REQUEST_TIMEOUT if timeout is None else timeout,
+    )
 
 
 def classify_response(name: str, resp: httpx.Response) -> CheckResult:

@@ -12,6 +12,10 @@ Run with::
 
 Exits non-zero only when a *configured* advisor actually FAILED (mirroring
 ``health.py``). Advisors that ``skipped`` (nothing configured) exit 0.
+
+By default the LLM-backed advisors share ONE batched model call
+(``DIGEST_BATCH_MODE``, see :mod:`ai_assistant.advisors._batch`); set it to
+``false`` to go back to one call per advisor.
 """
 
 from __future__ import annotations
@@ -21,6 +25,7 @@ from dataclasses import dataclass, field
 from typing import List, Optional
 
 from .advisors import Advisor, Briefing, all_advisors
+from .advisors._batch import run_batch
 from .integrations import STATUS_FAILED, STATUS_OK, STATUS_SKIPPED
 
 
@@ -60,11 +65,25 @@ class OperationsManager:
         self.advisors.append(advisor)
 
     def run(self) -> Supervision:
-        """Run every advisor, isolating failures. Returns a supervision summary."""
+        """Run every advisor, isolating failures. Returns a supervision summary.
+
+        By default the LLM-backed advisors are served by ONE batched model call
+        (see :mod:`ai_assistant.advisors._batch`) instead of one call each,
+        which is what makes the run fit a free-tier quota. Any advisor the
+        batch did not cover — non-LLM ones, or sections the model omitted, or
+        the whole team if the batched call failed — transparently falls back to
+        its own per-advisor path.
+        """
         briefings: List[Briefing] = []
+        batched = run_batch(self.advisors)
+
         for advisor in self.advisors:
             try:
-                briefings.append(advisor.generate_briefing())
+                text = batched.get(advisor.key)
+                if text:
+                    briefings.append(advisor.briefing_from_batch(text))
+                else:
+                    briefings.append(advisor.generate_briefing())
             except Exception as exc:  # extra guard beyond the advisor's own
                 briefings.append(
                     Briefing(

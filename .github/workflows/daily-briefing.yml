@@ -29,21 +29,29 @@ jobs:
 
       - name: Build and send daily digest
         env:
-          # Weather advisor (Open-Meteo, no key required).
+          # Weather advisor (Open-Meteo, no key required). An unset secret is an
+          # empty string, which falls back to the built-in default ("Istanbul").
           WEATHER_CITY: ${{ secrets.WEATHER_CITY }}
           WEATHER_COUNTRY: ${{ secrets.WEATHER_COUNTRY }}
           # LLM provider — either key activates the persona advisors.
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          # Space out sequential Gemini calls so the free-tier quota window
-          # doesn't 429 every advisor. Combined with built-in 429 retry/backoff,
-          # this lets more sections complete on the free tier.
+          # The whole advisor team is served by ONE batched Gemini call, which
+          # is what fits the free-tier quota (nine separate calls did not).
+          DIGEST_BATCH_MODE: "true"
+          # That single answer carries every section, so give it room and time.
+          GEMINI_TIMEOUT_SECONDS: "300"
+          # Space out any remaining sequential Gemini calls (the per-advisor
+          # fallback path) so the free-tier quota window doesn't 429 them.
+          # Combined with the built-in 429/5xx retry + model fallback, this lets
+          # more sections complete on the free tier.
           GEMINI_REQUEST_SPACING_SECONDS: "8"
           # Slack delivery — webhook OR bot token + channel.
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           SLACK_CHANNEL: ${{ secrets.SLACK_CHANNEL }}
-          # Phase 2 advisors — all optional; a missing secret skips its agent.
+          # Phase 2 advisors — all optional; a missing secret falls back to the
+          # built-in default (except ANKA_*, which has none by design).
           JOB_KEYWORDS: ${{ secrets.JOB_KEYWORDS }}
           JOB_LOCATION: ${{ secrets.JOB_LOCATION }}
           USER_SECTOR: ${{ secrets.USER_SECTOR }}

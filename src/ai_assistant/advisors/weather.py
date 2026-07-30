@@ -1,14 +1,16 @@
 """Weather advisor — FREE Open-Meteo, no API key required.
 
 Configuration (via environment):
-    WEATHER_CITY        City name to geocode (optional WEATHER_COUNTRY hint).
+    WEATHER_CITY        City name to geocode (defaults to "Istanbul"; optional
+                        WEATHER_COUNTRY hint).
     WEATHER_COUNTRY     Optional country name/code to disambiguate the city.
     WEATHER_LATITUDE    Explicit latitude (overrides city geocoding).
     WEATHER_LONGITUDE   Explicit longitude (overrides city geocoding).
 
-With no city and no coordinates the advisor is ``skipped``. Otherwise it
-geocodes the city (if needed), fetches the daily forecast and produces a
-Turkish meteorologist-style summary.
+The city falls back to the :data:`~ai_assistant.config.DEFAULT_SETTINGS` value,
+so the advisor is active out of the box; it geocodes the city (if needed),
+fetches the daily forecast and produces a Turkish meteorologist-style summary.
+Only a truly empty configuration (no city AND no default) is ``skipped``.
 """
 
 from __future__ import annotations
@@ -17,6 +19,7 @@ import os
 from typing import Optional, Tuple
 
 from . import Advisor, Briefing
+from ..config import setting
 from ..integrations._common import http_get
 
 GEOCODE_URL = "https://geocoding-api.open-meteo.com/v1/search"
@@ -62,7 +65,7 @@ class WeatherAdvisor(Advisor):
     def _generate(self) -> Briefing:
         lat_env = os.getenv("WEATHER_LATITUDE")
         lon_env = os.getenv("WEATHER_LONGITUDE")
-        city = os.getenv("WEATHER_CITY")
+        city = setting("WEATHER_CITY")
 
         if lat_env and lon_env:
             try:

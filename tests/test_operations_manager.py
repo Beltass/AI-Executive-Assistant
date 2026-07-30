@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import pytest
 
+from ai_assistant import config
 from ai_assistant.advisors import Advisor, Briefing
 from ai_assistant.daily_digest import build_digest
 from ai_assistant.integrations import STATUS_FAILED, STATUS_OK, STATUS_SKIPPED
@@ -35,8 +36,16 @@ _ENV_VARS = [
 
 @pytest.fixture()
 def no_config(monkeypatch):
+    """Simulate a completely blank setup: no env vars AND no built-in defaults.
+
+    ``config.DEFAULT_SETTINGS`` normally pre-fills non-secret settings (city,
+    sector, job keywords, RSS feeds) so the whole team is active out of the
+    box; clearing it here keeps these tests offline and lets them assert the
+    "nothing configured at all" invariant.
+    """
     for var in _ENV_VARS:
         monkeypatch.delenv(var, raising=False)
+    monkeypatch.setattr(config, "DEFAULT_SETTINGS", {})
     yield
 
 
