@@ -91,12 +91,22 @@ def all_advisors() -> List[Advisor]:
     from .leadership_coach import LeadershipCoachAdvisor
     from .kids_development import KidsDevelopmentAdvisor
     from .career_hr import CareerHrAdvisor
+    from .job_scout import JobScoutAdvisor
+    from .sector_intel import SectorIntelAdvisor
+    from .ai_news import AiNewsAdvisor
+    from .free_certs import FreeCertsAdvisor
+    from .anka_bridge import AnkaBridgeAdvisor
 
     return [
         WeatherAdvisor(),
         LeadershipCoachAdvisor(),
         KidsDevelopmentAdvisor(),
         CareerHrAdvisor(),
+        JobScoutAdvisor(),
+        SectorIntelAdvisor(),
+        AiNewsAdvisor(),
+        FreeCertsAdvisor(),
+        AnkaBridgeAdvisor(),
     ]
 
 

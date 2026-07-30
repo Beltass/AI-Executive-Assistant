@@ -42,6 +42,41 @@ structured `Briefing` (title, status `ok`/`failed`/`skipped`, text). All
 network/LLM calls are guarded, so a missing key means `skipped` and a broken
 call means `failed`; neither crashes the run.
 
+### Phase 2 advisors
+
+Five additional supervised agents extend the team. They follow the exact same
+`Advisor` interface, so the Operations Manager auto-discovers them, and they
+degrade to `skipped` when their config/LLM key is absent.
+
+| Advisor                          | Persona                                              | Needs                                              |
+| -------------------------------- | ---------------------------------------------------- | -------------------------------------------------- |
+| İş Avcısı & Başvuru Hazırlayıcı  | Prepares target roles, CV/cover-letter bullets & search links | `JOB_KEYWORDS` (+opt. `JOB_LOCATION`) **and** an LLM key |
+| Sektör & Rakip İstihbaratı       | Sector technology/AI & competitor briefing           | LLM key (`USER_SECTOR`, opt. `SECTOR_NEWS_RSS_URL`) |
+| Yapay Zeka Haberleri             | AI news roundup from a feed or LLM                    | `AI_NEWS_RSS_URL` **or** an LLM key                |
+| Ücretsiz Sertifika & Eğitim      | Free certs/courses & language resources for your field | LLM key (opt. `USER_SECTOR`)                     |
+| Anka Köprüsü                     | Generic HTTP connector to your external "Anka" assistant | `ANKA_WEBHOOK_URL` / `ANKA_API_URL`              |
+
+**İş Avcısı compliance note.** The job scout deliberately does **not** log in to
+or auto-submit applications on LinkedIn / Kariyer.net (that would breach their
+Terms of Service and is irreversible). Instead it **prepares** material for you
+to review and submit yourself: suggested target roles, tailored CV/cover-letter
+bullet points, and plain, ready-to-use SEARCH URLs for LinkedIn Jobs and
+Kariyer.net built from your keywords/location.
+
+**Sektör & Yapay Zeka Haberleri caveats.** Because live financial/graph data and
+the very latest headlines aren't reliably fetchable, these briefings are
+LLM-based and carry an honest caveat that figures/links are not real-time and
+should be verified. If you set `SECTOR_NEWS_RSS_URL` / `AI_NEWS_RSS_URL`, recent
+headlines from those feeds are folded in (fetched with `httpx` + stdlib
+`xml.etree`, guarded so a broken feed never crashes the run).
+
+**Anka Köprüsü env contract.** Configure `ANKA_WEBHOOK_URL` (or the alias
+`ANKA_API_URL`); optionally `ANKA_API_KEY` (sent as `Authorization: Bearer`) and
+`ANKA_HTTP_METHOD` (default `POST`). When configured, the bridge fires a small
+JSON trigger — `{"source": "ai_executive_assistant", "action": "daily_trigger"}`
+— and reports a short status. Without a URL it is `skipped`
+(`Anka endpoint not configured`).
+
 ### Operations Manager (the supervising agent)
 
 `ai_assistant.operations_manager.OperationsManager` is the single orchestration
@@ -88,8 +123,17 @@ To turn on **live daily delivery**, add these GitHub repository **Secrets**
 (Settings → Secrets and variables → Actions):
 
 - `WEATHER_CITY` (and optionally `WEATHER_COUNTRY`) — activates the weather advisor.
-- `GEMINI_API_KEY` **or** `OPENAI_API_KEY` — activates the three LLM personas.
+- `GEMINI_API_KEY` **or** `OPENAI_API_KEY` — activates the LLM personas.
 - `SLACK_WEBHOOK_URL` **or** (`SLACK_BOT_TOKEN` + `SLACK_CHANNEL`) — activates Slack delivery.
+
+Optional **Phase 2** secrets (all optional; a missing one just skips its agent):
+
+- `JOB_KEYWORDS` (+ optional `JOB_LOCATION`) — activates the job scout.
+- `USER_SECTOR` — tailors the sector intel & free-cert advisors (default
+  "banka çağrı merkezleri").
+- `SECTOR_NEWS_RSS_URL` — folds sector news headlines into the sector briefing.
+- `AI_NEWS_RSS_URL` — activates/feeds the AI news advisor.
+- `ANKA_WEBHOOK_URL` (+ optional `ANKA_API_KEY`) — activates the Anka bridge.
 
 Any secret you omit simply leaves that advisor/notifier `skipped`; the workflow
 still succeeds.
@@ -111,10 +155,16 @@ still succeeds.
 │   ├── advisors/
 │   │   ├── __init__.py            # Advisor/Briefing base + discovery
 │   │   ├── _llm_base.py           # shared LLM persona base
+│   │   ├── _rss.py                # shared RSS/Atom fetch + parse helper
 │   │   ├── weather.py             # Open-Meteo meteorologist (no key)
 │   │   ├── leadership_coach.py
 │   │   ├── kids_development.py
-│   │   └── career_hr.py
+│   │   ├── career_hr.py
+│   │   ├── job_scout.py           # prepares applications + search links
+│   │   ├── sector_intel.py        # sector & competitor intelligence
+│   │   ├── ai_news.py             # AI news (feed or LLM roundup)
+│   │   ├── free_certs.py          # free certifications & training
+│   │   └── anka_bridge.py         # generic HTTP connector to "Anka"
 │   ├── notifiers/
 │   │   ├── __init__.py
 │   │   └── slack_notifier.py      # webhook / chat.postMessage delivery

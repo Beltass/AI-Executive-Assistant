@@ -21,6 +21,15 @@ _ENV_VARS = [
     "WEATHER_COUNTRY",
     "WEATHER_LATITUDE",
     "WEATHER_LONGITUDE",
+    "JOB_KEYWORDS",
+    "JOB_LOCATION",
+    "USER_SECTOR",
+    "AI_NEWS_RSS_URL",
+    "SECTOR_NEWS_RSS_URL",
+    "ANKA_WEBHOOK_URL",
+    "ANKA_API_URL",
+    "ANKA_API_KEY",
+    "ANKA_HTTP_METHOD",
 ]
 
 
@@ -41,7 +50,7 @@ class _CrashingAdvisor(Advisor):
 
 def test_manager_runs_all_advisors_offline(no_config):
     supervision = OperationsManager().run()
-    assert len(supervision.briefings) == 4
+    assert len(supervision.briefings) == 9
     for b in supervision.briefings:
         assert b.status in {STATUS_OK, STATUS_FAILED, STATUS_SKIPPED}
 
