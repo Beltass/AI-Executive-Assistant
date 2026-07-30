@@ -65,6 +65,7 @@ from typing import List, Optional
 from . import Advisor, BatchSection, Briefing
 from ..config import setting
 from ..integrations import llm
+from ..memory import filter_new_items
 from ._llm_base import RICH_BRIEFING_GUIDE
 from ._rss import FeedItem, fetch_feed_items
 
@@ -250,6 +251,9 @@ class BankingCcProjectsAdvisor(Advisor):
     key = "banking_cc_projects"
     title = "Banka & Çağrı Merkezi Proje Uzmanı"
 
+    # Its two news feeds are a genuine source of NEW findings between runs.
+    incremental_source = True
+
     def __init__(self) -> None:
         # Headlines are fetched once per run and reused by the batched path.
         self._items: List[FeedItem] = []
@@ -281,13 +285,19 @@ class BankingCcProjectsAdvisor(Advisor):
     def briefing_from_batch(self, text: str) -> Briefing:
         return self.ok(f"{text.strip()}\n\n{CAVEAT}")
 
+    # -- deduplication ---------------------------------------------------
+    def new_finding_count(self) -> int:
+        return len(self._fetch_items())
+
     # -- helpers ---------------------------------------------------------
     def _fetch_items(self) -> List[FeedItem]:
         """Fetch both news feeds once, degrading to an empty list on any error.
 
         Two feeds are merged: general banking/outsourcing news and a
         regulation/information-security feed. A dead feed is never fatal — the
-        briefing simply falls back to root-domain sources only.
+        briefing simply falls back to root-domain sources only. Whatever is
+        left is then filtered through the :mod:`ai_assistant.memory` ledger, so
+        only headlines the user has NOT already been briefed on survive.
         """
         if self._fetched:
             return self._items
@@ -308,7 +318,7 @@ class BankingCcProjectsAdvisor(Advisor):
                     continue
                 seen.add(item.title)
                 items.append(item)
-        self._items = items
+        self._items = filter_new_items(self.key, items)
         return self._items
 
     def _user_prompt(self) -> str:

@@ -1,15 +1,40 @@
 name: Daily Briefing
 
-# Runs the supervised advisor team and posts the Turkish daily digest to Slack.
+# Runs the supervised advisor team and posts the Turkish digest to Slack.
+#
+# FOUR runs a day, but only ONE full briefing:
+#   07:00 UTC = 10:00 İstanbul -> mode "full"        (the flagship briefing)
+#   11:00 UTC = 14:00 İstanbul -> mode "incremental" (only what is new)
+#   15:00 UTC = 18:00 İstanbul -> mode "incremental"
+#   19:00 UTC = 22:00 İstanbul -> mode "incremental"
+# An incremental run reports ONLY findings the user has not been told yet
+# (see src/ai_assistant/memory.py), skips the model call when nobody has
+# anything new, and stays out of Slack entirely on a quiet run — so the extra
+# runs cost almost no free-tier quota and never spam the channel.
 on:
   schedule:
-    # "0 7 * * *" UTC = 10:00 İstanbul (UTC+3). GitHub Actions cron is ALWAYS
-    # interpreted in UTC, so shift this value (not a timezone setting) to move
-    # the delivery time. Scheduled runs are best-effort and can be delayed by a
-    # few minutes when GitHub is under load.
-    # https://crontab.guru/ helps translate the schedule.
+    # GitHub Actions cron is ALWAYS interpreted in UTC, so shift these values
+    # (not a timezone setting) to move the delivery times. Scheduled runs are
+    # best-effort and can be delayed by a few minutes when GitHub is under
+    # load. https://crontab.guru/ helps translate the schedule.
     - cron: "0 7 * * *"
-  workflow_dispatch: {}
+    - cron: "0 11,15,19 * * *"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Run mode: full (complete briefing) or incremental (only new findings)"
+        type: choice
+        required: false
+        default: full
+        options:
+          - full
+          - incremental
+
+# Four scheduled runs a day plus manual ones commit state back to `main`, so
+# they must QUEUE instead of racing each other into a rejected push.
+concurrency:
+  group: daily-briefing
+  cancel-in-progress: false
 
 jobs:
   briefing:
@@ -39,6 +64,28 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -e .
+
+      # Which kind of run is this? A manual dispatch says so explicitly; a
+      # scheduled one is derived from the cron line that triggered it, so the
+      # 10:00 İstanbul run stays the full briefing and the rest top it up.
+      - name: Determine run mode
+        env:
+          SCHEDULE: ${{ github.event.schedule }}
+          INPUT_MODE: ${{ inputs.mode }}
+          FULL_SCHEDULE: "0 7 * * *"
+        run: |
+          set -u
+          if [ -n "$INPUT_MODE" ]; then
+            MODE="$INPUT_MODE"
+          elif [ -z "$SCHEDULE" ]; then
+            MODE="full"
+          elif [ "$SCHEDULE" = "$FULL_SCHEDULE" ]; then
+            MODE="full"
+          else
+            MODE="incremental"
+          fi
+          echo "BRIEFING_MODE=$MODE" >> "$GITHUB_ENV"
+          echo "Run mode: $MODE (schedule: '${SCHEDULE:-manual}')"
 
       - name: Build and send daily digest
         env:
@@ -82,6 +129,23 @@ jobs:
           # Banking & contact-center project expert: news feed for real links.
           BANKING_NEWS_RSS_URL: ${{ secrets.BANKING_NEWS_RSS_URL }}
           BANKING_SECURITY_RSS_URL: ${{ secrets.BANKING_SECURITY_RSS_URL }}
+          # Phase 4 advisors — optional, both have built-in defaults.
+          # Yapay Zeka Ustalığı Koçu: skill level + free-training feed.
+          AI_MASTERY_LEVEL: ${{ secrets.AI_MASTERY_LEVEL }}
+          AI_MASTERY_RSS_URL: ${{ secrets.AI_MASTERY_RSS_URL }}
+          # Çağrı Merkezi & Müşteri Deneyimi Araştırmacısı: research feed.
+          CX_RESEARCH_RSS_URL: ${{ secrets.CX_RESEARCH_RSS_URL }}
+          # Free certification hunter: announcements feed.
+          FREE_CERTS_RSS_URL: ${{ secrets.FREE_CERTS_RSS_URL }}
+          # Findings ledger — what the team has ALREADY reported, so the extra
+          # runs only bring new material. Leave this secret UNSET so the
+          # built-in default (.assistant_state/findings.json) is used; that is
+          # the path the commit-back step below persists.
+          FINDINGS_MEMORY_FILE: ${{ secrets.FINDINGS_MEMORY_FILE }}
+          FINDINGS_MEMORY_DAYS: ${{ secrets.FINDINGS_MEMORY_DAYS }}
+          # A quiet incremental run stays out of Slack (default true). The full
+          # 10:00 briefing always sends, whatever this is set to.
+          SKIP_SLACK_WHEN_NOTHING_NEW: "true"
           # Accountability coach state file. Leave this secret UNSET so the
           # built-in default (.assistant_state/accountability.json) is used —
           # that is the path the commit-back step below persists. Pointing it
@@ -99,21 +163,23 @@ jobs:
           OPS_BRIEFING_EMAIL_WINDOW: ${{ secrets.OPS_BRIEFING_EMAIL_WINDOW }}
         run: python -m ai_assistant.notifiers.slack_notifier
 
-      # The runner filesystem is thrown away, so two artefacts are persisted by
-      # committing them back to `main`:
+      # The runner filesystem is thrown away, so three artefacts are persisted
+      # by committing them back to `main`:
       #   * the coach's streak/task memory, which is what makes its memory
       #     survive the ephemeral runner;
+      #   * the findings ledger, which is what stops the later runs of the day
+      #     from repeating what the morning briefing already said;
       #   * the dashboard's status.json, which is what the static site in
       #     `frontend/` renders (and what makes the run visible to the user).
       # Runs even when the briefing step failed (a failed run is exactly what
       # the dashboard must show) and NEVER fails the job: `continue-on-error`
       # plus an always-succeeding script mean a race or a protected branch can
       # cost the streak, never the briefing.
-      - name: Persist accountability state and dashboard status
+      - name: Persist accountability state, findings ledger and dashboard status
         if: always()
         continue-on-error: true
         env:
-          STATE_FILES: ".assistant_state/accountability.json frontend/status.json"
+          STATE_FILES: ".assistant_state/accountability.json .assistant_state/findings.json frontend/status.json"
         run: |
           set -u
           PRESENT=""
@@ -135,7 +201,7 @@ jobs:
             echo "Persisted files unchanged — nothing to commit."
             exit 0
           fi
-          git commit -m "chore: persist accountability state and dashboard status [skip ci]" -- $PRESENT
+          git commit -m "chore: persist advisor state and dashboard status [skip ci]" -- $PRESENT
           # Another run (or a merge) may have moved main in the meantime, so
           # rebase and retry a few times before giving up.
           for attempt in 1 2 3; do
@@ -147,5 +213,5 @@ jobs:
             git pull --rebase --autostash origin main || break
             sleep $((attempt * 5))
           done
-          echo "Could not persist state; the streak restarts and the dashboard keeps the previous run."
+          echo "Could not persist state; the streak and the findings ledger restart, and the dashboard keeps the previous run."
           exit 0

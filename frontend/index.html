@@ -52,8 +52,19 @@
         <!-- Summary strip -->
         <section class="tiles" aria-label="Çalıştırma özeti">
           <div class="tile">
+            <span class="tile__label">Çalıştırma türü</span>
+            <span class="tile__value tile__value--sm">
+              <span id="mode-badge" class="badge">–</span>
+            </span>
+            <span class="tile__note" id="mode-note"></span>
+          </div>
+          <div class="tile">
             <span class="tile__label">Toplam ajan</span>
             <span class="tile__value" id="stat-total">–</span>
+          </div>
+          <div class="tile">
+            <span class="tile__label"><span aria-hidden="true">🆕</span> Yeni bulgu</span>
+            <span class="tile__value" id="stat-new">–</span>
           </div>
           <div class="tile tile--good">
             <span class="tile__label"><span aria-hidden="true">✅</span> Çalıştı</span>
@@ -171,8 +182,14 @@
 
     <footer class="footer">
       <p>
-        Sıradaki planlı çalıştırma: <strong>her gün 10:00 İstanbul</strong>
-        (07:00 UTC).
+        Planlı çalıştırmalar (İstanbul):
+        <strong>10:00 tam brifing</strong> ·
+        <strong>14:00</strong> · <strong>18:00</strong> · <strong>22:00</strong>
+        artımlı (yalnızca yeni bulgular).
+      </p>
+      <p class="footer__note">
+        Ekipte <strong>15 ajan</strong> var. Artımlı çalıştırmalarda yeni bir
+        şey yoksa Slack'e mesaj gitmez; pano yine güncellenir.
       </p>
       <p>
         <a href="https://github.com/Beltass/AI-Executive-Assistant/actions/workflows/daily-briefing.yml" rel="noreferrer noopener">

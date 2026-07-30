@@ -149,6 +149,27 @@ DEFAULT_SETTINGS: Dict[str, str] = {
     "BANKING_SECURITY_RSS_URL": _google_news_rss(
         'KVKK OR "bilgi güvenliği" OR "veri ihlali" banka OR bankacılık'
     ),
+    # Free certification hunter: a real feed so the suggestions can cite actual,
+    # current announcements instead of only evergreen platform home pages.
+    "FREE_CERTS_RSS_URL": _google_news_rss(
+        'ücretsiz sertifika OR "ücretsiz eğitim" online kurs'
+    ),
+    # AI mastery coach: training/certificate announcements, so the "ücretsiz
+    # sertifikalı eğitimler" block has REAL links to point at.
+    "AI_MASTERY_RSS_URL": _google_news_rss(
+        'ücretsiz "yapay zeka" eğitimi OR sertifika OR kurs'
+    ),
+    # Skill track the AI mastery coach teaches at: temel | orta | ileri.
+    "AI_MASTERY_LEVEL": "temel",
+    # CX / contact-center researcher: customer experience and contact-center
+    # news, so the evidence blocks prefer real items over recalled statistics.
+    "CX_RESEARCH_RSS_URL": _google_news_rss(
+        '"müşteri deneyimi" OR "çağrı merkezi" OR "müşteri memnuniyeti"'
+    ),
+    # Findings ledger — what the team has ALREADY told the user, so the extra
+    # daily runs only report genuinely new material. Like the accountability
+    # state it is committed back by the workflow to survive the runner.
+    "FINDINGS_MEMORY_FILE": ".assistant_state/findings.json",
     # Accountability coach state. On GitHub Actions the runner filesystem is
     # ephemeral, so the daily-briefing workflow commits this file back to the
     # repository after each run; that is what makes the streak durable. A
@@ -167,6 +188,64 @@ def setting(name: str, default: str = "") -> str:
     if value:
         return value
     return DEFAULT_SETTINGS.get(name, default)
+
+
+# --- Run mode ---------------------------------------------------------------
+#
+# The flagship briefing still goes out once a day, but the team now also runs a
+# few times in between. Those extra runs must not re-tell the morning's story,
+# so they run in ``incremental`` mode: only advisors with genuinely NEW findings
+# (per the :mod:`ai_assistant.memory` ledger) do any work, everyone else
+# collapses to a one-line "yeni bulgu yok", and the LLM call is skipped entirely
+# when nobody has anything to say — which is what keeps four runs a day inside a
+# free-tier quota.
+
+MODE_FULL = "full"
+MODE_INCREMENTAL = "incremental"
+BRIEFING_MODE_ENV = "BRIEFING_MODE"
+
+MODE_LABELS: Dict[str, str] = {
+    MODE_FULL: "tam brifing",
+    MODE_INCREMENTAL: "artımlı",
+}
+
+_TRUTHY = {"1", "true", "yes", "on", "evet"}
+_FALSY = {"0", "false", "no", "off", "hayir", "hayır"}
+
+
+def briefing_mode() -> str:
+    """The current run mode: ``full`` (default) or ``incremental``.
+
+    Anything unrecognised means ``full`` — a misspelled variable must never
+    silently downgrade the daily briefing to a quiet one.
+    """
+    raw = (os.getenv(BRIEFING_MODE_ENV) or "").strip().lower()
+    return MODE_INCREMENTAL if raw == MODE_INCREMENTAL else MODE_FULL
+
+
+def is_incremental() -> bool:
+    """True when this run should report only what is new since the last one."""
+    return briefing_mode() == MODE_INCREMENTAL
+
+
+def mode_label(mode: str = "") -> str:
+    """Human-readable Turkish label for a run mode."""
+    return MODE_LABELS.get(mode or briefing_mode(), MODE_LABELS[MODE_FULL])
+
+
+def skip_slack_when_nothing_new() -> bool:
+    """Whether an incremental run with no new findings stays silent.
+
+    Default ON: the whole point of the extra runs is to notify only when there
+    is something worth reading. Set ``SKIP_SLACK_WHEN_NOTHING_NEW=false`` to get
+    a message every time anyway. The full daily briefing ALWAYS sends.
+    """
+    raw = (os.getenv("SKIP_SLACK_WHEN_NOTHING_NEW") or "").strip().lower()
+    if raw in _FALSY:
+        return False
+    if raw in _TRUTHY:
+        return True
+    return True
 
 
 def get_integration(key: str) -> IntegrationSpec:

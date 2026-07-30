@@ -66,7 +66,7 @@ def no_config(monkeypatch):
 
 def test_all_advisors_discovered():
     advisors = all_advisors()
-    assert len(advisors) == 13
+    assert len(advisors) == 15
     keys = {a.key for a in advisors}
     assert keys == {
         "weather",
@@ -78,6 +78,8 @@ def test_all_advisors_discovered():
         "ai_news",
         "free_certs",
         "banking_cc_projects",
+        "ai_mastery",
+        "cx_research",
         "daily_ops_briefing",
         "language_coach",
         "anka_bridge",

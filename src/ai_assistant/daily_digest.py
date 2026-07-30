@@ -16,6 +16,8 @@ import sys
 from dataclasses import dataclass
 from datetime import date
 
+from .advisors import NOTHING_NEW_NOTE
+from .config import MODE_INCREMENTAL
 from .integrations import STATUS_FAILED, STATUS_OK, STATUS_SKIPPED
 from .operations_manager import OperationsManager, Supervision
 
@@ -44,13 +46,27 @@ def build_digest(supervision: Supervision | None = None) -> Digest:
         supervision = OperationsManager().run()
 
     today = date.today().strftime("%d.%m.%Y")
+    incremental = supervision.mode == MODE_INCREMENTAL
+    heading = "🔄 Ara Brifing (yeni gelişmeler)" if incremental else "🗓️ Günlük Brifing"
     lines = [
-        f"🗓️ Günlük Brifing — {today}",
+        f"{heading} — {today}",
         "=" * 40,
         "",
     ]
+    if incremental:
+        lines.append(
+            f"_Bu, günün ara çalıştırması: yalnızca yeni bulgular var "
+            f"({supervision.new_findings} yeni)._"
+        )
+        lines.append("")
 
+    # Advisors with nothing new are collapsed into ONE line at the end instead
+    # of taking a section each — an incremental digest should be short.
+    quiet = []
     for b in supervision.briefings:
+        if b.nothing_new:
+            quiet.append(b.title)
+            continue
         label = _STATUS_LABEL.get(b.status, b.status.upper())
         lines.append(f"## {b.title} [{label}]")
         if b.status == STATUS_OK:
@@ -61,10 +77,14 @@ def build_digest(supervision: Supervision | None = None) -> Digest:
             lines.append(f"_Bu bölüm hazırlanamadı: {b.text}_")
         lines.append("")
 
+    if quiet:
+        lines.append(f"🟰 {NOTHING_NEW_NOTE}: {', '.join(quiet)}")
+        lines.append("")
+
     c = supervision.counts
     lines.append("-" * 40)
     lines.append(
-        f"Operasyon Yöneticisi: {c[STATUS_OK]} ok, "
+        f"Operasyon Yöneticisi ({supervision.mode_label}): {c[STATUS_OK]} ok, "
         f"{c[STATUS_FAILED]} failed, {c[STATUS_SKIPPED]} skipped"
     )
 
