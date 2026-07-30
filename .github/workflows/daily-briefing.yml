@@ -3,10 +3,12 @@ name: Daily Briefing
 # Runs the supervised advisor team and posts the Turkish daily digest to Slack.
 on:
   schedule:
-    # Daily at 06:00 UTC. Cron is always in UTC — adjust the time here to change
-    # when the briefing is delivered (e.g. "0 3 * * *" = 06:00 Istanbul time,
-    # UTC+3). https://crontab.guru/ helps translate the schedule.
-    - cron: "0 6 * * *"
+    # "0 7 * * *" UTC = 10:00 İstanbul (UTC+3). GitHub Actions cron is ALWAYS
+    # interpreted in UTC, so shift this value (not a timezone setting) to move
+    # the delivery time. Scheduled runs are best-effort and can be delayed by a
+    # few minutes when GitHub is under load.
+    # https://crontab.guru/ helps translate the schedule.
+    - cron: "0 7 * * *"
   workflow_dispatch: {}
 
 jobs:
