@@ -1,15 +1,13 @@
 name: CI
 
+# Deliberately UNFILTERED. The Daily Briefing job commits its run artefacts
+# back to `main` several times a day and those commits contain no code, so a
+# `paths-ignore` filter here would save a little CI time — but path filtering is
+# also the class of change that can silently stop a required check from running
+# at all, and a repository where "tests did not run" looks the same as "tests
+# passed" is worse than one that runs a three-minute suite too often.
 on:
   push:
-    # The Daily Briefing job commits its run artefacts back to `main` several
-    # times a day. Those commits contain no code, so re-running the test matrix
-    # on them is pure noise. Pull requests are unaffected (the `pull_request`
-    # trigger below has no filter), so nothing can merge without a green suite.
-    paths-ignore:
-      - "frontend/status.json"
-      - "frontend/reports/**"
-      - ".assistant_state/**"
   pull_request:
 
 jobs:
