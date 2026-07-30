@@ -167,7 +167,8 @@ python -m ai_assistant.notifiers.slack_notifier
 ### Scheduled daily delivery
 
 `.github/workflows/daily-briefing.yml` runs on a daily `schedule` (cron
-`0 6 * * *` UTC — adjust the time/timezone in the workflow) and on manual
+`0 7 * * *` UTC = 10:00 İstanbul, UTC+3 — adjust the time in the workflow;
+GitHub Actions cron is always UTC) and on manual
 `workflow_dispatch`. It installs the package and runs the Slack notifier.
 
 To turn on **live daily delivery**, add these GitHub repository **Secrets**
