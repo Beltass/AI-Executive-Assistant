@@ -35,6 +35,10 @@ jobs:
           # LLM provider — either key activates the persona advisors.
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          # Space out sequential Gemini calls so the free-tier quota window
+          # doesn't 429 every advisor. Combined with built-in 429 retry/backoff,
+          # this lets more sections complete on the free tier.
+          GEMINI_REQUEST_SPACING_SECONDS: "8"
           # Slack delivery — webhook OR bot token + channel.
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}

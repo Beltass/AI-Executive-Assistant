@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import os
 
-from ._llm_base import LLMAdvisor
+from ._llm_base import LLMAdvisor, RICH_BRIEFING_GUIDE
 
 DEFAULT_SECTOR = "banka çağrı merkezleri"
 
@@ -32,10 +32,12 @@ def _user_prompt() -> str:
     sector = (os.getenv("USER_SECTOR") or "").strip() or DEFAULT_SECTOR
     return (
         f"Alan/sektör: {sector}\n\n"
-        "Bu alana uygun 4-6 öneri hazırla: ücretsiz sertifikalar/kurslar ve "
-        "dil öğrenme kaynakları. Her madde için: kaynak adı, kısa 'neden' ve "
-        "'bağlantının hâlâ ücretsiz olduğunu doğrulayın' notu. En fazla 200 "
-        "kelime, net ve uygulanabilir Türkçe kullan."
+        "Bu alana uygun ücretsiz sertifikalar/kurslar ve dil öğrenme "
+        "kaynaklarını derinlemesine ele al. '📚 Kaynaklar' bölümünde önerdiğin "
+        "her kaynak için kısa bir 'neden' ve 'ücretsiz olduğunu doğrulayın' "
+        "notu ekle; tercihen Coursera, edX, Khan Academy, freeCodeCamp gibi "
+        "bilinen ücretsiz/açık platformların ana adreslerini kullan.\n\n"
+        + RICH_BRIEFING_GUIDE
     )
 
 

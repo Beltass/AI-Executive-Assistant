@@ -18,12 +18,13 @@ import os
 
 from . import Advisor, Briefing
 from ..integrations import llm
+from ._llm_base import RICH_BRIEFING_GUIDE
 from ._rss import fetch_feed_items
 
 SYSTEM_PROMPT = (
     "Sen bir yapay zeka teknolojileri editörüsün. Türkçe konuşuyorsun. Görevin, "
-    "yapay zeka dünyasındaki güncel gelişmeleri kısa, anlaşılır ve tarafsız bir "
-    "şekilde özetlemek. Abartıdan kaçın, önemli olanı öne çıkar."
+    "yapay zeka dünyasındaki güncel gelişmeleri merak uyandıran, anlaşılır ve "
+    "tarafsız bir şekilde özetlemek. Abartıdan kaçın, önemli olanı öne çıkar."
 )
 
 FEED_CAVEAT = (
@@ -68,8 +69,11 @@ class AiNewsAdvisor(Advisor):
         if llm.is_configured():
             user_prompt = (
                 "Aşağıdaki güncel yapay zeka haber başlıklarını Türkçe olarak "
-                "kısaca özetle; en önemli 3-5 gelişmeyi öne çıkar. En fazla 180 "
-                f"kelime kullan.\n\n{listing}"
+                "doyurucu biçimde işle; en önemli 3-5 gelişmeyi öne çıkar ve "
+                "neden önemli olduklarını açıkla. '📚 Kaynaklar' bölümünde "
+                "aşağıdaki listeden GERÇEK bağlantıları tercih et.\n\n"
+                + RICH_BRIEFING_GUIDE
+                + f"\n\nHaber başlıkları:\n{listing}"
             )
             try:
                 body = llm.generate_text(SYSTEM_PROMPT, user_prompt)
@@ -83,9 +87,13 @@ class AiNewsAdvisor(Advisor):
     # -- LLM-only path ---------------------------------------------------
     def _from_llm(self) -> Briefing:
         user_prompt = (
-            "Yapay zeka dünyasındaki güncel ve önemli gelişmelere dair kısa bir "
-            "derleme hazır. 3-5 madde halinde, tarafsız ve anlaşılır Türkçe "
-            "kullan. En fazla 180 kelime."
+            "Yapay zeka dünyasındaki güncel ve önemli gelişmelere dair doyurucu "
+            "bir derleme hazırla; 3-5 önemli temayı tarafsız ve anlaşılır bir "
+            "şekilde ele al. Canlı bir haber akışı yok; '📚 Kaynaklar' "
+            "bölümünde yalnızca bilinen ve kalıcı kök alan adlarını "
+            "kullan (örn. https://ai.googleblog.com, https://openai.com/blog) "
+            "ve doğrulama notunu ekle.\n\n"
+            + RICH_BRIEFING_GUIDE
         )
         try:
             body = llm.generate_text(SYSTEM_PROMPT, user_prompt)

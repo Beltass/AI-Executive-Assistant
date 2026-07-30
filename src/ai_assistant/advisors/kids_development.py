@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ._llm_base import LLMAdvisor
+from ._llm_base import LLMAdvisor, RICH_BRIEFING_GUIDE
 
 SYSTEM_PROMPT = (
     "Sen deneyimli bir çocuk gelişimi ve eğitim danışmanısın. Uzmanlığın; "
@@ -13,11 +13,12 @@ SYSTEM_PROMPT = (
 )
 
 USER_PROMPT = (
-    "Bugün için kısa bir günlük ebeveynlik briefingi hazırla. 10 ve 4 yaşındaki "
-    "iki kız için özgüven, sağlıklı gelişim ve başarılı eğitim odağında: "
-    "(1) bugüne dair pratik bir ipucu, (2) çocuklarla birlikte yapılabilecek "
-    "somut bir aktivite. Mümkünse iki yaş için de küçük bir uyarlama ver. "
-    "En fazla 150 kelime, sıcak ve anlaşılır Türkçe kullan."
+    "Bugün için doyurucu bir günlük ebeveynlik briefingi hazırla. 10 ve 4 "
+    "yaşındaki iki kız için özgüven, sağlıklı gelişim ve başarılı eğitim "
+    "odağında yaz; mümkünse iki yaş için de küçük bir uyarlama ver. Kaynaklar "
+    "arasında ebeveynlik/çocuk gelişimi kitapları veya güvenilir eğitim "
+    "platformları önerebilirsin.\n\n"
+    + RICH_BRIEFING_GUIDE
 )
 
 
