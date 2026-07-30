@@ -474,9 +474,10 @@ Two hosts, no build step in either:
 
 - **Vercel** — the connected project's root directory is `frontend`, so the
   files are served as-is on every push.
-- **GitHub Pages** — `.github/workflows/pages.yml` publishes the same directory.
-  One-time setup: **Settings → Pages → Source: GitHub Actions**, after which the
-  dashboard lives at <https://beltass.github.io/AI-Executive-Assistant/>.
+- **GitHub Pages** — `.github/workflows/pages.yml` publishes the same directory
+  and asks GitHub to enable Pages on its first run. If that is not permitted,
+  do it by hand once: **Settings → Pages → Source: GitHub Actions**. Either way
+  the dashboard then lives at <https://beltass.github.io/AI-Executive-Assistant/>.
 
 See [`frontend/README.md`](frontend/README.md) for details and local preview.
 

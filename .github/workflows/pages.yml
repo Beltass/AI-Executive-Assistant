@@ -7,9 +7,12 @@ name: Deploy Dashboard to Pages
 # Pages costs nothing and keeps the dashboard reachable even if the Vercel
 # project is disconnected.
 #
-# ONE-TIME SETUP: Settings → Pages → Source: "GitHub Actions". Until that is
-# done the deploy step fails with "Pages is not enabled"; nothing else in the
-# repository is affected.
+# SETUP: `enablement: true` below asks GitHub to turn Pages on (build type
+# "GitHub Actions") the first time this workflow runs, so no manual step should
+# be needed. If the token is not allowed to do that, the run fails on the
+# "Configure Pages" step with "Get Pages site failed" — in that case do it by
+# hand ONCE: Settings → Pages → Source: "GitHub Actions". Either way nothing
+# else in the repository is affected.
 #
 # Published URL: https://beltass.github.io/AI-Executive-Assistant/
 on:
@@ -46,6 +49,11 @@ jobs:
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
+        with:
+          # Create the Pages site (source: GitHub Actions) if it does not exist
+          # yet, instead of failing and waiting for someone to click through
+          # Settings → Pages.
+          enablement: true
 
       - name: Upload dashboard artifact
         uses: actions/upload-pages-artifact@v3
