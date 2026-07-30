@@ -14,10 +14,11 @@ Run with::
 
 from __future__ import annotations
 
+import logging
 import os
 import sys
 
-from ..daily_digest import build_digest
+from ..daily_digest import Digest, build_digest
 from ..integrations import (
     CheckResult,
     STATUS_FAILED,
@@ -93,9 +94,46 @@ _STATUS_LABEL = {
 }
 
 
+def _configure_logging() -> None:
+    """Surface the advisors' INFO logs when run as a job.
+
+    The interesting diagnostics — which Gemini model actually served the answer,
+    how many sections the batched call covered — are logged at INFO, which is
+    invisible with Python's default configuration. Turning them on makes a
+    scheduled run auditable after the fact. Only configured for the CLI, so
+    importing the module as a library still leaves logging untouched.
+    """
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+
+
+def _print_run_report(digest: Digest) -> None:
+    """Print a per-advisor status table for the job log.
+
+    Deliberately prints STATUSES ONLY, never the briefing bodies: the digest is
+    the user's personal daily report and the workflow log is public. For a
+    ``failed``/``skipped`` advisor the short reason IS printed — that is the
+    diagnostic we actually need, and the LLM layer has already redacted any API
+    key from it.
+    """
+    print("Danışman Denetimi:")
+    for briefing in digest.supervision.briefings:
+        label = _STATUS_LABEL.get(briefing.status, briefing.status.upper())
+        if briefing.status == STATUS_OK:
+            # Length is a cheap, non-revealing proxy for "did we get real content".
+            detail = f"{len(briefing.text)} karakter"
+        else:
+            detail = briefing.text.strip().replace("\n", " ")[:200]
+        print(f"  - {briefing.title:<32} {label:<8} {detail}")
+    print(f"Operasyon Yöneticisi: {digest.supervision.summary_line()}")
+
+
 def main() -> int:
     """CLI entrypoint. Builds + sends the digest. Returns the exit code."""
-    result = send_daily_digest()
+    _configure_logging()
+    digest = build_digest()
+    _print_run_report(digest)
+
+    result = send_message(digest.text)
     label = _STATUS_LABEL.get(result.status, result.status.upper())
     print(f"Slack Notifier: {label} — {result.detail}")
     return 1 if result.status == STATUS_FAILED else 0
