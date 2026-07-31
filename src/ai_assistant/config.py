@@ -103,6 +103,12 @@ INTEGRATIONS: List[IntegrationSpec] = [
         # Either provider is acceptable; the check decides which to ping.
         optional_env=["GEMINI_API_KEY", "OPENAI_API_KEY"],
     ),
+    IntegrationSpec(
+        key="asana",
+        name="Asana",
+        required_env=["ASANA_TOKEN", "ASANA_WORKSPACE_ID"],
+        optional_env=["ASANA_PROJECT_TEMPLATE"],
+    ),
 ]
 
 # Shared timeout (seconds) for outbound health requests.
