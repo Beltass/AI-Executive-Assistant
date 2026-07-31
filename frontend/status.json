@@ -1,27 +1,27 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-31T16:47:53+00:00",
-  "generated_at_istanbul": "31.07.2026 19:47",
+  "generated_at": "2026-07-31T20:22:01+00:00",
+  "generated_at_istanbul": "31.07.2026 23:22",
   "run": {
     "conclusion": "ok",
     "total": 15,
-    "ok": 2,
+    "ok": 1,
     "failed": 0,
-    "skipped": 13,
-    "duration_seconds": 49.1,
+    "skipped": 14,
+    "duration_seconds": 31.7,
     "batch": {
       "enabled": true,
-      "attempted": true,
-      "used": true,
-      "sections_requested": 2,
-      "sections_produced": 2,
+      "attempted": false,
+      "used": false,
+      "sections_requested": 1,
+      "sections_produced": 0,
       "model": "gemini-2.5-flash",
       "provider": "gemini"
     },
     "mode": "incremental",
     "mode_label": "artımlı",
-    "new_findings": 4,
-    "nothing_new_count": 13
+    "new_findings": 2,
+    "nothing_new_count": 14
   },
   "slack": {
     "status": "ok",
@@ -98,11 +98,11 @@
       "id": "ai_news",
       "name": "Yapay Zeka Haberleri",
       "status": "ok",
-      "content_length": 5981,
+      "content_length": 5376,
       "detail": "",
       "emoji": "🤖",
       "category": "sektör",
-      "new_findings": 3,
+      "new_findings": 2,
       "nothing_new": false
     },
     {
@@ -119,13 +119,13 @@
     {
       "id": "banking_cc_projects",
       "name": "Banka & Çağrı Merkezi Proje Uzmanı",
-      "status": "ok",
-      "content_length": 14346,
-      "detail": "",
+      "status": "skipped",
+      "content_length": 0,
+      "detail": "yeni bulgu yok",
       "emoji": "🏦",
       "category": "sektör",
-      "new_findings": 1,
-      "nothing_new": false
+      "new_findings": 0,
+      "nothing_new": true
     },
     {
       "id": "ai_mastery",
@@ -311,6 +311,19 @@
       "slack": "ok",
       "mode": "incremental",
       "new_findings": 4
+    },
+    {
+      "at": "2026-07-31T20:22:01+00:00",
+      "at_istanbul": "31.07.2026 23:22",
+      "conclusion": "ok",
+      "ok": 1,
+      "failed": 0,
+      "skipped": 14,
+      "total": 15,
+      "duration_seconds": 31.7,
+      "slack": "ok",
+      "mode": "incremental",
+      "new_findings": 2
     }
   ]
 }
