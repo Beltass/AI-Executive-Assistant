@@ -215,14 +215,14 @@ class OperationsManager:
             "drive": None,
         }
 
-        # Try to distribute to Slack
+        # Resolve (do not send) the Slack route for this advisor
         try:
-            self._distribute_to_slack(advisor_id, advisor_title, briefing)
-            status["slack"] = "success"
-            logger.info(f"Slack dağıtımı başarılı: {advisor_title}")
+            status["slack"] = self._distribute_to_slack(
+                advisor_id, advisor_title, briefing
+            )
         except Exception as exc:
             status["slack"] = f"error: {exc}"
-            logger.warning(f"Slack dağıtımı başarısız ({advisor_title}): {exc}")
+            logger.warning(f"Slack yönlendirmesi başarısız ({advisor_title}): {exc}")
 
         # Try to sync to Asana
         try:
@@ -250,56 +250,61 @@ class OperationsManager:
         advisor_id: str,
         advisor_title: str,
         briefing: Briefing,
-    ) -> None:
-        """Post advisor report to Slack channel.
+    ) -> str:
+        """RESOLVE this advisor's Slack channel. Does not send — on purpose.
 
-        Posts advisor briefing to configured Slack channel. Requires:
-        - SLACK_CHANNEL_<ADVISOR_ID> for advisor-specific channel, OR
-        - SLACK_MAIN_CHANNEL for default channel, OR
-        - SLACK_CHANNEL for legacy fallback
+        The message itself is sent later, by
+        :func:`ai_assistant.integrations.slack_channels.distribute`, once
+        :func:`ai_assistant.reports.publish` has written the documents. Sending
+        from here as well would post every section TWICE, and the message would
+        have no link to the report it summarises, because that report does not
+        exist yet at this point in the run.
 
-        Also requires SLACK_BOT_TOKEN or SLACK_WEBHOOK_URL for authentication.
-
-        Logs but continues if channel/credentials not configured. Does not raise.
+        What this step is still good for is telling the run log — and the
+        distribution status the dashboard reads — WHERE each advisor is routed,
+        which is how a missing ``SLACK_CHANNEL_<KEY>`` becomes visible instead
+        of silently collapsing into the main channel.
 
         Args:
             advisor_id: Stable advisor identifier (e.g., "weather").
             advisor_title: Turkish advisor title (e.g., "Hava Tahmini").
             briefing: The Briefing object containing the report text.
+
+        Returns:
+            A short status string recorded in ``distribution_status``.
         """
         try:
-            from .integrations.channel_config import get_channel_for_advisor
+            from .integrations.channel_config import get_channel_config
 
-            # Check if Slack is configured at all
             slack_token = os.getenv("SLACK_BOT_TOKEN", "").strip()
             webhook = os.getenv("SLACK_WEBHOOK_URL", "").strip()
-
             if not slack_token and not webhook:
-                logger.debug("Slack kimlik bilgileri yapılandırılmamış (SLACK_BOT_TOKEN veya SLACK_WEBHOOK_URL)")
-                return
+                logger.debug(
+                    "Slack kimlik bilgileri yapılandırılmamış "
+                    "(SLACK_BOT_TOKEN veya SLACK_WEBHOOK_URL)"
+                )
+                return "skipped: kimlik bilgisi yok"
 
-            # Get the channel for this advisor
-            channel = get_channel_for_advisor(advisor_id, advisor_title)
-            if not channel:
+            config = get_channel_config()
+            own = config.dedicated_channel(advisor_id)
+            if own:
+                logger.info(f"Slack yönlendirmesi: {advisor_title} → {own} (kendi kanalı)")
+                return f"routed: {own}"
+
+            fallback = config.get_channel(advisor_id, advisor_title)
+            if not fallback:
                 logger.debug(f"Slack kanalı yapılandırılmamış: {advisor_title}")
-                return
+                return "skipped: kanal yok"
 
-            logger.debug(f"Slack kanalına gönderiliyor ({channel}): {advisor_title}")
-
-            # For full implementation, we would need to post the briefing text
-            # to the Slack channel. This requires converting the briefing
-            # to a message format suitable for Slack.
-            #
-            # from .integrations.slack_channels import SlackChannelNotifier
-            # notifier = SlackChannelNotifier()
-            # Note: SlackChannelNotifier.post_to_channel expects a PublishedReport,
-            # which we don't have here. In production, you would either:
-            # 1. Convert the briefing to a PublishedReport
-            # 2. Add a simpler posting method that works with Briefing
-            # 3. Post the briefing text directly via httpx
+            logger.info(
+                f"Slack yönlendirmesi: {advisor_title} → {fallback} "
+                f"(ana kanal — SLACK_CHANNEL_{advisor_id.upper()} tanımlı değil)"
+            )
+            return f"routed (fallback): {fallback}"
 
         except Exception as exc:
-            logger.error(f"Slack dağıtımı hazırlama hatası ({advisor_title}): {exc}")
+            logger.error(f"Slack yönlendirme hatası ({advisor_title}): {exc}")
+            return f"error: {exc}"
 
     def _sync_to_asana(
         self,

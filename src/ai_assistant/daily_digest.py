@@ -6,9 +6,13 @@ short supervision line from the manager. It returns the formatted text plus the
 underlying supervision object (statuses/counts).
 
 Multi-channel distribution is handled by ``distribute_digest_by_channel()``, which:
-- Posts the briefing summary to SLACK_MAIN_CHANNEL
-- Posts each advisor's report to their specific SLACK_CHANNEL_<ADVISOR>
+- Posts each advisor's report to its own SLACK_CHANNEL_<ADVISOR> sub-channel
+- Posts the compact summary (one line + links per advisor) to SLACK_MAIN_CHANNEL
 - Logs all distribution attempts and gracefully handles missing channels
+
+The daily job does NOT call it directly: ``python -m
+ai_assistant.notifiers.slack_notifier`` already publishes, fans out and
+summarises in one pass. This function exists for a manual re-delivery.
 
 Run with::
 
@@ -18,7 +22,6 @@ Run with::
 from __future__ import annotations
 
 import logging
-import os
 import sys
 from dataclasses import dataclass
 from datetime import date
@@ -100,260 +103,67 @@ def build_digest(supervision: Supervision | None = None) -> Digest:
     return Digest(text="\n".join(lines), supervision=supervision)
 
 
-def distribute_digest_by_channel(supervision: Supervision) -> dict:
-    """Distribute digest to multi-channel Slack by advisor.
+def distribute_digest_by_channel(
+    supervision: Supervision, publication=None
+) -> dict:
+    """Distribute one run across the Slack workspace: sub-channels + summary.
 
-    Posts the briefing summary to SLACK_MAIN_CHANNEL and each advisor's report
-    to their specific channel (if configured). Gracefully handles missing channels
-    and logs all distribution attempts.
+    Each advisor's section goes to its OWN channel (``SLACK_CHANNEL_<KEY>``),
+    then the MAIN channel (``SLACK_MAIN_CHANNEL``, falling back to
+    ``SLACK_CHANNEL``) receives the compact digest: one line per advisor with
+    its headline, a deep link to the full report on the dashboard, and a link
+    into that advisor's channel.
+
+    An advisor with no channel of its own falls back to the main channel.
+
+    Both halves are delegated so there is exactly ONE implementation of each:
+    :func:`ai_assistant.integrations.slack_channels.distribute` for the fan-out
+    and :func:`ai_assistant.notifiers.slack_notifier.send_briefing_index` for
+    the summary.
 
     Args:
         supervision: The Supervision object containing briefings and metadata.
+        publication: An already-written :class:`ai_assistant.reports.Publication`.
+            Omit it and the reports are published first, because the summary
+            and the sub-channel messages both link to those documents.
 
     Returns:
         A distribution result dictionary with keys:
-            - "main_channel": result status for main channel post
-            - "advisor_channels": dict of advisor_key -> result status
-            - "summary": Human-readable summary of distribution
+            - "main_channel": CheckResult for the main-channel summary
+            - "advisor_channels": dict of advisor_key -> CheckResult
+            - "distribution": the raw Distribution object (or None)
+            - "summary": human-readable summary of the distribution
     """
-    from .integrations._common import failed, http_post, ok, skipped_reason
-    from .integrations.channel_config import get_channel_config
-    from .integrations.slack_channels import SlackChannelNotifier
+    from . import reports as reports_module
+    from .integrations.slack_channels import distribute
+    from .notifiers.slack_notifier import send_briefing_index
 
     result = {
         "main_channel": None,
         "advisor_channels": {},
-        "summary": "Not distributed",
+        "distribution": None,
+        "summary": "Dağıtım yapılmadı",
     }
 
-    config = get_channel_config()
-    notifier = SlackChannelNotifier()
+    if publication is None:
+        publication = reports_module.publish(supervision)
 
-    # Check if any channel is configured
-    if not config.has_any_channel():
-        logger.info("No Slack channels configured for multi-channel distribution.")
-        result["summary"] = "No channels configured — skipped"
-        return result
+    distribution = distribute(supervision, publication)
+    result["distribution"] = distribution
+    result["advisor_channels"] = {p.key: p.result for p in distribution.posts}
 
-    # Send summary to main channel (always attempt)
-    main_channel = config.main_channel or os.getenv("SLACK_CHANNEL", "").strip()
-    if main_channel:
-        logger.info(f"Distributing briefing summary to main channel: {main_channel}")
-        result["main_channel"] = _post_to_main_channel(
-            notifier, main_channel, supervision
-        )
-    else:
-        logger.warning("No main channel configured for briefing summary")
-
-    # Distribute each advisor's report to their specific channel
-    for briefing in supervision.briefings:
-        advisor_key = briefing.key
-        advisor_title = briefing.title
-
-        # Skip non-OK briefings for channel distribution
-        if briefing.status != STATUS_OK:
-            logger.debug(f"Skipping {advisor_title}: status is {briefing.status}")
-            continue
-
-        # Get the advisor's channel
-        channel = config.get_channel(advisor_key, advisor_title)
-        if not channel:
-            logger.debug(f"No channel configured for {advisor_title}")
-            continue
-
-        logger.info(f"Distributing {advisor_title} to channel: {channel}")
-        result["advisor_channels"][advisor_key] = _post_to_advisor_channel(
-            notifier, channel, briefing
-        )
-
-    # Build summary
-    succeeded = sum(
-        1
-        for v in result["advisor_channels"].values()
-        if v and getattr(v, "status", "") == STATUS_OK
+    main_result = send_briefing_index(
+        supervision, publication, distribution=distribution
     )
-    main_ok = (
-        result["main_channel"]
-        and getattr(result["main_channel"], "status", "") == STATUS_OK
-    )
+    result["main_channel"] = main_result
 
-    if main_ok:
-        result["summary"] = (
-            f"Multi-channel distribution: main channel + {succeeded} advisor channels"
-        )
-    elif succeeded > 0:
-        result["summary"] = f"Partial distribution: {succeeded} advisor channels"
-    else:
-        result["summary"] = "No channels posted"
-
+    main_label = {
+        STATUS_OK: "ana kanal ✓",
+        STATUS_FAILED: "ana kanal ✗",
+    }.get(main_result.status, "ana kanal atlandı")
+    result["summary"] = f"{main_label} · {distribution.summary_line()}"
+    logger.info(result["summary"])
     return result
-
-
-def _post_to_main_channel(
-    notifier: "SlackChannelNotifier", channel: str, supervision: Supervision
-) -> object:
-    """Post briefing summary to main channel. Returns CheckResult."""
-    from .integrations._common import failed, http_post, ok
-
-    try:
-        summary_text = _build_channel_summary(supervision)
-        payload = {
-            "channel": channel,
-            "text": f"🗓️ {date.today().strftime('%d.%m.%Y')} — Günlük Brifing Özeti",
-            "blocks": _build_summary_blocks(supervision, summary_text),
-        }
-
-        if notifier.webhook_url:
-            resp = http_post(notifier.webhook_url, json=payload)
-            if resp.is_success:
-                data = resp.json()
-                if data.get("ok"):
-                    logger.info(f"Main channel post succeeded: {channel}")
-                    return ok("Slack Main Channel", channel)
-                error = data.get("error", "unknown")
-                logger.error(f"Main channel post failed: {error}")
-                return failed("Slack Main Channel", error)
-            logger.error(f"Main channel HTTP error: {resp.status_code}")
-            return failed("Slack Main Channel", f"HTTP {resp.status_code}")
-
-        if notifier.bot_token:
-            resp = http_post(
-                "https://slack.com/api/chat.postMessage",
-                headers={"Authorization": f"Bearer {notifier.bot_token}"},
-                json=payload,
-            )
-            try:
-                data = resp.json()
-                if data.get("ok"):
-                    logger.info(f"Main channel post succeeded: {channel}")
-                    return ok("Slack Main Channel", channel)
-                error = data.get("error", "unknown")
-                logger.error(f"Main channel post failed: {error}")
-                return failed("Slack Main Channel", error)
-            except Exception as exc:
-                logger.error(f"Main channel JSON error: {exc}")
-                return failed("Slack Main Channel", f"HTTP {resp.status_code}: non-JSON")
-
-        logger.warning("No Slack credentials for main channel post")
-        return failed("Slack Main Channel", "No credentials configured")
-
-    except Exception as exc:
-        logger.error(f"Error posting to main channel: {exc}")
-        return failed("Slack Main Channel", str(exc))
-
-
-def _post_to_advisor_channel(notifier: "SlackChannelNotifier", channel: str, briefing) -> object:
-    """Post advisor report to specific channel. Returns CheckResult."""
-    from .integrations._common import failed, http_post, ok
-
-    advisor_title = briefing.title
-    try:
-        advisor_blocks = _build_advisor_blocks(briefing)
-        payload = {
-            "channel": channel,
-            "text": f"{briefing.title}",
-            "blocks": advisor_blocks,
-        }
-
-        if notifier.webhook_url:
-            resp = http_post(notifier.webhook_url, json=payload)
-            if resp.is_success:
-                data = resp.json()
-                if data.get("ok"):
-                    logger.info(f"Advisor post succeeded: {advisor_title} → {channel}")
-                    return ok(f"Slack ({advisor_title})", channel)
-                error = data.get("error", "unknown")
-                logger.error(f"Advisor post failed ({advisor_title}): {error}")
-                return failed(f"Slack ({advisor_title})", error)
-            logger.error(f"Advisor HTTP error ({advisor_title}): {resp.status_code}")
-            return failed(f"Slack ({advisor_title})", f"HTTP {resp.status_code}")
-
-        if notifier.bot_token:
-            resp = http_post(
-                "https://slack.com/api/chat.postMessage",
-                headers={"Authorization": f"Bearer {notifier.bot_token}"},
-                json=payload,
-            )
-            try:
-                data = resp.json()
-                if data.get("ok"):
-                    logger.info(f"Advisor post succeeded: {advisor_title} → {channel}")
-                    return ok(f"Slack ({advisor_title})", channel)
-                error = data.get("error", "unknown")
-                logger.error(f"Advisor post failed ({advisor_title}): {error}")
-                return failed(f"Slack ({advisor_title})", error)
-            except Exception as exc:
-                logger.error(f"Advisor JSON error ({advisor_title}): {exc}")
-                return failed(f"Slack ({advisor_title})", f"HTTP {resp.status_code}: non-JSON")
-
-        logger.warning(f"No Slack credentials for advisor channel: {advisor_title}")
-        return failed(f"Slack ({advisor_title})", "No credentials configured")
-
-    except Exception as exc:
-        logger.error(f"Error distributing {advisor_title} to {channel}: {exc}")
-        return failed(f"Slack ({advisor_title})", str(exc))
-
-
-def _build_channel_summary(supervision: Supervision) -> str:
-    """Build a brief summary for the main channel.
-
-    Returns a short text highlighting key findings across all advisors.
-    """
-    lines = []
-    for briefing in supervision.briefings:
-        if briefing.status == STATUS_OK and not briefing.nothing_new:
-            # Extract first line or headline
-            text = briefing.text.strip().split("\n")[0]
-            if text:
-                lines.append(f"• {briefing.title}: {text[:100]}")
-
-    return "\n".join(lines) if lines else "_Yeni bulgu yok._"
-
-
-def _build_summary_blocks(supervision: Supervision, summary_text: str) -> list:
-    """Build Block Kit blocks for main channel summary message."""
-    today = date.today().strftime("%d.%m.%Y")
-    blocks = [
-        {
-            "type": "header",
-            "text": {"type": "plain_text", "text": f"🗓️ Günlük Brifing — {today}", "emoji": True},
-        },
-        {
-            "type": "section",
-            "text": {"type": "mrkdwn", "text": f"*Özet*\n{summary_text[:2900]}"},
-        },
-    ]
-
-    # Add counts
-    c = supervision.counts
-    blocks.append(
-        {
-            "type": "context",
-            "elements": [
-                {
-                    "type": "mrkdwn",
-                    "text": f"{c[STATUS_OK]} ajan çalıştı · {c[STATUS_FAILED]} başarısız · {c[STATUS_SKIPPED]} atlandı",
-                }
-            ],
-        }
-    )
-
-    return blocks
-
-
-def _build_advisor_blocks(briefing) -> list:
-    """Build Block Kit blocks for an advisor's channel post."""
-    blocks = [
-        {
-            "type": "section",
-            "text": {"type": "mrkdwn", "text": f"*{briefing.title}*"},
-        },
-        {
-            "type": "section",
-            "text": {"type": "mrkdwn", "text": briefing.text[:2900]},
-        },
-    ]
-    return blocks
 
 
 def main() -> int:

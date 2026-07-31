@@ -21,14 +21,37 @@ logger = logging.getLogger(__name__)
 MAIN_CHANNEL_ENV = "SLACK_MAIN_CHANNEL"
 FALLBACK_CHANNEL_ENV = "SLACK_CHANNEL"  # Legacy fallback
 
+#: The advisor roster this project routes to Slack, in report order.
+#:
+#: Kept as a literal list to avoid importing :mod:`ai_assistant.advisors` (which
+#: would make a channel lookup pull in every advisor module). It mirrors
+#: ``ai_assistant.advisors.all_advisors()``; ``tests/test_slack_channels.py``
+#: pins the two together so a roster change cannot silently drift.
+ADVISOR_KEYS = (
+    "weather",
+    "morning_operations",
+    "communications_calendar",
+    "career_development",
+    "market_intelligence",
+    "ai_innovation",
+    "kids_development",
+    "anka_bridge",
+    "executive_coaching",
+    "work_analyst",
+)
 
-def _advisor_channel_env(advisor_key: str) -> str:
+
+def advisor_channel_env(advisor_key: str) -> str:
     """Build the env var name for an advisor's channel.
 
     Example: "weather" -> "SLACK_CHANNEL_WEATHER"
     Example: "market_intelligence" -> "SLACK_CHANNEL_MARKET_INTELLIGENCE"
     """
     return f"SLACK_CHANNEL_{advisor_key.upper()}"
+
+
+#: Backwards-compatible private alias (was the original name).
+_advisor_channel_env = advisor_channel_env
 
 
 class ChannelConfig:
@@ -43,6 +66,44 @@ class ChannelConfig:
         """Initialize channel mappings from environment variables."""
         self.main_channel = (os.getenv(MAIN_CHANNEL_ENV) or "").strip()
         self.advisor_channels: Dict[str, str] = {}
+
+    # --- main channel -------------------------------------------------------
+
+    def resolve_main_channel(self) -> Optional[str]:
+        """The channel the SUMMARY goes to: ``SLACK_MAIN_CHANNEL`` then ``SLACK_CHANNEL``."""
+        if self.main_channel:
+            return self.main_channel
+        legacy = (os.getenv(FALLBACK_CHANNEL_ENV) or "").strip()
+        return legacy or None
+
+    # --- per-advisor channels ----------------------------------------------
+
+    def dedicated_channel(self, advisor_key: str) -> Optional[str]:
+        """The advisor's OWN channel, or ``None`` when it has none configured.
+
+        Unlike :meth:`get_channel` this never falls back to the main channel,
+        which is what the fan-out needs in order to tell "this advisor has its
+        own room" apart from "this advisor is borrowing the main room".
+        """
+        return (os.getenv(advisor_channel_env(advisor_key)) or "").strip() or None
+
+    def configured_advisor_channels(self) -> Dict[str, str]:
+        """Every advisor of the roster that has its OWN channel configured."""
+        found: Dict[str, str] = {}
+        for key in ADVISOR_KEYS:
+            channel = self.dedicated_channel(key)
+            if channel:
+                found[key] = channel
+        return found
+
+    def has_dedicated_channels(self) -> bool:
+        """Whether at least ONE advisor has a channel of its own.
+
+        This is the switch for per-advisor fan-out. With no dedicated channel
+        anywhere, every advisor would resolve to the main channel and the
+        fan-out would simply repeat the summary ten times, so it stays off.
+        """
+        return any(self.dedicated_channel(key) for key in ADVISOR_KEYS)
 
     def get_channel(
         self, advisor_key: str, advisor_title: str = ""
@@ -117,18 +178,7 @@ class ChannelConfig:
         advisor missing from here only loses the "is any channel configured at
         all?" probe, never its delivery (``get_channel`` works for any key).
         """
-        return [
-            "weather",
-            "morning_operations",
-            "communications_calendar",
-            "career_development",
-            "market_intelligence",
-            "ai_innovation",
-            "kids_development",
-            "anka_bridge",
-            "executive_coaching",
-            "work_analyst",
-        ]
+        return list(ADVISOR_KEYS)
 
 
 # Global singleton instance
@@ -141,6 +191,16 @@ def get_channel_config() -> ChannelConfig:
     if _config is None:
         _config = ChannelConfig()
     return _config
+
+
+def reset_channel_config() -> None:
+    """Drop the cached configuration so the environment is read again.
+
+    The singleton memoises every lookup, which is right for one run and wrong
+    for a test (or a long-lived process) that changes the environment.
+    """
+    global _config
+    _config = None
 
 
 def get_channel_for_advisor(advisor_key: str, advisor_title: str = "") -> Optional[str]:
