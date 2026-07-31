@@ -1245,12 +1245,15 @@
     text($("calendar-focus-blocks"), calendar.focus_blocks || 0);
 
     // Next meeting display
+    var nextMeetingContainer = $("calendar-next-meeting-container");
     var nextMeetingEl = $("calendar-next-meeting");
-    if (calendar.next_meeting) {
-      nextMeetingEl.textContent = calendar.next_meeting;
-      nextMeetingEl.parentElement.hidden = false;
-    } else {
-      nextMeetingEl.parentElement.hidden = true;
+    if (nextMeetingEl) {
+      if (calendar.next_meeting) {
+        nextMeetingEl.textContent = calendar.next_meeting;
+        if (nextMeetingContainer) nextMeetingContainer.hidden = false;
+      } else {
+        if (nextMeetingContainer) nextMeetingContainer.hidden = true;
+      }
     }
 
     // Available slots display

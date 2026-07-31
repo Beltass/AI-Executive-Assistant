@@ -331,10 +331,20 @@ def start_oauth_flow(client_id: str, client_secret: str) -> Optional[str]:
         return None
 
 
-def test_credentials(client_id: str, client_secret: str, refresh_token: str) -> bool:
-    """Test if the credentials work by making a simple Gmail query."""
-    print_header("Kimlik Bilgileri Test Ediliyor")
+def validate_credentials(client_id: str, client_secret: str, refresh_token: str) -> bool:
+    """Validate if the credentials work by testing them with Google APIs.
 
+    This function performs a simple Gmail query to verify that the credentials
+    are valid and can be used to access Google services.
+
+    Args:
+        client_id: Google OAuth client ID
+        client_secret: Google OAuth client secret
+        refresh_token: Google refresh token obtained from OAuth flow
+
+    Returns:
+        True if credentials are valid and working, False otherwise.
+    """
     try:
         from google.auth.transport.requests import Request
         from google.oauth2.credentials import Credentials
@@ -354,28 +364,88 @@ def test_credentials(client_id: str, client_secret: str, refresh_token: str) -> 
         )
 
         # Refresh token to get access token
-        print_info("Erişim token'ı alınıyor...")
         creds.refresh(Request())
 
         # Build Gmail service and list labels
-        from google.auth.transport.requests import Request as AuthRequest
         from googleapiclient.discovery import build
 
         service = build("gmail", "v1", credentials=creds)
 
-        print_info("Gmail bağlantısı test ediliyor...")
+        # Perform a simple query to verify credentials work
         result = service.users().labels().list(userId="me").execute()
         labels = result.get("labels", [])
 
-        print_success(f"Gmail bağlantısı başarılı! {len(labels)} etiket bulundu.")
         return True
 
     except ImportError:
-        print_warning(
-            "Google auth kütüphaneleri yüklenmemiş. "
-            "Kimlik bilgileri yine de kaydedilecek."
-        )
+        # Libraries not installed but credentials might still be valid
         return True
+    except Exception:
+        # Credentials are invalid or cannot be used
+        return False
+
+
+def test_credentials(client_id: str, client_secret: str, refresh_token: str) -> bool:
+    """Test if the credentials work by making a simple Gmail query.
+
+    This is a wrapper around validate_credentials() that provides user feedback.
+    """
+    print_header("Kimlik Bilgileri Test Ediliyor")
+
+    try:
+        result = validate_credentials(client_id, client_secret, refresh_token)
+
+        if result:
+            # If validate_credentials passed, try to get more info
+            try:
+                from google.auth.transport.requests import Request
+                from google.oauth2.credentials import Credentials
+                from googleapiclient.discovery import build
+
+                creds = Credentials(
+                    token=None,
+                    refresh_token=refresh_token,
+                    token_uri="https://oauth2.googleapis.com/token",
+                    client_id=client_id,
+                    client_secret=client_secret,
+                    scopes=[
+                        "https://www.googleapis.com/auth/gmail.readonly",
+                        "https://www.googleapis.com/auth/calendar.readonly",
+                        "https://www.googleapis.com/auth/drive.metadata.readonly",
+                    ],
+                )
+
+                print_info("Erişim token'ı alınıyor...")
+                creds.refresh(Request())
+
+                service = build("gmail", "v1", credentials=creds)
+
+                print_info("Gmail bağlantısı test ediliyor...")
+                result = service.users().labels().list(userId="me").execute()
+                labels = result.get("labels", [])
+
+                print_success(f"Gmail bağlantısı başarılı! {len(labels)} etiket bulundu.")
+            except ImportError:
+                print_warning(
+                    "Google auth kütüphaneleri yüklenmemiş. "
+                    "Kimlik bilgileri yine de kaydedilecek."
+                )
+            except Exception as e:
+                print_error(f"Kimlik bilgileri test edilirken hata: {e}")
+                print_warning(
+                    "Kimlik bilgileri kaydedilecek ancak doğrulanmadı. "
+                    "Lütfen başlangıç adımlarını tekrarlayın."
+                )
+
+            return True
+        else:
+            print_error("Kimlik bilgileri geçersiz.")
+            print_warning(
+                "Kimlik bilgileri kaydedilecek ancak doğrulanmadı. "
+                "Lütfen başlangıç adımlarını tekrarlayın."
+            )
+            return False
+
     except Exception as e:
         print_error(f"Kimlik bilgileri test edilirken hata: {e}")
         print_warning(
