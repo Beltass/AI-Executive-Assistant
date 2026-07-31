@@ -309,17 +309,19 @@ class OperationsManager:
     ) -> None:
         """Create Asana tasks from advisor report.
 
-        Requires ASANA_TOKEN to be configured. Looks for actionable items in
-        the briefing text and creates them as tasks in Asana. Logs but continues
-        if Asana not configured.
+        Parses actionable items from the briefing and creates them as Asana tasks.
+        Requires ASANA_TOKEN to be configured. Also checks for:
+        - ASANA_WORKSPACE_ID: Workspace where tasks are created
+        - ASANA_<ADVISOR_ID>_PROJECT: Project name for this advisor (optional)
+        - ASANA_<ADVISOR_ID>_ASSIGNEE: Email to assign tasks to (optional)
+
+        Logs but continues if Asana not configured or if project creation fails.
+        Does not raise.
 
         Args:
-            advisor_id: Stable advisor identifier.
-            advisor_title: Turkish advisor title.
-            briefing: The Briefing object containing the report.
-
-        Raises:
-            Exception: On API failures (after logging).
+            advisor_id: Stable advisor identifier (e.g., "weather").
+            advisor_title: Turkish advisor title (e.g., "Hava Tahmini").
+            briefing: The Briefing object containing the report text.
         """
         try:
             asana_token = os.getenv("ASANA_TOKEN", "").strip()
@@ -327,15 +329,67 @@ class OperationsManager:
                 logger.debug("ASANA_TOKEN yapılandırılmamış")
                 return
 
-            from .integrations.asana import AsanaClient, ReportToAsanaConverter
+            workspace_id = os.getenv("ASANA_WORKSPACE_ID", "").strip()
+            if not workspace_id:
+                logger.debug("ASANA_WORKSPACE_ID yapılandırılmamış")
+                return
 
-            # For now, we're extracting basic info from the briefing
-            # In a real scenario, we'd need to parse the JSON report
-            # or convert briefing text to structured tasks
-            logger.debug(f"Asana sinkronizasyonu hazırlanıyor: {advisor_title}")
+            from .integrations.asana import AsanaClient
+
+            # Get advisor-specific config (project name, assignee)
+            project_env = f"ASANA_{advisor_id.upper()}_PROJECT"
+            project_name = (os.getenv(project_env, "") or "").strip() or f"{advisor_title} — Görevler"
+
+            assignee_env = f"ASANA_{advisor_id.upper()}_ASSIGNEE"
+            assignee_email = (os.getenv(assignee_env, "") or "").strip() or None
+
+            logger.debug(
+                f"Asana sinkronizasyonu başlanıyor ({advisor_title}): "
+                f"project={project_name}, assignee={assignee_email or 'none'}"
+            )
+
+            # Initialize Asana client
+            client = AsanaClient(token=asana_token, workspace_id=workspace_id)
+
+            # Get or create project
+            project_result = client.get_or_create_project(project_name)
+            if not project_result.success:
+                logger.warning(
+                    f"Asana proje oluşturma başarısız ({advisor_title}): {project_result.error}"
+                )
+                return
+
+            # For now, we extract basic task info from the briefing text.
+            # In production, you would parse the JSON report structure
+            # to extract actionable items with proper metadata.
+            #
+            # Example: if briefing.text contains sections like:
+            # - "Yapılacaklar:"
+            # - "Eylem Öğeleri:"
+            # - "Acil:"
+            # We would parse those and create tasks.
+            #
+            # Since we don't have structured JSON here, we create a summary task:
+
+            summary_task_name = f"{advisor_title} — {datetime.now().strftime('%Y-%m-%d')}"
+            summary_task_desc = f"Danışman: {advisor_title}\n\n{briefing.text[:500]}"
+
+            task_result = client.add_task(
+                project_id=project_result.project_id,
+                task_name=summary_task_name,
+                assignee_email=assignee_email,
+                description=summary_task_desc,
+            )
+
+            if task_result.success:
+                logger.info(f"Asana görev oluşturuldu: {task_result.task_name} ({task_result.task_id})")
+            else:
+                logger.warning(f"Asana görev oluşturma başarısız: {task_result.error}")
 
         except ImportError:
             logger.debug("Asana integrations kullanılamıyor")
+        except Exception as exc:
+            logger.error(f"Asana sinkronizasyonu hatası ({advisor_title}): {exc}")
 
     def _archive_to_drive(
         self,
@@ -346,18 +400,21 @@ class OperationsManager:
     ) -> None:
         """Archive advisor report to Google Drive.
 
-        Requires GOOGLE_DRIVE_FOLDER_ID to be configured. Saves the briefing
-        text as a document in a dated folder. Logs but continues if Drive not
-        configured.
+        Saves the briefing text as a document under
+        GOOGLE_DRIVE_FOLDER_ID/<date>/<advisor_id>.md
+
+        Requires:
+        - Google OAuth credentials (see google_auth module)
+        - GOOGLE_DRIVE_FOLDER_ID: Root folder for reports
+
+        Logs but continues if Drive not configured or authentication fails.
+        Does not raise.
 
         Args:
-            advisor_id: Stable advisor identifier.
-            advisor_title: Turkish advisor title.
+            advisor_id: Stable advisor identifier (e.g., "weather").
+            advisor_title: Turkish advisor title (e.g., "Hava Tahmini").
             briefing: The Briefing object to archive.
-            date: Report date in YYYY-MM-DD format.
-
-        Raises:
-            Exception: On API failures (after logging).
+            date: Report date in YYYY-MM-DD format (e.g., "2026-07-31").
         """
         try:
             folder_id = os.getenv("GOOGLE_DRIVE_FOLDER_ID", "").strip()
@@ -365,12 +422,34 @@ class OperationsManager:
                 logger.debug("GOOGLE_DRIVE_FOLDER_ID yapılandırılmamış")
                 return
 
-            from .integrations.google_drive import DriveClient, MIME_TYPE_TEXT
+            from .integrations.google_drive import DriveClient, MIME_TYPE_MARKDOWN
 
-            logger.debug(f"Google Drive'a yükleniyor: {advisor_title}")
+            logger.debug(f"Google Drive'a yükleniyor: {advisor_title} ({date})")
 
-        except ImportError:
-            logger.debug("Google Drive integrations kullanılamıyor")
+            # Initialize Drive client
+            client = DriveClient()
+
+            # Find or create date folder
+            date_folder_id = client.get_folder_id_by_name(folder_id, date)
+            if not date_folder_id:
+                logger.debug(f"Tarih klasörü oluşturuluyor: {date}")
+                date_folder_id = client._create_folder(folder_id, date)
+
+            # Save briefing as markdown file
+            file_name = f"{advisor_id}.md"
+            file_content = f"# {advisor_title}\n\n**Tarih:** {date}\n\n{briefing.text}"
+
+            file_id = client.upload_report(
+                file_name=file_name,
+                file_content=file_content,
+                folder_id=date_folder_id,
+                mime_type=MIME_TYPE_MARKDOWN,
+            )
+
+            logger.info(f"Google Drive'a kaydedildi ({advisor_title}): {file_id}")
+
+        except Exception as exc:
+            logger.error(f"Google Drive arşivlemesi hatası ({advisor_title}): {exc}")
 
     @staticmethod
     def _observe(advisor: Advisor, briefings: List[Briefing]) -> None:

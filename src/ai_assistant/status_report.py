@@ -500,44 +500,57 @@ def _accountability_snapshot(briefings: Any = None) -> Dict[str, Any]:
 
 
 def _integrations_snapshot() -> Dict[str, Any]:
-    """Integration status from connected services (Slack, Asana, Google Drive).
+    """Integration health and performance metrics from connected services.
 
-    Collects metrics about configured integrations and their health status.
+    Loads persisted metrics from today's activities across Slack, Asana, and
+    Google Drive. Returns a dictionary with:
+    - Slack: channels_configured, messages_sent_today, failed_sends, last_post_time
+    - Asana: projects_created, tasks_created, tasks_completed, failed_operations
+    - Drive: documents_uploaded, archive_count, failed_uploads, last_sync_time
     """
-    snapshot: Dict[str, Any] = {
-        "slack": {
-            "configured_channels": 0,
-            "last_post": None,
-            "failures": []
-        },
-        "asana": {
-            "projects": 0,
-            "tasks": 0,
-            "workspace_url": None,
-            "last_update": None,
-            "failures": []
-        },
-        "drive": {
-            "total_docs": 0,
-            "archive_docs": 0,
-            "folder_size": None,
-            "last_sync": None,
-            "failures": []
-        },
-        "distribution": {
-            "total_attempts": 0,
-            "success_count": 0,
-            "failure_count": 0,
-            "failed_advisors": [],
-            "last_attempt": None
-        }
-    }
     try:
-        from .integrations import slack, asana_client, drive
-        from . import config
+        metrics = IntegrationMetrics()
+        summary = metrics.get_integration_summary()
 
-        # Slack channels configured
-        configured = 0
+        # Get integration data from metrics
+        integrations = summary.get("integrations", {})
+
+        # Build the snapshot with the tracked metrics
+        snapshot = {
+            "slack": integrations.get(
+                "slack",
+                {
+                    "enabled": True,
+                    "channels_configured": 0,
+                    "messages_sent_today": 0,
+                    "failed_sends": [],
+                    "last_post_time": None,
+                },
+            ),
+            "asana": integrations.get(
+                "asana",
+                {
+                    "enabled": True,
+                    "projects_created": 0,
+                    "tasks_created": 0,
+                    "tasks_completed": 0,
+                    "failed_operations": [],
+                    "last_sync_time": None,
+                },
+            ),
+            "drive": integrations.get(
+                "drive",
+                {
+                    "enabled": True,
+                    "documents_uploaded": 0,
+                    "archive_count": 0,
+                    "failed_uploads": [],
+                    "last_sync_time": None,
+                },
+            ),
+        }
+
+        # Count configured Slack channels from environment
         slack_channels = [
             os.getenv("SLACK_CHANNEL_MAIL_ANALYST", "").strip(),
             os.getenv("SLACK_CHANNEL_LEADERSHIP", "").strip(),
@@ -548,50 +561,36 @@ def _integrations_snapshot() -> Dict[str, Any]:
             os.getenv("SLACK_CHANNEL_GROWTH", "").strip(),
             os.getenv("SLACK_CHANNEL_MAIN", "").strip(),
         ]
-        configured = sum(1 for ch in slack_channels if ch)
-        snapshot["slack"]["configured_channels"] = configured
+        snapshot["slack"]["channels_configured"] = sum(1 for ch in slack_channels if ch)
 
-        # Try to get recent Slack post time
-        try:
-            # Check if we have recent Slack activity from integrations
-            if hasattr(slack, "last_post_time"):
-                snapshot["slack"]["last_post"] = slack.last_post_time
-        except Exception:
-            pass
-
-        # Asana projects (if configured)
-        try:
-            if hasattr(asana_client, "configured") and asana_client.configured():
-                if hasattr(asana_client, "project_count"):
-                    snapshot["asana"]["projects"] = asana_client.project_count() or 0
-                if hasattr(asana_client, "task_count"):
-                    snapshot["asana"]["tasks"] = asana_client.task_count() or 0
-                if hasattr(asana_client, "workspace_url"):
-                    snapshot["asana"]["workspace_url"] = asana_client.workspace_url
-                snapshot["asana"]["last_update"] = _now_utc().isoformat(timespec="seconds")
-        except Exception:
-            pass
-
-        # Google Drive folder status (if configured)
-        try:
-            if hasattr(drive, "configured") and drive.configured():
-                if hasattr(drive, "document_count"):
-                    snapshot["drive"]["total_docs"] = drive.document_count() or 0
-                if hasattr(drive, "archive_count"):
-                    snapshot["drive"]["archive_docs"] = drive.archive_count() or 0
-                if hasattr(drive, "folder_size"):
-                    snapshot["drive"]["folder_size"] = drive.folder_size()
-                snapshot["drive"]["last_sync"] = _now_utc().isoformat(timespec="seconds")
-        except Exception:
-            pass
-
-        # Distribution tracking (from briefings)
-        # This could be populated from supervision data if available
-        snapshot["distribution"]["last_attempt"] = _now_utc().isoformat(timespec="seconds")
-
+        return snapshot
     except Exception as exc:
         logger.warning("entegrasyon durumu toplanırken hata: %s", exc)
-    return snapshot
+        # Return safe defaults if metrics fail
+        return {
+            "slack": {
+                "enabled": True,
+                "channels_configured": 0,
+                "messages_sent_today": 0,
+                "failed_sends": [],
+                "last_post_time": None,
+            },
+            "asana": {
+                "enabled": True,
+                "projects_created": 0,
+                "tasks_created": 0,
+                "tasks_completed": 0,
+                "failed_operations": [],
+                "last_sync_time": None,
+            },
+            "drive": {
+                "enabled": True,
+                "documents_uploaded": 0,
+                "archive_count": 0,
+                "failed_uploads": [],
+                "last_sync_time": None,
+            },
+        }
 
 
 def _batch_snapshot() -> Dict[str, Any]:
@@ -815,7 +814,9 @@ def write_status_report(
 __all__ = [
     "ADVISOR_META",
     "HISTORY_LIMIT",
+    "IntegrationMetrics",
     "build_status",
+    "integration_metrics_file_path",
     "sanitize",
     "status_file_path",
     "write_status_report",

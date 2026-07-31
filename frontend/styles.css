@@ -1563,6 +1563,130 @@ button {
   background: var(--warning);
 }
 
+/* ========================================================================== */
+/* 8. INTEGRATIONS: SLACK, ASANA, DRIVE                                       */
+/* ========================================================================== */
+
+.integrations-grid {
+  display: grid;
+  gap: var(--s3);
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 620px) {
+  .integrations-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 960px) {
+  .integrations-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.integration-card {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: var(--s3);
+  display: grid;
+  gap: var(--s2);
+}
+
+.integration-card--slack {
+  border-left: 3px solid #36c5f0;
+}
+
+.integration-card--asana {
+  border-left: 3px solid #fcb400;
+}
+
+.integration-card--drive {
+  border-left: 3px solid #4285f4;
+}
+
+.integration-card--distribution {
+  border-left: 3px solid var(--good);
+}
+
+.integration-card__head {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+
+.integration-card__emoji {
+  font-size: var(--t-lg);
+  flex-shrink: 0;
+}
+
+.integration-card__title {
+  margin: 0;
+  padding: 0;
+  font-size: var(--t-lg);
+  font-weight: 600;
+  color: var(--text-1);
+}
+
+.integration-card__body {
+  display: grid;
+  gap: var(--s2);
+}
+
+.integration-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--s2);
+  font-size: var(--t-sm);
+  padding: var(--s1) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.integration-item:last-child {
+  border-bottom: none;
+}
+
+.integration-item__label {
+  color: var(--text-2);
+  font-weight: 500;
+}
+
+.integration-item__value {
+  color: var(--text-1);
+  font-weight: 600;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.integration-item__status {
+  font-weight: 700;
+  font-size: var(--t-xs);
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--r-pill);
+}
+
+.integration-item__status--ok {
+  color: var(--good);
+  background: rgba(12, 163, 12, 0.1);
+}
+
+.integration-item__status--warning {
+  color: var(--warning);
+  background: rgba(250, 178, 25, 0.1);
+}
+
+.integration-item__status--error {
+  color: var(--critical);
+  background: rgba(208, 59, 59, 0.1);
+}
+
 @keyframes pulse {
   0%,
   100% {
