@@ -36,7 +36,7 @@
   var CLOCK_MS = 20000; // how often the "x dk önce" label is recomputed
   var STALE_HOURS = 12; // older than this and we say so, loudly
 
-  var TABS = ["sistem", "icerik", "performans", "isler", "fikirler", "entegrasyonlar"];
+  var TABS = ["sistem", "icerik", "performans", "isler", "fikirler", "entegrasyonlar", "gmail"];
   var DEFAULT_TAB = "sistem";
 
   var STATUS_LABEL = { ok: "Çalıştı", failed: "Hata", skipped: "Atlandı" };
@@ -1211,6 +1211,100 @@
   }
 
   /* ====================================================================== */
+  /* TAB 7 — 📧 Gmail & Takvim                                              */
+  /* ====================================================================== */
+
+  function renderGmailCalendar() {
+    var data = state.status;
+    if (!data) return;
+
+    var gmail = (data.gmail || {});
+    var calendar = (data.calendar || {});
+    var hasData = gmail.unread_count != null || calendar.today_meetings != null;
+
+    if (!hasData) {
+      show($("gmail-empty"), true);
+      show($("gmail-body"), false);
+      return;
+    }
+    show($("gmail-empty"), false);
+    show($("gmail-body"), true);
+
+    // --- Gmail Stats ---
+    text($("gmail-unread"), gmail.unread_count || 0);
+    text($("gmail-total-24h"), gmail.total_emails_24h || 0);
+    text($("gmail-urgent"), gmail.urgent_count || 0);
+    text($("gmail-action-items"), gmail.action_items || 0);
+    text($("gmail-vip-count"), (gmail.vip_emails && gmail.vip_emails.length) || 0);
+
+    // --- Calendar Stats ---
+    text($("calendar-today-meetings"), calendar.today_meetings || 0);
+    text($("calendar-total-time"), calendar.total_meeting_time_hours != null
+      ? calendar.total_meeting_time_hours.toFixed(1) + " sa"
+      : "—");
+    text($("calendar-focus-blocks"), calendar.focus_blocks || 0);
+
+    // Next meeting display
+    var nextMeetingEl = $("calendar-next-meeting");
+    if (calendar.next_meeting) {
+      nextMeetingEl.textContent = calendar.next_meeting;
+      nextMeetingEl.parentElement.hidden = false;
+    } else {
+      nextMeetingEl.parentElement.hidden = true;
+    }
+
+    // Available slots display
+    var slotsContainer = $("calendar-available-slots");
+    slotsContainer.innerHTML = "";
+    if (calendar.available_slots && Array.isArray(calendar.available_slots)) {
+      if (calendar.available_slots.length > 0) {
+        calendar.available_slots.forEach(function (slot) {
+          var badge = make("span", "badge badge--calendar", slot);
+          slotsContainer.appendChild(badge);
+        });
+      } else {
+        slotsContainer.textContent = "Boş slot yok";
+      }
+    } else {
+      slotsContainer.textContent = "—";
+    }
+
+    // --- Recent Emails ---
+    var emailsList = $("gmail-recent-emails");
+    emailsList.innerHTML = "";
+    if (gmail.vip_emails && Array.isArray(gmail.vip_emails)) {
+      gmail.vip_emails.slice(0, 5).forEach(function (email) {
+        var row = make("div", "gmail-email-row");
+
+        var from = make("div", "gmail-email-from");
+        from.textContent = email.from || "—";
+        row.appendChild(from);
+
+        var subject = make("div", "gmail-email-subject");
+        subject.textContent = email.subject || "(Konu yok)";
+        if (email.urgent) {
+          subject.appendChild(make("span", "badge badge--urgent", "🔴 ACIL"));
+        } else if (email.important) {
+          subject.appendChild(make("span", "badge badge--important", "⭐ ÖNEMLİ"));
+        }
+        row.appendChild(subject);
+
+        var time = make("div", "gmail-email-time");
+        time.textContent = email.time || "—";
+        row.appendChild(time);
+
+        emailsList.appendChild(row);
+      });
+    }
+
+    // Update last sync time
+    if (gmail.last_update || calendar.last_update) {
+      var lastUpdate = gmail.last_update || calendar.last_update;
+      text($("gmail-last-update"), "Son güncelleme: " + relativeTime(lastUpdate));
+    }
+  }
+
+  /* ====================================================================== */
   /* routing                                                                */
   /* ====================================================================== */
 
@@ -1410,6 +1504,7 @@
     renderPerformans();
     renderIsler();
     renderEntegrasyonlar();
+    renderGmailCalendar();
     updateFreshness();
   }
 

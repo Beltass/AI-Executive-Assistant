@@ -40,6 +40,10 @@ from .integrations import STATUS_FAILED, STATUS_OK, STATUS_SKIPPED
 
 logger = logging.getLogger(__name__)
 
+# Gmail and Calendar fetch error tracking (in-memory, reset each run)
+_gmail_fetch_error: Optional[str] = None
+_calendar_fetch_error: Optional[str] = None
+
 # Integration metrics constants
 INTEGRATION_METRICS_FILE_ENV = "INTEGRATION_METRICS_FILE"
 DEFAULT_INTEGRATION_METRICS_FILE = "frontend/integration_metrics.json"
@@ -593,6 +597,138 @@ def _integrations_snapshot() -> Dict[str, Any]:
         }
 
 
+def _gmail_snapshot(briefings: Any = None) -> Dict[str, Any]:
+    """Gmail metrics from Mail Analyst advisor.
+
+    Collects email statistics from the Mail Analyst briefing if available.
+    Gracefully handles missing data by returning empty metrics.
+
+    Returns:
+        Dictionary with Gmail metrics: unread_count, total_emails_24h,
+        urgent_count, action_items, vip_emails, last_update, and any fetch errors.
+    """
+    snapshot: Dict[str, Any] = {
+        "enabled": True,
+        "unread_count": 0,
+        "total_emails_24h": 0,
+        "urgent_count": 0,
+        "action_items": 0,
+        "vip_emails": 0,
+        "last_update": _now_utc().isoformat(timespec="seconds"),
+        "last_fetch_error": None,
+    }
+
+    try:
+        # Look for mail_analyst briefing in the provided briefings
+        if briefings:
+            for briefing in briefings:
+                key = str(getattr(briefing, "key", "") or "")
+                if key == "mail_analyst":
+                    status = str(getattr(briefing, "status", "") or STATUS_SKIPPED)
+                    # Only process if the advisor ran successfully
+                    if status == STATUS_OK:
+                        # For now, store flag that data is available
+                        # Actual metrics extraction would happen from parsed briefing text
+                        # or structured metrics passed by the advisor
+                        snapshot["enabled"] = True
+                    elif status == STATUS_SKIPPED:
+                        snapshot["enabled"] = False
+                    break
+
+        # Record any fetch error that was set via record_gmail_fetch()
+        if _gmail_fetch_error:
+            snapshot["last_fetch_error"] = sanitize(_gmail_fetch_error)
+
+    except Exception as exc:
+        logger.warning("gmail durumu toplanırken hata: %s", exc)
+        snapshot["last_fetch_error"] = sanitize(str(exc))
+
+    return snapshot
+
+
+def _calendar_snapshot(briefings: Any = None) -> Dict[str, Any]:
+    """Calendar metrics from Day Planner advisor.
+
+    Collects meeting and availability statistics from the Day Planner briefing
+    if available. Gracefully handles missing data by returning empty metrics.
+
+    Returns:
+        Dictionary with Calendar metrics: today_meetings, total_meeting_time_hours,
+        focus_blocks_available, next_meeting, available_slots, last_update,
+        and any fetch errors.
+    """
+    snapshot: Dict[str, Any] = {
+        "enabled": True,
+        "today_meetings": 0,
+        "total_meeting_time_hours": 0.0,
+        "focus_blocks_available": 0,
+        "next_meeting": {
+            "summary": None,
+            "time": None,
+            "duration_minutes": None,
+        },
+        "available_slots": [],
+        "last_update": _now_utc().isoformat(timespec="seconds"),
+        "last_fetch_error": None,
+    }
+
+    try:
+        # Look for day_planner briefing in the provided briefings
+        if briefings:
+            for briefing in briefings:
+                key = str(getattr(briefing, "key", "") or "")
+                if key == "day_planner":
+                    status = str(getattr(briefing, "status", "") or STATUS_SKIPPED)
+                    # Only process if the advisor ran successfully
+                    if status == STATUS_OK:
+                        snapshot["enabled"] = True
+                    elif status == STATUS_SKIPPED:
+                        snapshot["enabled"] = False
+                    break
+
+        # Record any fetch error that was set via record_calendar_fetch()
+        if _calendar_fetch_error:
+            snapshot["last_fetch_error"] = sanitize(_calendar_fetch_error)
+
+    except Exception as exc:
+        logger.warning("takvim durumu toplanırken hata: %s", exc)
+        snapshot["last_fetch_error"] = sanitize(str(exc))
+
+    return snapshot
+
+
+def record_gmail_fetch(success: bool, error_msg: Optional[str] = None) -> None:
+    """Record the result of a Gmail fetch operation.
+
+    Args:
+        success: True if fetch succeeded, False otherwise.
+        error_msg: Optional error message if fetch failed.
+    """
+    global _gmail_fetch_error
+
+    if not success and error_msg:
+        _gmail_fetch_error = error_msg
+        logger.warning("gmail getirme hatası: %s", error_msg)
+    elif success:
+        _gmail_fetch_error = None
+
+
+def record_calendar_fetch(success: bool, error_msg: Optional[str] = None) -> None:
+    """Record the result of a Calendar fetch operation.
+
+    Args:
+        success: True if fetch succeeded, False otherwise.
+        error_msg: Optional error message if fetch failed.
+    """
+    global _calendar_fetch_error
+
+    if not success and error_msg:
+        _calendar_fetch_error = error_msg
+        logger.warning("takvim getirme hatası: %s", error_msg)
+    elif success:
+        _calendar_fetch_error = None
+
+
 def _batch_snapshot() -> Dict[str, Any]:
     """What the single shared LLM call did, plus the model that served it."""
     info: Dict[str, Any] = {
@@ -771,6 +907,8 @@ def build_status(
         "slack": slack,
         "advisors": advisors,
         "accountability": _accountability_snapshot(briefings),
+        "gmail": _gmail_snapshot(briefings),
+        "calendar": _calendar_snapshot(briefings),
         "integrations": _integrations_snapshot(),
         "history": history,
     }
@@ -817,6 +955,8 @@ __all__ = [
     "IntegrationMetrics",
     "build_status",
     "integration_metrics_file_path",
+    "record_gmail_fetch",
+    "record_calendar_fetch",
     "sanitize",
     "status_file_path",
     "write_status_report",

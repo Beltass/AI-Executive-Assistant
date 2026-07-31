@@ -147,6 +147,18 @@
         >
           <span class="tab__icon" aria-hidden="true">🔗</span> İntegrasyonlar &amp; Bağlantılar
         </button>
+        <button
+          class="tab"
+          id="tab-gmail"
+          role="tab"
+          type="button"
+          data-tab="gmail"
+          aria-controls="panel-gmail"
+          aria-selected="false"
+          tabindex="-1"
+        >
+          <span class="tab__icon" aria-hidden="true">📧</span> Gmail &amp; Takvim
+        </button>
       </div>
     </nav>
 
@@ -640,6 +652,125 @@
             </p>
             <div class="integrations-grid" id="integrations-grid" style="margin-top: var(--s3)"></div>
           </section>
+        </div>
+      </section>
+
+      <!-- =================================================================
+           TAB 7 — 📧 GMAIL & TAKVİM
+           ================================================================= -->
+      <section
+        id="panel-gmail"
+        role="tabpanel"
+        aria-labelledby="tab-gmail"
+        tabindex="0"
+        class="stack"
+        hidden
+      >
+        <div id="gmail-empty" class="state" hidden>
+          <div class="state__icon" aria-hidden="true">📧</div>
+          <h2>Gmail ve Takvim verisi henüz yok</h2>
+          <p>
+            Gmail ve Google Takvim entegrasyonu kurulduğunda bu sekme
+            e-postalar ve toplantılar hakkında bilgi gösterecek.
+          </p>
+        </div>
+
+        <div id="gmail-body" hidden class="stack">
+          <!-- --- Gmail & Calendar Stats Grid --- -->
+          <div class="charts charts--2">
+            <!-- Gmail Card -->
+            <div class="chart-card chart-card--gmail">
+              <div class="chart-card__head">
+                <span class="chart-card__emoji" aria-hidden="true" style="color: #EA4335">📧</span>
+                <span class="chart-card__title">Gmail İstatistikleri</span>
+              </div>
+              <div class="tiles tiles--2">
+                <div class="tile">
+                  <span class="tile__label">Okunmamış</span>
+                  <span class="tile__value" id="gmail-unread">–</span>
+                </div>
+                <div class="tile">
+                  <span class="tile__label">Son 24 saatte</span>
+                  <span class="tile__value" id="gmail-total-24h">–</span>
+                </div>
+                <div class="tile">
+                  <span class="tile__label"><span aria-hidden="true">🔴</span> ACIL</span>
+                  <span class="tile__value" id="gmail-urgent">–</span>
+                </div>
+                <div class="tile">
+                  <span class="tile__label">Yapılacak eylem</span>
+                  <span class="tile__value" id="gmail-action-items">–</span>
+                </div>
+                <div class="tile tile--wide">
+                  <span class="tile__label"><span aria-hidden="true">⭐</span> VIP gönderenler</span>
+                  <span class="tile__value" id="gmail-vip-count">–</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Calendar Card -->
+            <div class="chart-card chart-card--calendar">
+              <div class="chart-card__head">
+                <span class="chart-card__emoji" aria-hidden="true" style="color: #4285F4">📅</span>
+                <span class="chart-card__title">Takvim İstatistikleri</span>
+              </div>
+              <div class="tiles tiles--2">
+                <div class="tile">
+                  <span class="tile__label">Bugünün toplantısı</span>
+                  <span class="tile__value" id="calendar-today-meetings">–</span>
+                </div>
+                <div class="tile">
+                  <span class="tile__label">Toplam toplantı süresi</span>
+                  <span class="tile__value" id="calendar-total-time">–</span>
+                </div>
+                <div class="tile">
+                  <span class="tile__label"><span aria-hidden="true">⏱️</span> Odak zamanı</span>
+                  <span class="tile__value" id="calendar-focus-blocks">–</span>
+                </div>
+                <div class="tile tile--wide">
+                  <span class="tile__label">Sonraki toplantı</span>
+                  <span class="tile__val" id="calendar-next-meeting-container" hidden>
+                    <span id="calendar-next-meeting">—</span>
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- --- Available Time Slots --- -->
+          <section aria-labelledby="availability-title">
+            <div class="section-head">
+              <h2 id="availability-title"><span aria-hidden="true">⏰</span> Boş Zaman Dilimleri</h2>
+            </div>
+            <div id="calendar-available-slots" class="badges" style="margin-top: var(--s3)"></div>
+          </section>
+
+          <!-- --- Recent Emails --- -->
+          <section aria-labelledby="recent-emails-title">
+            <div class="section-head">
+              <h2 id="recent-emails-title"><span aria-hidden="true">📬</span> Son Önemli E-postalar</h2>
+            </div>
+            <div id="gmail-recent-emails" class="email-list" style="margin-top: var(--s3)"></div>
+            <p class="chart-empty" id="gmail-empty-emails" hidden>Son e-postalar yok.</p>
+          </section>
+
+          <!-- --- Quick Actions --- -->
+          <section aria-labelledby="quick-actions-title">
+            <div class="section-head">
+              <h2 id="quick-actions-title"><span aria-hidden="true">⚡</span> Hızlı Erişim</h2>
+            </div>
+            <div class="quick-actions" style="margin-top: var(--s3)">
+              <a class="btn btn--primary" href="https://mail.google.com" rel="noreferrer noopener" target="_blank">
+                <span aria-hidden="true">📧</span> Inbox'u Aç
+              </a>
+              <a class="btn btn--primary" href="https://calendar.google.com" rel="noreferrer noopener" target="_blank">
+                <span aria-hidden="true">📅</span> Takvimi Aç
+              </a>
+            </div>
+          </section>
+
+          <!-- --- Last Update --- -->
+          <p class="section-note" id="gmail-last-update"></p>
         </div>
       </section>
     </main>
