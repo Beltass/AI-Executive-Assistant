@@ -2549,3 +2549,535 @@ button {
 /* ==========================================================================
    ==  end CHARTS V2 appended block                                        ==
    ========================================================================== */
+
+/* ==========================================================================
+   ==  READING VIEW V2 — appended block (the per-advisor deliverable).      ==
+   ==  Everything the structured document renderer in app.js draws lives    ==
+   ==  between these markers: title block, metric strip, prose measure,     ==
+   ==  sections, exhibits, action checklist, sources — plus the print       ==
+   ==  stylesheet that turns the article into a PDF page. Self-contained    ==
+   ==  and appended last, so it extends section 9 without colliding.        ==
+   ========================================================================== */
+
+/* --- 1. the page -----------------------------------------------------------
+ * The card widens a little past the prose measure so a table or a chart has
+ * room to breathe; the PROSE itself stays at ~68ch, which is where a line
+ * length stops costing the reader their place on the way back to the margin.
+ */
+
+.doc {
+  max-width: 76ch;
+}
+
+.doc-prose,
+.doc__lead,
+.doc-block__note {
+  max-width: 68ch;
+}
+
+/* --- 2. title block ------------------------------------------------------- */
+
+.doc__kicker {
+  font-size: var(--t-xs);
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--series-1);
+  margin-bottom: var(--s2);
+}
+
+.doc__titlerow {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s3);
+}
+
+.doc__emoji {
+  font-size: 1.75rem;
+  line-height: 1.1;
+  margin-bottom: 0;
+  flex: 0 0 auto;
+}
+
+.doc__title {
+  font-size: var(--t-2xl);
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+.doc__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  margin-top: var(--s3);
+  padding: 0;
+  list-style: none;
+}
+
+.doc__fact {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px var(--s2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  color: var(--text-3);
+  font-size: var(--t-xs);
+  white-space: nowrap;
+}
+
+.doc__fact-icon {
+  font-size: 0.9em;
+}
+
+/* --- 3. metric strip ------------------------------------------------------
+ * Two to four figures, using the same metric card as the performance tab, so
+ * a number means the same thing wherever it is read.
+ */
+
+.doc__metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--s3);
+  margin: 0 0 var(--s5);
+}
+
+.metric-card__note {
+  margin-top: var(--s1);
+  font-size: var(--t-xs);
+  color: var(--text-3);
+  line-height: 1.4;
+}
+
+/* --- 4. body: the typographic hierarchy ---------------------------------- */
+
+.doc__body {
+  font-size: 1.0625rem;
+  line-height: 1.72;
+}
+
+.doc-section + .doc-section {
+  margin-top: var(--s6);
+}
+
+.doc-section__title {
+  font-size: var(--t-xl);
+  line-height: 1.25;
+  color: var(--text-1);
+  letter-spacing: -0.01em;
+  margin: 0 0 var(--s3);
+  padding-bottom: var(--s2);
+  border-bottom: 1px solid var(--border);
+}
+
+/* The advisors' own headings start at <h2> inside a section, so they must sit
+ * BELOW the section title in the scale, never level with it. */
+.doc__body .doc-prose h2 {
+  font-size: var(--t-lg);
+  margin: var(--s5) 0 var(--s2);
+}
+.doc__body .doc-prose h3 {
+  font-size: var(--t-md);
+  margin: var(--s4) 0 var(--s2);
+}
+.doc__body .doc-prose h4,
+.doc__body .doc-prose h5 {
+  font-size: var(--t-md);
+  color: var(--text-2);
+  margin: var(--s4) 0 var(--s2);
+}
+
+.doc-prose > *:first-child {
+  margin-top: 0;
+}
+
+.doc-prose p {
+  margin: 0 0 var(--s4);
+}
+
+.doc-prose li {
+  margin-bottom: var(--s2);
+  padding-left: 2px;
+}
+
+.doc-prose li::marker {
+  color: var(--text-3);
+}
+
+.doc-prose blockquote {
+  margin: var(--s4) 0;
+  padding: var(--s3) var(--s4);
+  border-left: 3px solid var(--series-2);
+  background: var(--surface-2);
+  border-radius: 0 var(--r-md) var(--r-md) 0;
+  color: var(--text-2);
+  font-style: italic;
+}
+
+.doc-prose blockquote p:last-child {
+  margin-bottom: 0;
+}
+
+/* An inline source link is underlined, not colour-only: on the light surface
+ * the blue against body text is under 3:1 as a lone signal. */
+.doc-prose a {
+  color: var(--series-1);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-thickness: 1px;
+  overflow-wrap: anywhere;
+}
+
+.doc-prose a:hover {
+  text-decoration-thickness: 2px;
+}
+
+.doc-prose pre {
+  margin: 0 0 var(--s4);
+  padding: var(--s3);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  overflow-x: auto;
+}
+
+.doc-prose pre code {
+  background: none;
+  padding: 0;
+}
+
+/* --- 5. exhibits (a section's table or chart) ---------------------------- */
+
+.doc-exhibit {
+  margin: var(--s4) 0 var(--s5);
+  padding: var(--s3);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+}
+
+.doc-exhibit__title {
+  font-size: var(--t-sm);
+  font-weight: 650;
+  color: var(--text-1);
+  margin-bottom: var(--s2);
+}
+
+.doc-exhibit__caption {
+  margin-top: var(--s2);
+  font-size: var(--t-xs);
+  color: var(--text-3);
+  line-height: 1.5;
+}
+
+/* --- 6. the blocks under the body ---------------------------------------- */
+
+.doc-block {
+  margin-top: var(--s6);
+  padding: var(--s4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+}
+
+.doc-block--actions {
+  border-left: 3px solid var(--good);
+}
+
+.doc-block__title {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  font-size: var(--t-lg);
+  color: var(--text-1);
+  margin-bottom: var(--s3);
+}
+
+.doc-block__note {
+  margin-top: var(--s3);
+  font-size: var(--t-xs);
+  color: var(--text-3);
+  line-height: 1.5;
+}
+
+/* --- 7. action checklist -------------------------------------------------- */
+
+.checklist {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+
+.checklist__item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s3);
+  padding: var(--s3);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+}
+
+.checklist__box {
+  flex: 0 0 auto;
+  font-size: 1.1rem;
+  line-height: 1.4;
+  color: var(--good);
+}
+
+.checklist__body {
+  min-width: 0;
+}
+
+.checklist__text {
+  color: var(--text-1);
+  line-height: 1.6;
+  overflow-wrap: break-word;
+}
+
+.checklist__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  margin-top: var(--s2);
+}
+
+/* A deadline is a warning colour AND the word "📅" AND the date itself — the
+ * badge never carries the meaning in its colour alone. */
+.badge--deadline {
+  color: var(--warning);
+  border-color: color-mix(in srgb, var(--warning) 45%, transparent);
+  background: color-mix(in srgb, var(--warning) 14%, transparent);
+}
+
+.badge--owner {
+  color: var(--text-2);
+}
+
+/* --- 8. sources ----------------------------------------------------------- */
+
+.sourcelist {
+  margin: 0;
+  padding-left: var(--s5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+
+.sourcelist__item {
+  color: var(--text-2);
+}
+
+.sourcelist__item::marker {
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.sourcelist__link {
+  color: var(--series-1);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  overflow-wrap: anywhere;
+}
+
+.sourcelist__note {
+  font-size: var(--t-sm);
+  line-height: 1.5;
+  color: var(--text-2);
+  margin-top: 2px;
+}
+
+.sourcelist__url {
+  font-family: var(--mono);
+  font-size: var(--t-xs);
+  color: var(--text-3);
+  overflow-wrap: anywhere;
+  margin-top: 2px;
+}
+
+/* --- 9. footer ------------------------------------------------------------ */
+
+.doc__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s3);
+}
+
+.doc__stamp {
+  font-size: var(--t-xs);
+  color: var(--text-3);
+}
+
+/* --- 10. phone (comfortable at 375px, single column everywhere) ---------- */
+
+@media (max-width: 480px) {
+  .doc {
+    padding: var(--s4) var(--s3);
+    border-radius: var(--r-md);
+  }
+
+  .doc__title {
+    font-size: var(--t-xl);
+  }
+
+  .doc__titlerow {
+    gap: var(--s2);
+  }
+
+  .doc__body {
+    font-size: 1rem;
+    line-height: 1.68;
+  }
+
+  .doc__metrics {
+    grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  }
+
+  .doc-section__title {
+    font-size: var(--t-lg);
+  }
+
+  .doc-block {
+    padding: var(--s3);
+  }
+
+  .sourcelist {
+    padding-left: var(--s4);
+  }
+
+  .doc-nav .btn {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+}
+
+/* --- 11. print: the article, on paper ------------------------------------
+ * "Save as PDF" in the browser's own print dialog IS the export, so the shell
+ * (tab bar, topbar, buttons, banners) is dropped, the card loses its surface
+ * and every link prints its target — a printed link that hides its URL is a
+ * dead end on paper. Colours are forced to ink on white because a dark theme
+ * printed as-is wastes a cartridge and reads worse.
+ */
+
+@media print {
+  :root,
+  :root[data-theme="dark"],
+  :root[data-theme="light"] {
+    --plane: #ffffff;
+    --surface-1: #ffffff;
+    --surface-2: #ffffff;
+    --surface-3: #ffffff;
+    --text-1: #000000;
+    --text-2: #1a1a1a;
+    --text-3: #444444;
+    --border: #bbbbbb;
+    --border-strong: #888888;
+    --shadow: none;
+    color-scheme: light;
+  }
+
+  @page {
+    margin: 18mm 16mm;
+  }
+
+  html,
+  body {
+    background: #fff;
+  }
+
+  .skip-link,
+  .topbar,
+  .tabbar,
+  .banner,
+  .footer,
+  .doc-nav,
+  .no-print,
+  .tooltip,
+  #report-search {
+    display: none !important;
+  }
+
+  main.wrap,
+  .wrap {
+    padding: 0;
+    margin: 0;
+    max-width: none;
+  }
+
+  .doc {
+    border: 0;
+    border-radius: 0;
+    padding: 0;
+    max-width: none;
+    box-shadow: none;
+  }
+
+  .doc__head {
+    border-bottom: 1.5pt solid #000;
+  }
+
+  .doc__lead {
+    background: none;
+    border-left: 2pt solid #000;
+  }
+
+  .doc__body,
+  .doc-prose {
+    max-width: none;
+    font-size: 11pt;
+    line-height: 1.55;
+    color: #000;
+  }
+
+  .doc-block,
+  .doc-exhibit,
+  .checklist__item,
+  .metric-card {
+    background: none;
+    border: 1pt solid #999;
+    break-inside: avoid;
+  }
+
+  .doc-section,
+  .checklist__item,
+  .sourcelist__item,
+  figure,
+  table {
+    break-inside: avoid;
+  }
+
+  .doc-section__title,
+  .doc-block__title {
+    break-after: avoid;
+  }
+
+  .doc-prose a,
+  .sourcelist__link {
+    color: #000;
+    text-decoration: underline;
+  }
+
+  /* The URL a link points at, printed after it — on paper there is nothing to
+   * click. The sources block already prints its own, so it is skipped. */
+  .doc-prose a[href^="http"]::after {
+    content: " (" attr(href) ")";
+    font-size: 9pt;
+    color: #444;
+    word-break: break-all;
+  }
+
+  .doc__stamp {
+    color: #444;
+  }
+}
+
+/* ==========================================================================
+   ==  end READING VIEW V2 appended block                                  ==
+   ========================================================================== */

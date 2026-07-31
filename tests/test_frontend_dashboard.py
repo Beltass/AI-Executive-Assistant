@@ -207,12 +207,29 @@ def test_charts_ship_a_table_view(html):
         assert f'id="{host}"' in html
 
 
-def test_every_multi_series_chart_has_a_legend(html):
-    """Identity must never depend on colour matching alone."""
+def test_every_hand_written_legend_names_its_series(html):
+    """Identity must never depend on colour matching alone.
+
+    This used to count the hand-written legends in the HTML and demand at
+    least three. That count stopped being a measure of anything when the v2
+    builders landed: the "token payı / çıktı payı" pair became a donutChart,
+    whose legend — with a swatch AND the slice's per cent next to every name —
+    is BUILT AT RUNTIME by ``legendList`` in charts.js, so its hard-coded
+    ``<ul class="legend">`` was correctly deleted from the markup. Counting
+    literals therefore punished the change that added legends.
+
+    The invariant is split in two instead: every legend that IS written by
+    hand must name its series (here), and every multi-series builder must emit
+    one at runtime (:func:`test_every_multi_series_builder_emits_a_legend`).
+    """
     legends = re.findall(r'<ul class="legend"[^>]*>(.*?)</ul>', html, re.DOTALL)
-    assert len(legends) >= 3
+    assert legends, "no hand-written legend left in the markup"
     for legend in legends:
         assert "swatch" in legend
+        # A swatch with no words next to it is exactly the failure mode this
+        # guards against, so every item must carry text as well.
+        for item in re.findall(r"<li>(.*?)</li>", legend, re.DOTALL):
+            assert re.sub(r"<[^>]+>", "", item).strip(), f"legend item with no label: {item}"
 
 
 def test_there_is_a_skip_link_and_a_main_landmark(html):
@@ -263,8 +280,9 @@ node_only = pytest.mark.skipif(
     shutil.which("node") is None, reason="node is not installed"
 )
 
-# A DOM shim just rich enough for the builders: they only ever create elements,
-# set attributes and append children.
+# A DOM shim just rich enough for the builders: they create elements, set
+# attributes, append children and — in the v2 builders — bind hover/focus
+# handlers, which are registered and never fired.
 DOM_SHIM = """
 function makeNode(name) {
   return {
@@ -280,12 +298,28 @@ function makeNode(name) {
     set innerHTML(v) { if (!v) this.children = []; },
     setAttribute(k, v) { this.attrs[k] = String(v); if (k === "class") this.className = String(v); },
     getAttribute(k) { return this.attrs[k]; },
-    appendChild(child) { this.children.push(child); return child; }
+    appendChild(child) {
+      // A text node is content, not a child element: folding it into the
+      // parent's text is what makes `walk()` see "swatch + label".
+      if (child && child.tagName === "#text") { this._text += child._text; return child; }
+      this.children.push(child);
+      return child;
+    },
+    addEventListener() {},
+    removeEventListener() {},
+    querySelector() { return null; },
+    focus() {},
+    classList: { add() {}, remove() {}, toggle() {} }
   };
 }
 global.document = {
   createElementNS: function (ns, name) { return makeNode(name); },
-  createElement: function (name) { return makeNode(name); }
+  createElement: function (name) { return makeNode(name); },
+  createTextNode: function (value) {
+    var node = makeNode("#text");
+    node.textContent = value;
+    return node;
+  }
 };
 global.window = {};
 function walk(node, out) {
@@ -321,6 +355,82 @@ def test_charts_file_pulls_in_nothing():
     body = CHARTS.read_text(encoding="utf-8")
     assert "import " not in body
     assert "https://" not in body.split("*/", 1)[1] or "w3.org/2000/svg" in body
+
+
+def _legend_labels(nodes: list) -> list:
+    """Every ``<li>`` of a rendered legend, as (has_swatch, label) pairs."""
+    out = []
+    for index, node in enumerate(nodes):
+        if node["tag"] != "li":
+            continue
+        # walk() flattens depth-first, so an item's swatch is the node right
+        # after it when there is one.
+        following = nodes[index + 1] if index + 1 < len(nodes) else {}
+        out.append(("swatch" in str(following.get("cls") or ""), node["text"]))
+    return out
+
+
+@node_only
+@pytest.mark.parametrize(
+    "builder,args,series",
+    [
+        (
+            "lineChart",
+            [
+                [
+                    {
+                        "name": "Tamamlanma",
+                        "points": [
+                            {"value": 40, "label": "1", "short": "1"},
+                            {"value": 60, "label": "2", "short": "2"},
+                        ],
+                    },
+                    {
+                        "name": "Başarı",
+                        "points": [
+                            {"value": 80, "label": "1", "short": "1"},
+                            {"value": 70, "label": "2", "short": "2"},
+                        ],
+                    },
+                ],
+                {},
+            ],
+            2,
+        ),
+        (
+            "donutChart",
+            [
+                [
+                    {"name": "Ajan A", "value": 5200},
+                    {"name": "Ajan B", "value": 4800},
+                    {"name": "Ajan C", "value": 1000},
+                ],
+                {},
+            ],
+            3,
+        ),
+        (
+            "stackedRuns",
+            [[{"at_istanbul": "31.07.2026 10:04", "ok": 2, "failed": 1, "skipped": 1}], {}],
+            0,  # its three statuses are named in the hand-written legend
+        ),
+    ],
+)
+def test_every_multi_series_builder_emits_a_legend(builder, args, series):
+    """The other half of the legend invariant, checked where it now lives.
+
+    A chart that plots more than one series must SAY which is which, and the
+    v2 builders do that at runtime rather than in the markup. ``stackedRuns``
+    is the exception the parametrisation records: it is fed from a hand-written
+    legend in index.html (its three colours are statuses, not series), so it
+    correctly builds none of its own.
+    """
+    nodes = run_chart(builder, args)
+    items = _legend_labels(nodes)
+    assert len(items) == series
+    for has_swatch, label in items:
+        assert has_swatch, f"{builder} legend item without a swatch"
+        assert label.strip(), f"{builder} legend item without a label"
 
 
 @node_only

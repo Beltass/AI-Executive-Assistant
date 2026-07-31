@@ -894,25 +894,304 @@
     );
   }
 
+  /* ---------------------------------------------------------------------- */
+  /* the reading view — one advisor's document as a deliverable              */
+  /* ---------------------------------------------------------------------- */
+  /*
+   * A document is either SCHEMA 2 (headline · key_metrics · sections ·
+   * action_items · sources · meta, see ai_assistant.reports) or the SCHEMA 1
+   * blob of markdown every archived day before it carries. Both render here,
+   * and every block below the title is drawn only when the document actually
+   * has one — a plain-text report degrades to lead + body, which is exactly
+   * the clean document it always was, and never to a page of empty furniture.
+   *
+   * Nothing model-generated reaches innerHTML except through renderMarkdown(),
+   * which escapes before it marks up; every other value goes in as text.
+   */
+
+  var TREND_GLYPH = { up: "↑", down: "↓", flat: "→" };
+  var TREND_WORD = { up: "arttı", down: "azaldı", flat: "değişmedi" };
+
+  var safeUrl =
+    typeof AIAMarkdown !== "undefined" && AIAMarkdown.safeUrl
+      ? AIAMarkdown.safeUrl
+      : function () {
+          return "";
+        };
+
+  /** A document's list field, or [] — an old document simply has none. */
+  function docList(doc, name) {
+    var value = doc ? doc[name] : null;
+    return Array.isArray(value) ? value : [];
+  }
+
+  function docMeta(doc) {
+    return doc && doc.meta && typeof doc.meta === "object" ? doc.meta : {};
+  }
+
+  /** A "⏱️ ~3 dk okuma" chip in the title block. */
+  function docFact(icon, label, title) {
+    var li = make("li", "doc__fact");
+    var glyph = make("span", "doc__fact-icon", icon);
+    glyph.setAttribute("aria-hidden", "true");
+    li.appendChild(glyph);
+    li.appendChild(make("span", null, label));
+    if (title) li.title = title;
+    return li;
+  }
+
+  function renderDocFacts(doc) {
+    var host = $("doc-facts");
+    host.innerHTML = "";
+    var meta = docMeta(doc);
+    host.appendChild(
+      docFact("⏱️", "~" + (doc.read_minutes || meta.read_minutes || 1) + " dk okuma")
+    );
+    var words = num(doc.words || meta.words);
+    if (words) host.appendChild(docFact("📝", trNumber(words) + " kelime"));
+    var tokens = num(meta.tokens);
+    if (tokens) {
+      host.appendChild(
+        docFact(
+          "🎟️",
+          "~" + trNumber(tokens) + " token",
+          "Tahmini: ajanlar tek bir toplu çağrıyı paylaşır, maliyet üretilen " +
+            "metin payına göre dağıtılır."
+        )
+      );
+    }
+    var actions = docList(doc, "action_items").length;
+    if (actions) host.appendChild(docFact("✅", actions + " aksiyon"));
+  }
+
+  /** The metric strip: 2–4 figures, each with the shared metric card. */
+  function renderDocMetrics(doc) {
+    var host = $("doc-metrics");
+    host.innerHTML = "";
+    var metrics = docList(doc, "key_metrics").slice(0, 4);
+    if (!metrics.length) {
+      show(host, false);
+      return;
+    }
+    show(host, true);
+    metrics.forEach(function (metric, index) {
+      var trend = TREND_GLYPH[metric.trend] || "";
+      var card = renderMetricCard(
+        metric.label || "—",
+        metric.value == null ? "—" : metric.value,
+        metric.unit || "",
+        trend,
+        Array.isArray(metric.spark) ? metric.spark : null,
+        "var(--series-" + ((index % 8) + 1) + ")",
+        true // the advisor's own formatting; never re-punctuated
+      );
+      if (trend) card.title = (metric.label || "") + " " + TREND_WORD[metric.trend];
+      if (metric.note) card.appendChild(make("p", "metric-card__note", metric.note));
+      mountMetricCard(host, card);
+    });
+  }
+
+  /** A section's table spec, drawn by the shared dataTable renderer. */
+  function mountSectionTable(host, spec) {
+    if (!spec || typeof spec !== "object" || !charts.dataTable) return;
+    var columns = Array.isArray(spec.columns) ? spec.columns : [];
+    var rows = Array.isArray(spec.rows) ? spec.rows : [];
+    if (!columns.length || !rows.length) return;
+
+    // A row may arrive as an array (spreadsheet order) or as an object keyed
+    // by column; dataTable wants the object form.
+    var data = rows.map(function (row) {
+      if (!Array.isArray(row)) return row;
+      var out = {};
+      columns.forEach(function (column, index) {
+        out[column.key || String(index)] = row[index];
+      });
+      return out;
+    });
+
+    var box = make("div", "doc-exhibit");
+    if (spec.title) box.appendChild(make("p", "doc-exhibit__title", spec.title));
+    var tableHost = make("div");
+    box.appendChild(tableHost);
+    host.appendChild(box);
+    try {
+      charts.dataTable(tableHost, columns, data, {
+        caption: spec.caption || spec.title || "Veri tablosu",
+        note: spec.note,
+        sort: spec.sort
+      });
+    } catch (err) {
+      tableHost.appendChild(make("p", "chart-empty", "Tablo çizilemedi."));
+    }
+  }
+
+  /** A section's chart spec. An unknown type draws nothing, never throws. */
+  function mountSectionChart(host, spec) {
+    if (!spec || typeof spec !== "object") return;
+    var builders = {
+      line: charts.lineChart,
+      bar: charts.barChart,
+      donut: charts.donutChart,
+      sparkline: charts.sparkline,
+      heatmap: charts.heatmap
+    };
+    var builder = builders[String(spec.type || "").toLowerCase()];
+    if (!builder) return;
+
+    var box = make("div", "doc-exhibit");
+    if (spec.title) box.appendChild(make("p", "doc-exhibit__title", spec.title));
+    var plot = make("div", "chart");
+    box.appendChild(plot);
+    host.appendChild(box); // in the DOM first: the v2 builders measure it
+    try {
+      builder(plot, spec.data, spec.options || {});
+    } catch (err) {
+      plot.innerHTML = "";
+      plot.appendChild(make("p", "chart-empty", "Grafik çizilemedi."));
+    }
+    if (spec.caption) box.appendChild(make("p", "doc-exhibit__caption", spec.caption));
+  }
+
+  function renderDocBody(doc) {
+    var host = $("doc-body");
+    host.innerHTML = "";
+    var sections = docList(doc, "sections");
+
+    if (!sections.length) {
+      // Schema 1, or an advisor that wrote nothing but prose.
+      var prose = make("div", "doc-prose");
+      prose.innerHTML = renderMarkdown(doc.markdown || "");
+      host.appendChild(prose);
+      return;
+    }
+
+    sections.forEach(function (section) {
+      if (!section || typeof section !== "object") return;
+      var block = make("section", "doc-section");
+      if (section.title) {
+        block.appendChild(make("h2", "doc-section__title", section.title));
+      }
+      if (section.body) {
+        var body = make("div", "doc-prose");
+        body.innerHTML = renderMarkdown(section.body);
+        block.appendChild(body);
+      }
+      host.appendChild(block);
+      mountSectionTable(block, section.table);
+      mountSectionChart(block, section.chart);
+    });
+  }
+
+  function renderDocActions(doc) {
+    var block = $("doc-actions");
+    var host = $("doc-actions-list");
+    host.innerHTML = "";
+    var items = docList(doc, "action_items");
+    if (!items.length) {
+      show(block, false);
+      return;
+    }
+    show(block, true);
+    items.forEach(function (item) {
+      if (!item || !item.text) return;
+      var li = make("li", "checklist__item");
+      var box = make("span", "checklist__box", "☐");
+      box.setAttribute("aria-hidden", "true");
+      li.appendChild(box);
+
+      var body = make("div", "checklist__body");
+      body.appendChild(make("p", "checklist__text", item.text));
+      if (item.deadline || item.owner) {
+        var badges = make("p", "checklist__badges");
+        if (item.deadline) {
+          badges.appendChild(
+            make("span", "badge badge--deadline", "📅 " + item.deadline)
+          );
+        }
+        if (item.owner) {
+          badges.appendChild(make("span", "badge badge--owner", "👤 " + item.owner));
+        }
+        body.appendChild(badges);
+      }
+      li.appendChild(body);
+      host.appendChild(li);
+    });
+  }
+
+  function renderDocSources(doc) {
+    var block = $("doc-sources");
+    var host = $("doc-sources-list");
+    host.innerHTML = "";
+    var sources = docList(doc, "sources");
+    var drawn = 0;
+    sources.forEach(function (source) {
+      if (!source || !source.url) return;
+      var href = safeUrl(source.url);
+      if (!href) return; // only http(s)/mailto ever becomes clickable
+      var li = make("li", "sourcelist__item");
+      var link = make("a", "sourcelist__link", source.title || href);
+      link.href = href;
+      link.target = "_blank";
+      link.rel = "noreferrer noopener";
+      li.appendChild(link);
+      if (source.note) li.appendChild(make("p", "sourcelist__note", source.note));
+      li.appendChild(make("p", "sourcelist__url", href));
+      host.appendChild(li);
+      drawn += 1;
+    });
+    show(block, drawn > 0);
+  }
+
+  /** Empty every optional block, so the previous document cannot bleed in. */
+  function resetDocument() {
+    ["doc-metrics", "doc-actions-list", "doc-sources-list", "doc-facts"].forEach(
+      function (id) {
+        $(id).innerHTML = "";
+      }
+    );
+    $("doc-body").textContent = "";
+    show($("doc-metrics"), false);
+    show($("doc-actions"), false);
+    show($("doc-sources"), false);
+    $("doc-lead").hidden = true;
+    text($("doc-kicker"), "");
+    text($("doc-stamp"), "");
+  }
+
   function renderDocument(doc) {
+    resetDocument();
+    var meta = docMeta(doc);
+
     text($("doc-emoji"), doc.emoji || "📄");
     text($("doc-title"), doc.name || doc.id);
+    text($("doc-kicker"), (doc.category || "rapor").toLocaleUpperCase("tr"));
     text(
       $("doc-meta"),
       prettyDate(doc.date) +
-        " · " + (doc.category || "—") +
-        " · ⏱️ ~" + (doc.read_minutes || 1) + " dk okuma"
+        (doc.generated_at_istanbul || meta.generated_at_istanbul
+          ? " · " + (doc.generated_at_istanbul || meta.generated_at_istanbul) +
+            " (İstanbul)"
+          : "")
     );
+    renderDocFacts(doc);
+
     var lead = $("doc-lead");
     if (doc.headline) {
       lead.hidden = false;
       lead.textContent = doc.headline;
-    } else {
-      lead.hidden = true;
     }
-    // The ONLY innerHTML with model-generated input in this file, and it went
-    // through renderMarkdown(), which escapes before it marks up.
-    $("doc-body").innerHTML = renderMarkdown(doc.markdown || "");
+
+    renderDocMetrics(doc);
+    renderDocBody(doc);
+    renderDocActions(doc);
+    renderDocSources(doc);
+
+    text(
+      $("doc-stamp"),
+      (doc.name || doc.id) +
+        " · " + prettyDate(doc.date) +
+        " · AI Executive Assistant"
+    );
     $("doc-back-day").href = "#/raporlar/" + doc.date;
   }
 
@@ -1675,8 +1954,13 @@
    * `spark` is the raw 7-day series (or null). The sparkline is appended AFTER
    * the card is in the DOM by the caller — charts.sparkline measures its host,
    * so drawing into a detached node would size it against nothing.
+   *
+   * `literal` prints the value EXACTLY as given. The dashboard's own metrics
+   * arrive from toFixed() and want the Turkish decimal comma; a report's
+   * metric is a string the advisor wrote ("1.250", "23°C") and re-punctuating
+   * it would corrupt it.
    */
-  function renderMetricCard(label, value, unit, trend, spark, color) {
+  function renderMetricCard(label, value, unit, trend, spark, color, literal) {
     var card = make("div", "metric-card");
     var head = make("div", "metric-card__head");
     head.appendChild(make("span", "metric-card__label", label));
@@ -1686,7 +1970,13 @@
     card.appendChild(head);
 
     var body = make("div", "metric-card__body");
-    body.appendChild(make("span", "metric-card__value", String(value).replace(".", ",")));
+    body.appendChild(
+      make(
+        "span",
+        "metric-card__value",
+        literal ? String(value) : String(value).replace(".", ",")
+      )
+    );
     if (unit) {
       body.appendChild(make("span", "metric-card__unit", unit));
     }
@@ -1988,18 +2278,18 @@
       renderDocument(state.docs[key]);
       return;
     }
+    resetDocument();
     text($("doc-title"), "Yükleniyor…");
-    $("doc-body").textContent = "";
     fetchJson("./reports/" + route.date + "/" + route.id + ".json")
       .then(function (doc) {
         state.docs[key] = doc;
         renderDocument(doc);
       })
       .catch(function (error) {
+        resetDocument();
         text($("doc-emoji"), "⚠️");
         text($("doc-title"), "Rapor bulunamadı");
         text($("doc-meta"), "");
-        $("doc-lead").hidden = true;
         $("doc-body").textContent =
           "Bu rapor okunamadı (" +
           (error && error.message ? error.message : "bilinmeyen hata") +
@@ -2241,6 +2531,12 @@
     $("report-search").addEventListener("input", function (event) {
       state.search = event.target.value || "";
       renderReportsList();
+    });
+
+    // The browser's own print dialog is the PDF export: `@media print` in
+    // styles.css strips the shell and lays the article out for paper.
+    $("doc-print").addEventListener("click", function () {
+      window.print();
     });
 
     window.addEventListener("hashchange", applyRoute);

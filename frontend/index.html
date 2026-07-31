@@ -375,22 +375,70 @@
           </section>
         </div>
 
-        <!-- --- single report reading view --- -->
+        <!-- --- single report reading view -------------------------------
+             One advisor's document, laid out as a deliverable: title block,
+             metric strip, body (sections with their own tables/charts),
+             action checklist, sources. Everything below the title block is
+             hidden unless the document actually carries it — a plain-text
+             briefing degrades to lead + body and still reads as a document.
+             `@media print` turns this article into a clean PDF page. -->
         <div id="icerik-doc" hidden>
-          <nav class="doc-nav" aria-label="Rapor gezinmesi">
+          <nav class="doc-nav no-print" aria-label="Rapor gezinmesi">
             <a class="btn btn--ghost" href="#/icerik">← Raporlara dön</a>
             <a class="btn btn--ghost" id="doc-back-day" href="#/raporlar">🗂️ O günün raporları</a>
+            <button class="btn btn--ghost" id="doc-print" type="button">🖨️ Yazdır / PDF</button>
           </nav>
-          <article class="doc">
+          <article class="doc" id="doc-article">
             <header class="doc__head">
-              <div class="doc__emoji" id="doc-emoji" aria-hidden="true">📄</div>
-              <h2 class="doc__title" id="doc-title">Yükleniyor…</h2>
+              <p class="doc__kicker" id="doc-kicker"></p>
+              <div class="doc__titlerow">
+                <span class="doc__emoji" id="doc-emoji" aria-hidden="true">📄</span>
+                <h2 class="doc__title" id="doc-title">Yükleniyor…</h2>
+              </div>
               <p class="doc__meta" id="doc-meta"></p>
+              <ul class="doc__facts" id="doc-facts" aria-label="Belge künyesi"></ul>
             </header>
+
             <p class="doc__lead" id="doc-lead" hidden></p>
+
+            <!-- Metric strip: 2–4 figures the advisor put a number on. -->
+            <div class="doc__metrics" id="doc-metrics" hidden></div>
+
             <div class="doc__body" id="doc-body"></div>
+
+            <!-- Action checklist: what to DO, with its deadline badges. -->
+            <section
+              class="doc-block doc-block--actions"
+              id="doc-actions"
+              aria-labelledby="doc-actions-title"
+              hidden
+            >
+              <h3 class="doc-block__title" id="doc-actions-title">
+                <span aria-hidden="true">✅</span> Aksiyonlar
+              </h3>
+              <ul class="checklist" id="doc-actions-list"></ul>
+            </section>
+
+            <!-- Sources: every link the report leans on, once. -->
+            <section
+              class="doc-block doc-block--sources"
+              id="doc-sources"
+              aria-labelledby="doc-sources-title"
+              hidden
+            >
+              <h3 class="doc-block__title" id="doc-sources-title">
+                <span aria-hidden="true">📚</span> Kaynaklar
+              </h3>
+              <ol class="sourcelist" id="doc-sources-list"></ol>
+              <p class="doc-block__note">
+                Bağlantıları açıp doğrulayın; rakamlar kaynağın kendi sayfasından
+                teyit edilmelidir.
+              </p>
+            </section>
+
             <footer class="doc__foot">
-              <a class="btn btn--ghost" href="#/icerik">← Raporlara dön</a>
+              <p class="doc__stamp" id="doc-stamp"></p>
+              <a class="btn btn--ghost no-print" href="#/icerik">← Raporlara dön</a>
             </footer>
           </article>
         </div>

@@ -435,9 +435,22 @@ class OperationsManager:
                 logger.debug(f"Tarih klasörü oluşturuluyor: {date}")
                 date_folder_id = client._create_folder(folder_id, date)
 
-            # Save briefing as markdown file
+            # Save the briefing as the same structured document the dashboard
+            # renders — title block, metric table, sections, action checklist
+            # and sources — so the file in Drive (and its Slack preview) is a
+            # deliverable rather than a raw dump. Falls back to the plain body
+            # if the renderer ever chokes: an archive is better than nothing.
             file_name = f"{advisor_id}.md"
-            file_content = f"# {advisor_title}\n\n**Tarih:** {date}\n\n{briefing.text}"
+            try:
+                from . import reports as reports_module
+
+                report = reports_module.build_report(
+                    briefing, date, datetime.now(reports_module.ISTANBUL)
+                )
+                file_content = report.to_markdown()
+            except Exception as exc:  # pragma: no cover - defensive only
+                logger.warning(f"Rapor markdown'ı üretilemedi ({advisor_title}): {exc}")
+                file_content = f"# {advisor_title}\n\n**Tarih:** {date}\n\n{briefing.text}"
 
             file_id = client.upload_report(
                 file_name=file_name,
