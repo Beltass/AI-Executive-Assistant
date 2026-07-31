@@ -22,55 +22,87 @@ If you don't already have a Slack workspace:
 3. Follow the wizard to set up your workspace name and region
 4. Skip inviting people for now (you can add them later)
 
-### 1.2 Create Advisor Channels
+### 1.2 Create the Channels — Use the Setup Script
 
-Create a dedicated Slack channel for each advisor. This keeps focused intelligence separate and allows team members to subscribe only to channels they care about.
+The delivery layout is **one main channel plus one sub-channel per advisor**:
+the main channel carries the daily digest (one line per advisor with its
+headline and links), each sub-channel carries that advisor's full section.
 
-**All 16 Advisors:**
+That is eleven channels, eleven channel IDs and eleven environment variables.
+**Do not do this by hand.** The repository ships a provisioning script:
 
-| Turkish Name | Advisor Key | Channel Name (suggested) |
-|---|---|---|
-| Hava Tahmini | `weather` | #ajan-hava-tahmini |
-| Liderlik Koçu | `leadership_coach` | #ajan-liderlik |
-| Çocuk Gelişim Danışmanı | `kids_development` | #ajan-cocuk-gelisim |
-| İnsan Kaynakları ve Kariyer | `career_hr` | #ajan-insan-kaynaklari |
-| İş Avcısı | `job_scout` | #ajan-is-avcisi |
-| Sektör İstihbaratı | `sector_intel` | #ajan-sektor |
-| Yapay Zeka Haberleri | `ai_news` | #ajan-ai-haberleri |
-| Ücretsiz Sertifika & Eğitim | `free_certs` | #ajan-sertifika |
-| Banka & Çağrı Merkezi Proje Uz. | `banking_cc_projects` | #ajan-banka-cc |
-| Yapay Zeka Ustalığı Koçu | `ai_mastery` | #ajan-ai-ustaligi |
-| Çağrı Merkezi & CX Araştırması | `cx_research` | #ajan-cx-research |
-| Gün Başı Operasyon Brifingi | `daily_ops_briefing` | #ajan-ops-briefing |
-| Dil Koçu | `language_coach` | #ajan-dil |
-| Anka Köprüsü | `anka_bridge` | #ajan-anka |
-| İnovasyon Laboratuvarı | `innovation_lab` | #ajan-inovasyon |
-| Hesap Sorucu Koç | `accountability_coach` | #ajan-hesap-sorucu |
+```bash
+# 1. See exactly what would be created — nothing is touched (default):
+python -m ai_assistant.integrations.slack_setup
 
-**To create channels:**
+# 2. Create them for real:
+python -m ai_assistant.integrations.slack_setup --apply
 
-1. In Slack, click the **"+"** icon next to "Channels" in the sidebar
-2. Click **"Create a channel"**
-3. Name it (e.g., `ajan-hava-tahmini`)
-4. Choose visibility (private recommended for sensitive content)
-5. Repeat for each advisor
+# 3. Create them and write the IDs straight into .env:
+python -m ai_assistant.integrations.slack_setup --apply --write-env
+```
 
-### 1.3 Get Channel IDs
+It is **idempotent**: a channel that already exists (by name, or already
+pinned by ID in `.env`) is reused, never duplicated. Re-run it after adding an
+advisor and it creates only what is missing.
 
-Each channel needs a unique ID for the environment variables.
+| Flag | Effect |
+|---|---|
+| *(none)* | Dry run. Prints the plan, creates nothing. |
+| `--apply` | Actually create/adopt the channels. |
+| `--write-env` | Write the IDs into `.env` (requires `--apply`). |
+| `--env-file PATH` | Write to a different env file. |
+| `--prefix asistan-` | Replace the default `ai-` name prefix. |
+| `--all-public` | Create the four personal-data channels as public too. |
 
-**To find a channel ID:**
+**Required bot token scopes** (OAuth & Permissions → *Bot Token Scopes*):
 
-1. In Slack, click on the **channel name** at the top
+| Scope | Why |
+|---|---|
+| `channels:read` | Find the public channels that already exist (idempotency) |
+| `channels:manage` | Create public channels, set purpose and topic |
+| `channels:join` | Add the bot to a channel it did not create |
+| `chat:write` | Post the daily messages (used by the notifier) |
+| `groups:read`, `groups:write` | Only for the private channels (see below) |
+
+After changing scopes you **must reinstall the app to the workspace**, or the
+token keeps its old permissions. If a call fails for a missing scope the script
+prints the exact scope Slack asked for, in Turkish.
+
+**What it creates — the current ten-advisor roster:**
+
+| Advisor | Advisor key | Channel | Env var |
+|---|---|---|---|
+| — (summary) | — | `#ai-asistan-genel` | `SLACK_MAIN_CHANNEL` |
+| Hava Durumu Meteoroloğu | `weather` | `#ai-hava-durumu` | `SLACK_CHANNEL_WEATHER` |
+| Sabah İşletme Brifingi | `morning_operations` | `#ai-sabah-operasyon` | `SLACK_CHANNEL_MORNING_OPERATIONS` |
+| İletişim & Takvim Danışmanı 🔒 | `communications_calendar` | `#ai-iletisim-takvim` | `SLACK_CHANNEL_COMMUNICATIONS_CALENDAR` |
+| Kariyer Gelişimi | `career_development` | `#ai-kariyer-gelisim` | `SLACK_CHANNEL_CAREER_DEVELOPMENT` |
+| Pazar İstihbaratı | `market_intelligence` | `#ai-pazar-istihbarat` | `SLACK_CHANNEL_MARKET_INTELLIGENCE` |
+| Yapay Zeka & İnovasyon 🔒 | `ai_innovation` | `#ai-yapayzeka-inovasyon` | `SLACK_CHANNEL_AI_INNOVATION` |
+| Çocuk Gelişimi Danışmanı | `kids_development` | `#ai-cocuk-gelisim` | `SLACK_CHANNEL_KIDS_DEVELOPMENT` |
+| Anka Köprüsü | `anka_bridge` | `#ai-anka-koprusu` | `SLACK_CHANNEL_ANKA_BRIDGE` |
+| Yönetici Koçu 🔒 | `executive_coaching` | `#ai-yonetici-koclugu` | `SLACK_CHANNEL_EXECUTIVE_COACHING` |
+| İş Analisti Danışmanı 🔒 | `work_analyst` | `#ai-is-analisti` | `SLACK_CHANNEL_WORK_ANALYST` |
+
+🔒 These four handle personal data (mail, calendar, your own backlog, coaching
+notes). Their content is **never** published to the public dashboard, so Slack
+is the only place it lives — the script creates them as **private** channels by
+default. Pass `--all-public` if you do not want that.
+
+Each channel also gets a Turkish purpose and topic describing that agent's
+remit, so anyone opening the channel can see what it is for.
+
+### 1.3 Get Channel IDs Manually (only if you skipped the script)
+
+1. In Slack, click the **channel name** at the top
 2. Click the **"About"** tab
 3. Scroll to **"Channel details"** → **"Channel ID"**
 4. Click the copy icon next to the ID (format: `C0123456789`)
 
 ### 1.4 Create Bot or Incoming Webhook
 
-Choose **one** of these authentication methods:
-
-#### Option A: Bot User OAuth Token (Recommended)
+#### Option A: Bot User OAuth Token (required for per-advisor channels)
 
 **Create a Slack App:**
 
@@ -83,93 +115,97 @@ Choose **one** of these authentication methods:
 **Configure OAuth Scopes:**
 
 1. Left sidebar → **"OAuth & Permissions"**
-2. Under **"Scopes"** → **"Bot Token Scopes"**, add:
-   - `chat:write` — Post messages to channels
-   - `channels:read` — List channels (for debugging)
+2. Under **"Scopes"** → **"Bot Token Scopes"**, add the scopes from the table
+   in section 1.2
 3. Scroll up to **"OAuth Tokens for Your Workspace"**
-4. Click **"Install to Workspace"** (if not already installed)
+4. Click **"Install to Workspace"** (or **Reinstall**, after a scope change)
 5. Copy the **Bot User OAuth Token** (starts with `xoxb-`)
 6. Add to `.env`: `SLACK_BOT_TOKEN=xoxb-...`
 
-**Add Bot to Channels:**
+The setup script then adds the bot to every channel for you; there is no need
+to visit each channel's *Integrations* tab.
 
-For each channel:
-1. Go to the channel
-2. Click the **channel name** at the top
-3. Click **"Integrations"** → **"Apps"** → **"Add an App"**
-4. Search for your app (`AI Executive Assistant`)
-5. Click **"Add"**
+#### Option B: Incoming Webhook (single channel only)
 
-#### Option B: Incoming Webhook (Simpler Setup)
+1. Go to [api.slack.com/apps](https://api.slack.com/apps) → your app
+2. Left sidebar → **"Incoming Webhooks"** → toggle **ON**
+3. **"Add New Webhook to Workspace"**, select your main channel, **Allow**
+4. Add to `.env`: `SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...`
 
-**Create a Webhook:**
-
-1. Go to [api.slack.com/apps](https://api.slack.com/apps)
-2. Click **"Create New App"** → **"From scratch"**
-3. **App Name:** `AI Executive Assistant Webhook`
-4. **Workspace:** Select your workspace
-5. Left sidebar → **"Incoming Webhooks"**
-6. Toggle **"Activate Incoming Webhooks"** to ON
-7. Click **"Add New Webhook to Workspace"**
-8. **Select a channel:** Choose your main channel (e.g., `#ajan-ops-briefing`)
-9. Click **"Allow"**
-10. Copy the **Webhook URL** (format: `https://hooks.slack.com/services/...`)
-11. Add to `.env`: `SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...`
-
-**Note:** Webhooks can only post to a single channel. For multi-channel delivery, use the **Bot Token** method instead.
+> **A webhook cannot do one-channel-per-agent.** It is bound to a single
+> channel when you create it and Slack **ignores** the `channel` field in the
+> payload — passing a channel id does nothing. With only a webhook configured,
+> the daily summary is still delivered, but the per-advisor fan-out is skipped
+> deliberately (and says so in the run log) rather than silently dumping all ten
+> advisors into the same room. Use a bot token for the sub-channel layout.
 
 ### 1.5 Configure Environment Variables
 
-Add these to your `.env` file:
+`--write-env` fills these in for you. To do it by hand:
 
 ```bash
-# Bot Token (if using Option A)
+# Required for per-advisor channels
 SLACK_BOT_TOKEN=xoxb-YOUR_TOKEN_HERE
 
-# OR Webhook URL (if using Option B)
-SLACK_WEBHOOK_URL=https://hooks.slack.com/services/YOUR/WEBHOOK/URL
-
-# Main channel for briefing summaries (fallback if advisor-specific channels are not set)
+# The main channel: carries the daily SUMMARY only
 SLACK_MAIN_CHANNEL=C0123456789
 
-# Optional: Dedicated channels for each advisor
-SLACK_CHANNEL_WEATHER=C0123456789
-SLACK_CHANNEL_LEADERSHIP_COACH=C0987654321
-SLACK_CHANNEL_KIDS_DEVELOPMENT=C1111111111
-SLACK_CHANNEL_CAREER_HR=C2222222222
-SLACK_CHANNEL_JOB_SCOUT=C3333333333
-SLACK_CHANNEL_SECTOR_INTEL=C4444444444
-SLACK_CHANNEL_AI_NEWS=C5555555555
-SLACK_CHANNEL_FREE_CERTS=C6666666666
-SLACK_CHANNEL_BANKING_CC_PROJECTS=C7777777777
-SLACK_CHANNEL_AI_MASTERY=C8888888888
-SLACK_CHANNEL_CX_RESEARCH=C9999999999
-SLACK_CHANNEL_DAILY_OPS_BRIEFING=C0000000000
-SLACK_CHANNEL_LANGUAGE_COACH=C1010101010
-SLACK_CHANNEL_ANKA_BRIDGE=C1111111111
-SLACK_CHANNEL_INNOVATION_LAB=C1212121212
-SLACK_CHANNEL_ACCOUNTABILITY_COACH=C1313131313
+# One sub-channel per advisor: each carries that advisor's full section.
+# An advisor with no entry here falls back to SLACK_MAIN_CHANNEL.
+SLACK_CHANNEL_WEATHER=C0000000001
+SLACK_CHANNEL_MORNING_OPERATIONS=C0000000002
+SLACK_CHANNEL_COMMUNICATIONS_CALENDAR=C0000000003
+SLACK_CHANNEL_CAREER_DEVELOPMENT=C0000000004
+SLACK_CHANNEL_MARKET_INTELLIGENCE=C0000000005
+SLACK_CHANNEL_AI_INNOVATION=C0000000006
+SLACK_CHANNEL_KIDS_DEVELOPMENT=C0000000007
+SLACK_CHANNEL_ANKA_BRIDGE=C0000000008
+SLACK_CHANNEL_EXECUTIVE_COACHING=C0000000009
+SLACK_CHANNEL_WORK_ANALYST=C0000000010
+
+# Optional: legacy single-channel fallback, used only if SLACK_MAIN_CHANNEL is unset
+SLACK_CHANNEL=C0123456789
 ```
+
+For GitHub Actions, add the same names as **repository secrets** — the daily
+workflow already passes all eleven through to the job.
 
 ### 1.6 Test Slack Integration
 
+A dry run proves the token and the channels without posting anything:
+
 ```bash
-python -m src.ai_assistant.integrations.slack_channels
+python -m ai_assistant.integrations.slack_setup
 ```
 
 **Expected output:**
 
 ```
-INFO: Slack Channel Notifier initialized with bot token
-✓ Message posted to #ajan-hava-tahmini
-✓ Message posted to #ajan-liderlik
+AI Yönetici Asistanı — Slack kanal kurulumu (PROVA modu)
+11 kanal: 1 ana kanal + 10 danışman kanalı
+Bağlanıldı: Acme çalışma alanı, bot @ai-asistan
+
+Kanal durumu
+--------------------------------------------------------------------
+   #ai-asistan-genel          ↩️  mevcut (kullanılacak)   #ai-asistan-genel zaten var
+   #ai-hava-durumu            ↩️  mevcut (kullanılacak)   SLACK_CHANNEL_WEATHER zaten tanımlı
 ...
 ```
 
+To send a real briefing (this runs the advisors and posts to Slack):
+
+```bash
+python -m ai_assistant.notifiers.slack_notifier
+```
+
+The run log ends with a `Kanal dağıtımı:` line saying how many sections reached
+their own channel, then the main-channel result.
+
 If you see errors, check:
-- Bot token/webhook URL is correct
-- Bot is added to each channel
+- Bot token is correct and the app was **reinstalled** after adding scopes
+- The bot is a member of each channel (`/invite @your-bot`)
 - Channel IDs are exact (no extra spaces)
+- For private channels, the token has `groups:read` and `groups:write`
 
 ---
 
@@ -656,7 +692,7 @@ If behind a corporate proxy:
 Enable debug logging to see detailed integration activity:
 
 ```bash
-python -c "import logging; logging.basicConfig(level=logging.DEBUG); from src.ai_assistant.integrations import asana, slack_channels; print('Debug enabled')"
+python -c "import logging; logging.basicConfig(level=logging.DEBUG); from ai_assistant.integrations import asana, slack_channels; print('Debug enabled')"
 ```
 
 Or set in code:
@@ -672,11 +708,15 @@ logging.getLogger("ai_assistant.integrations").setLevel(logging.DEBUG)
 You now have a complete, production-ready setup for Slack, Asana, and Google Drive. Here's a quick checklist:
 
 **Slack:**
-- [ ] Created workspace and channels (or using existing)
-- [ ] Generated bot token or webhook URL
-- [ ] Configured `SLACK_BOT_TOKEN` / `SLACK_WEBHOOK_URL` in `.env`
-- [ ] Added channel IDs for advisors (or using `SLACK_MAIN_CHANNEL` fallback)
-- [ ] Tested with `python -m src.ai_assistant.integrations.slack_channels`
+- [ ] Created workspace
+- [ ] Created a Slack app and copied the bot token (`xoxb-...`)
+- [ ] Added the scopes from section 1.2 and **reinstalled** the app
+- [ ] Configured `SLACK_BOT_TOKEN` in `.env`
+- [ ] Ran `python -m ai_assistant.integrations.slack_setup` (dry run) and
+      then `--apply --write-env` to create the 11 channels and fill in `.env`
+- [ ] Confirmed `SLACK_MAIN_CHANNEL` + the ten `SLACK_CHANNEL_*` ids are set
+      (an advisor without one falls back to the main channel)
+- [ ] Sent a real briefing with `python -m ai_assistant.notifiers.slack_notifier`
 
 **Asana:**
 - [ ] Created account and workspace
