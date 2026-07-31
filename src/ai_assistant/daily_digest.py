@@ -17,13 +17,11 @@ Run with::
 
 from __future__ import annotations
 
-import json
 import logging
 import os
 import sys
 from dataclasses import dataclass
 from datetime import date
-from typing import Optional
 
 from .advisors import NOTHING_NEW_NOTE
 from .config import MODE_INCREMENTAL
