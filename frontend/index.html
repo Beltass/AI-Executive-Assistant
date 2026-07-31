@@ -159,6 +159,18 @@
         >
           <span class="tab__icon" aria-hidden="true">📧</span> Gmail &amp; Takvim
         </button>
+        <button
+          class="tab"
+          id="tab-analiz"
+          role="tab"
+          type="button"
+          data-tab="analiz"
+          aria-controls="panel-analiz"
+          aria-selected="false"
+          tabindex="-1"
+        >
+          <span class="tab__icon" aria-hidden="true">📊</span> Performans &amp; Analiz
+        </button>
       </div>
     </nav>
 
@@ -769,6 +781,71 @@
 
           <!-- --- Last Update --- -->
           <p class="section-note" id="gmail-last-update"></p>
+        </div>
+      </section>
+
+      <!-- =================================================================
+           TAB 8 — 📊 PERFORMANS & ANALİZ
+           ================================================================= -->
+      <section
+        id="panel-analiz"
+        role="tabpanel"
+        aria-labelledby="tab-analiz"
+        tabindex="0"
+        class="stack"
+        hidden
+      >
+        <div id="analiz-empty" class="state" hidden>
+          <div class="state__icon" aria-hidden="true">📊</div>
+          <h2>Performans verisi henüz yok</h2>
+          <p>
+            Performans analizi verisi henüz oluşturulmadı. Brifing çalıştırıldığında
+            bu sekme günlük metrikleri, iş durumunu ve eğilimleri gösterecek.
+          </p>
+        </div>
+
+        <div id="analiz-body" hidden class="stack">
+          <!-- --- Daily Metrics --- -->
+          <section aria-labelledby="daily-metrics-title">
+            <div class="section-head">
+              <h2 id="daily-metrics-title"><span aria-hidden="true">📈</span> Günlük Metrikler</h2>
+            </div>
+            <div id="daily-metrics" class="metrics-grid" style="margin-top: var(--s3)"></div>
+          </section>
+
+          <!-- --- Work Status --- -->
+          <section aria-labelledby="work-status-title">
+            <div class="section-head">
+              <h2 id="work-status-title"><span aria-hidden="true">⏱️</span> İş Durumu</h2>
+            </div>
+            <div id="work-status" class="metrics-grid" style="margin-top: var(--s3)"></div>
+          </section>
+
+          <!-- --- Trends Chart --- -->
+          <section aria-labelledby="trends-title">
+            <div class="section-head">
+              <h2 id="trends-title"><span aria-hidden="true">📊</span> Eğilimler (7 Gün)</h2>
+            </div>
+            <div id="trends-charts" class="trends-grid" style="margin-top: var(--s3)"></div>
+          </section>
+
+          <!-- --- Alerts Panel --- -->
+          <section aria-labelledby="alerts-title">
+            <div class="section-head">
+              <h2 id="alerts-title"><span aria-hidden="true">🔔</span> Uyarılar &amp; İletiler</h2>
+            </div>
+            <div id="alerts-panel" class="alerts-list" style="margin-top: var(--s3)"></div>
+          </section>
+
+          <!-- --- Daily Feedback --- -->
+          <section id="feedback-section" aria-labelledby="feedback-title" hidden>
+            <div class="section-head">
+              <h2 id="feedback-title"><span aria-hidden="true">💡</span> Günlük Öneriler</h2>
+            </div>
+            <div class="feedback-box" style="margin-top: var(--s3)">
+              <p id="feedback-text"></p>
+            </div>
+          </section>
         </div>
       </section>
     </main>

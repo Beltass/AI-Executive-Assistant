@@ -1308,6 +1308,193 @@
   }
 
   /* ====================================================================== */
+  /* TAB 8 — 📊 Performans & Analiz                                         */
+  /* ====================================================================== */
+
+  function renderTrendArrow(current, previous) {
+    if (previous === null || previous === undefined) return "→";
+    var diff = current - previous;
+    if (diff > 0.5) return "↑";
+    if (diff < -0.5) return "↓";
+    return "→";
+  }
+
+  function renderMetricCard(label, value, unit, trend) {
+    var card = make("div", "metric-card");
+    var head = make("div", "metric-card__head");
+    head.appendChild(make("span", "metric-card__label", label));
+    if (trend) {
+      head.appendChild(make("span", "metric-card__trend", trend));
+    }
+    card.appendChild(head);
+
+    var body = make("div", "metric-card__body");
+    body.appendChild(make("span", "metric-card__value", String(value).replace(".", ",")));
+    if (unit) {
+      body.appendChild(make("span", "metric-card__unit", unit));
+    }
+    card.appendChild(body);
+    return card;
+  }
+
+  function renderAlertItem(severity, message) {
+    var item = make("div", "alert-item alert-item--" + severity);
+    var icon = make("span", "alert-item__icon",
+      severity === "critical" ? "🔴" :
+      severity === "warning" ? "🟠" :
+      severity === "info" ? "🟡" : "🟢");
+    item.appendChild(icon);
+    item.appendChild(make("span", "alert-item__text", message));
+    return item;
+  }
+
+  function renderSparkline(container, data, color) {
+    if (!data || !Array.isArray(data) || data.length < 2) {
+      container.textContent = "Veri yok";
+      return;
+    }
+    var values = data.map(function (v) { return num(v); });
+    var min = Math.min.apply(null, values);
+    var max = Math.max.apply(null, values);
+    var range = max - min || 1;
+    var width = 100 / values.length;
+
+    values.forEach(function (val, i) {
+      var bar = make("div", "sparkline__bar");
+      var height = ((val - min) / range) * 100;
+      bar.style.height = height + "%";
+      bar.style.backgroundColor = color || "var(--series-1)";
+      bar.style.width = width + "%";
+      container.appendChild(bar);
+    });
+  }
+
+  function renderPerformance() {
+    var data = state.status;
+    if (!data) return;
+
+    var perf = (data.performance || {});
+    var daily = (perf.daily_metrics || {});
+    var work = (perf.work_status || {});
+    var trends = (perf.trends || {});
+    var alerts = Array.isArray(perf.alerts) ? perf.alerts : [];
+    var feedback = perf.feedback || "";
+
+    var hasData = Object.keys(daily).length > 0 || Object.keys(work).length > 0;
+
+    if (!hasData) {
+      show($("analiz-empty"), true);
+      show($("analiz-body"), false);
+      return;
+    }
+    show($("analiz-empty"), false);
+    show($("analiz-body"), true);
+
+    // === DAILY METRICS ===
+    var dailyHost = $("daily-metrics");
+    dailyHost.innerHTML = "";
+
+    var metricsList = [
+      { key: "completion_rate", label: "Tamamlanma Oranı", unit: "%" },
+      { key: "deadline_adherence", label: "Tarih Uyumu", unit: "%" },
+      { key: "success_rate", label: "Başarı Oranı", unit: "%" },
+      { key: "token_efficiency", label: "Token Verimliği", unit: "token/çıktı" }
+    ];
+
+    metricsList.forEach(function (metric) {
+      var value = daily[metric.key];
+      if (value != null) {
+        var trend = renderTrendArrow(value, daily[metric.key + "_prev"] || null);
+        dailyHost.appendChild(renderMetricCard(metric.label, value.toFixed(1), metric.unit, trend));
+      }
+    });
+
+    // === WORK STATUS ===
+    var workHost = $("work-status");
+    workHost.innerHTML = "";
+
+    var workList = [
+      { key: "meeting_hours", label: "Toplantı Saati", unit: "sa" },
+      { key: "focus_time_hours", label: "Odak Zamanı", unit: "sa" },
+      { key: "email_response_time", label: "E-posta Yanıt", unit: "sa" }
+    ];
+
+    workList.forEach(function (item) {
+      var value = work[item.key];
+      if (value != null) {
+        workHost.appendChild(renderMetricCard(item.label, value.toFixed(1), item.unit));
+      }
+    });
+
+    // Add alert count if available
+    if (alerts.length > 0) {
+      var alertCount = alerts.filter(function (a) { return a.severity === "critical"; }).length;
+      if (alertCount > 0) {
+        workHost.appendChild(renderMetricCard("Kritik Uyarı", alertCount, "adet"));
+      }
+    }
+
+    // === TRENDS CHART (Mini Sparklines) ===
+    var trendsHost = $("trends-charts");
+    trendsHost.innerHTML = "";
+
+    var trendsList = [
+      { key: "completion_7d", label: "Tamamlanma Eğilimi (7 gün)", color: "var(--series-1)" },
+      { key: "deadline_7d", label: "Tarih Uyumu Eğilimi (7 gün)", color: "var(--series-2)" },
+      { key: "success_7d", label: "Başarı Eğilimi (7 gün)", color: "var(--series-3)" }
+    ];
+
+    trendsList.forEach(function (trendItem) {
+      var trendData = trends[trendItem.key];
+      if (trendData && Array.isArray(trendData)) {
+        var trendCard = make("div", "trend-card");
+        var label = make("div", "trend-card__label", trendItem.label);
+        trendCard.appendChild(label);
+        var sparkline = make("div", "sparkline");
+        renderSparkline(sparkline, trendData, trendItem.color);
+        trendCard.appendChild(sparkline);
+        trendsHost.appendChild(trendCard);
+      }
+    });
+
+    // === ALERTS PANEL ===
+    var alertsHost = $("alerts-panel");
+    alertsHost.innerHTML = "";
+
+    if (alerts.length > 0) {
+      // Group alerts by severity
+      var critical = alerts.filter(function (a) { return a.severity === "critical"; });
+      var warning = alerts.filter(function (a) { return a.severity === "warning"; });
+      var info = alerts.filter(function (a) { return a.severity === "info"; });
+      var success = alerts.filter(function (a) { return a.severity === "success"; });
+
+      // Render alerts grouped by severity
+      critical.forEach(function (alert) {
+        alertsHost.appendChild(renderAlertItem("critical", alert.message || alert.title || "Kritik uyarı"));
+      });
+      warning.forEach(function (alert) {
+        alertsHost.appendChild(renderAlertItem("warning", alert.message || alert.title || "Uyarı"));
+      });
+      info.forEach(function (alert) {
+        alertsHost.appendChild(renderAlertItem("info", alert.message || alert.title || "Bilgi"));
+      });
+      success.forEach(function (alert) {
+        alertsHost.appendChild(renderAlertItem("success", alert.message || alert.title || "Başarı"));
+      });
+    } else {
+      alertsHost.appendChild(make("p", "chart-empty", "Uyarı veya ileti yok — hepsi normal!"));
+    }
+
+    // === DAILY FEEDBACK ===
+    if (feedback) {
+      text($("feedback-text"), feedback);
+      show($("feedback-section"), true);
+    } else {
+      show($("feedback-section"), false);
+    }
+  }
+
+  /* ====================================================================== */
   /* routing                                                                */
   /* ====================================================================== */
 
@@ -1499,6 +1686,7 @@
     // colours from CSS custom properties).
     if (state.status) renderHistory(Array.isArray(state.status.history) ? state.status.history : []);
     if (state.metrics) renderPerformans();
+    if (state.status) renderPerformance();
   }
 
   function renderAll() {
@@ -1508,6 +1696,7 @@
     renderIsler();
     renderEntegrasyonlar();
     renderGmailCalendar();
+    renderPerformance();
     updateFreshness();
   }
 

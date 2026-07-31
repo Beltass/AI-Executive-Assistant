@@ -1822,6 +1822,204 @@ button {
   outline-offset: 2px;
 }
 
+/* ========================================================================== */
+/* Performance & Analysis Tab */
+/* ========================================================================== */
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--s3);
+}
+
+.metric-card {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: var(--s4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  transition: background-color var(--ease), border-color var(--ease);
+}
+
+.metric-card:hover {
+  background: var(--surface-2);
+  border-color: var(--border-strong);
+}
+
+.metric-card__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--s2);
+}
+
+.metric-card__label {
+  font-size: var(--t-sm);
+  color: var(--text-3);
+  font-weight: 500;
+  flex: 1;
+}
+
+.metric-card__trend {
+  font-size: 1.25rem;
+  display: inline-block;
+  min-width: 1.5em;
+  text-align: center;
+}
+
+.metric-card__body {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s2);
+}
+
+.metric-card__value {
+  font-size: var(--t-2xl);
+  font-weight: 700;
+  color: var(--text-1);
+  line-height: 1;
+}
+
+.metric-card__unit {
+  font-size: var(--t-sm);
+  color: var(--text-3);
+  font-weight: 400;
+}
+
+/* Sparkline mini-charts */
+.sparkline {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 2px;
+  height: 40px;
+  min-height: 40px;
+}
+
+.sparkline__bar {
+  flex: 1;
+  min-width: 2px;
+  border-radius: var(--r-sm) var(--r-sm) 0 0;
+  background: var(--series-1);
+  opacity: 0.8;
+  transition: opacity var(--ease);
+}
+
+.sparkline__bar:hover {
+  opacity: 1;
+}
+
+/* Trends grid */
+.trends-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: var(--s4);
+}
+
+.trend-card {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: var(--s4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+
+.trend-card__label {
+  font-size: var(--t-sm);
+  color: var(--text-2);
+  font-weight: 500;
+}
+
+/* Alerts & Notifications */
+.alerts-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+
+.alert-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s3);
+  padding: var(--s3) var(--s4);
+  border-radius: var(--r-md);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  font-size: var(--t-sm);
+}
+
+.alert-item__icon {
+  font-size: 1.25rem;
+  display: inline-block;
+  flex-shrink: 0;
+  min-width: 1.5em;
+}
+
+.alert-item__text {
+  flex: 1;
+  color: var(--text-2);
+  line-height: 1.5;
+}
+
+/* Alert severity variants */
+.alert-item--critical {
+  border-color: var(--critical);
+  background: color-mix(in srgb, var(--critical) 8%, var(--surface-1));
+}
+
+.alert-item--warning {
+  border-color: var(--serious);
+  background: color-mix(in srgb, var(--serious) 8%, var(--surface-1));
+}
+
+.alert-item--info {
+  border-color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 8%, var(--surface-1));
+}
+
+.alert-item--success {
+  border-color: var(--good);
+  background: color-mix(in srgb, var(--good) 8%, var(--surface-1));
+}
+
+/* Feedback box */
+.feedback-box {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: var(--s4);
+  font-size: var(--t-md);
+  line-height: 1.6;
+  color: var(--text-2);
+}
+
+.feedback-box p {
+  margin: 0;
+}
+
+/* Light theme adjustments */
+@media (prefers-color-scheme: light) {
+  .alert-item--critical {
+    background: color-mix(in srgb, var(--critical) 12%, var(--surface-1));
+  }
+
+  .alert-item--warning {
+    background: color-mix(in srgb, var(--serious) 12%, var(--surface-1));
+  }
+
+  .alert-item--info {
+    background: color-mix(in srgb, var(--warning) 12%, var(--surface-1));
+  }
+
+  .alert-item--success {
+    background: color-mix(in srgb, var(--good) 12%, var(--surface-1));
+  }
+}
+
 @media (max-width: 640px) {
   .gmail-email-row {
     grid-template-columns: 1fr;
@@ -1843,5 +2041,13 @@ button {
   .btn--primary {
     width: 100%;
     justify-content: center;
+  }
+
+  .metrics-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .trends-grid {
+    grid-template-columns: 1fr;
   }
 }
