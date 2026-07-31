@@ -642,7 +642,13 @@ def _state_file() -> str:
 
 
 def _alert_mode() -> str:
-    """Get alert mode from environment or use default."""
+    """Get alert mode from environment or use default.
+
+    Modes:
+    - 'strict': Show all alerts, including low-impact items
+    - 'normal': Standard alerting (default)
+    - 'relaxed': Only critical and warning alerts
+    """
     mode = os.getenv("WORK_ANALYST_ALERT_MODE") or DEFAULT_ALERT_MODE
     if mode not in ("strict", "normal", "relaxed"):
         return DEFAULT_ALERT_MODE
