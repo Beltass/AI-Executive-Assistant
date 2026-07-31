@@ -239,12 +239,27 @@ def all_advisors() -> List[Advisor]:
 
     Imports are local so that importing this package never pulls in a
     provider SDK eagerly and so a broken module cannot break discovery.
+
+    PHASE 1A CONSOLIDATION:
+    - New consolidated advisors: MorningOperationsAdvisor, CommunicationsCalendarAdvisor,
+      ExecutiveCoachingAdvisor
+    - Old advisors kept but commented for rollback capability
+    - Transition period: both old and new imports available
     """
     from .weather import WeatherAdvisor
-    from .morning_briefing import MorningBriefingAdvisor
-    from .mail_analyst import MailAnalystAdvisor
-    from .day_planner import DayPlannerAdvisor
-    from .leadership_coach import LeadershipCoachAdvisor
+    # PHASE 1A: Replaced by consolidated MorningOperationsAdvisor
+    # from .morning_briefing import MorningBriefingAdvisor
+    # from .mail_analyst import MailAnalystAdvisor
+    # from .day_planner import DayPlannerAdvisor
+
+    # NEW CONSOLIDATED ADVISORS (PHASE 1A)
+    from .communications_calendar import CommunicationsCalendarAdvisor
+    from .morning_operations import MorningOperationsAdvisor
+    from .executive_coaching import ExecutiveCoachingAdvisor
+
+    # PHASE 1A: Consolidated into ExecutiveCoachingAdvisor
+    # from .leadership_coach import LeadershipCoachAdvisor
+
     from .kids_development import KidsDevelopmentAdvisor
     from .career_hr import CareerHrAdvisor
     from .job_scout import JobScoutAdvisor
@@ -258,15 +273,18 @@ def all_advisors() -> List[Advisor]:
     from .language_coach import LanguageCoachAdvisor
     from .anka_bridge import AnkaBridgeAdvisor
     from .innovation_lab import InnovationLabAdvisor
-    from .accountability_coach import AccountabilityCoachAdvisor
+    # PHASE 1A: Consolidated into ExecutiveCoachingAdvisor
+    # from .accountability_coach import AccountabilityCoachAdvisor
     from .work_analyst import WorkAnalystAdvisor
 
     return [
+        # Position 1: Weather briefing
         WeatherAdvisor(),
-        MorningBriefingAdvisor(),
-        MailAnalystAdvisor(),
-        DayPlannerAdvisor(),
-        LeadershipCoachAdvisor(),
+        # Position 2: Morning operations (PHASE 1A consolidation)
+        MorningOperationsAdvisor(),
+        # Position 3: Communications and calendar (PHASE 1A consolidation)
+        CommunicationsCalendarAdvisor(),
+        # Other advisors (unchanged)
         KidsDevelopmentAdvisor(),
         CareerHrAdvisor(),
         JobScoutAdvisor(),
@@ -280,9 +298,8 @@ def all_advisors() -> List[Advisor]:
         LanguageCoachAdvisor(),
         AnkaBridgeAdvisor(),
         InnovationLabAdvisor(),
-        # LAST on purpose: the accountability coach consolidates the OTHER
-        # advisors' "✅ Bugünün görevi" items, so it must see them first.
-        AccountabilityCoachAdvisor(),
+        # Executive coaching (PHASE 1A consolidation of Leadership + Accountability)
+        ExecutiveCoachingAdvisor(),
         # Work Analyst LAST: consolidates all daily data after all advisors run.
         WorkAnalystAdvisor(),
     ]
