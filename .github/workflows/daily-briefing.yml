@@ -206,13 +206,15 @@ jobs:
           SLACK_CHANNEL_INNOVATION_LAB: ${{ secrets.SLACK_CHANNEL_INNOVATION_LAB }}
           SLACK_CHANNEL_DAILY_OPS_BRIEFING: ${{ secrets.SLACK_CHANNEL_DAILY_OPS_BRIEFING }}
           SLACK_CHANNEL_ACCOUNTABILITY_COACH: ${{ secrets.SLACK_CHANNEL_ACCOUNTABILITY_COACH }}
-        run: python -c "
+        run: |
+          python << 'EOF'
           import logging
           from ai_assistant.daily_digest import build_digest, distribute_digest_by_channel
-          logging.basicConfig(level=logging.INFO, format='%(levelname)s %(name)s: %(message)s')
+          logging.basicConfig(level=logging.INFO, format='%(levelname)s %(name)s %(message)s')
           digest = build_digest()
           result = distribute_digest_by_channel(digest.supervision)
-          print(f'Distribution summary: {result[\"summary\"]}')"
+          print(f'Distribution summary: {result["summary"]}')
+          EOF
 
       # The runner filesystem is thrown away, so five artefacts are persisted
       # by committing them back to `main`:
