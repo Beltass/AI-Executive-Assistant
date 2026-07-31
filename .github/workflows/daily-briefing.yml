@@ -121,6 +121,22 @@ jobs:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           SLACK_CHANNEL: ${{ secrets.SLACK_CHANNEL }}
+          # Multi-channel distribution — optional channel for each advisor.
+          # Format: SLACK_CHANNEL_<ADVISOR_KEY> (e.g., SLACK_CHANNEL_WEATHER)
+          SLACK_MAIN_CHANNEL: ${{ secrets.SLACK_MAIN_CHANNEL }}
+          SLACK_CHANNEL_WEATHER: ${{ secrets.SLACK_CHANNEL_WEATHER }}
+          SLACK_CHANNEL_LEADERSHIP_COACH: ${{ secrets.SLACK_CHANNEL_LEADERSHIP_COACH }}
+          SLACK_CHANNEL_JOB_SCOUT: ${{ secrets.SLACK_CHANNEL_JOB_SCOUT }}
+          SLACK_CHANNEL_SECTOR_INTEL: ${{ secrets.SLACK_CHANNEL_SECTOR_INTEL }}
+          SLACK_CHANNEL_AI_NEWS: ${{ secrets.SLACK_CHANNEL_AI_NEWS }}
+          SLACK_CHANNEL_CAREER_HR: ${{ secrets.SLACK_CHANNEL_CAREER_HR }}
+          SLACK_CHANNEL_BANKING_CC_PROJECTS: ${{ secrets.SLACK_CHANNEL_BANKING_CC_PROJECTS }}
+          SLACK_CHANNEL_AI_MASTERY: ${{ secrets.SLACK_CHANNEL_AI_MASTERY }}
+          SLACK_CHANNEL_CX_RESEARCH: ${{ secrets.SLACK_CHANNEL_CX_RESEARCH }}
+          SLACK_CHANNEL_FREE_CERTS: ${{ secrets.SLACK_CHANNEL_FREE_CERTS }}
+          SLACK_CHANNEL_INNOVATION_LAB: ${{ secrets.SLACK_CHANNEL_INNOVATION_LAB }}
+          SLACK_CHANNEL_DAILY_OPS_BRIEFING: ${{ secrets.SLACK_CHANNEL_DAILY_OPS_BRIEFING }}
+          SLACK_CHANNEL_ACCOUNTABILITY_COACH: ${{ secrets.SLACK_CHANNEL_ACCOUNTABILITY_COACH }}
           # Phase 2 advisors — all optional; a missing secret falls back to the
           # built-in default (except ANKA_*, which has none by design).
           JOB_KEYWORDS: ${{ secrets.JOB_KEYWORDS }}
@@ -167,6 +183,36 @@ jobs:
           OPS_BRIEFING_MAX_EMAILS: ${{ secrets.OPS_BRIEFING_MAX_EMAILS }}
           OPS_BRIEFING_EMAIL_WINDOW: ${{ secrets.OPS_BRIEFING_EMAIL_WINDOW }}
         run: python -m ai_assistant.notifiers.slack_notifier
+
+      - name: Distribute digest to advisor-specific channels
+        if: always()
+        continue-on-error: true
+        env:
+          # Slack credentials for multi-channel distribution
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          # Multi-channel advisor distribution configuration
+          SLACK_MAIN_CHANNEL: ${{ secrets.SLACK_MAIN_CHANNEL }}
+          SLACK_CHANNEL_WEATHER: ${{ secrets.SLACK_CHANNEL_WEATHER }}
+          SLACK_CHANNEL_LEADERSHIP_COACH: ${{ secrets.SLACK_CHANNEL_LEADERSHIP_COACH }}
+          SLACK_CHANNEL_JOB_SCOUT: ${{ secrets.SLACK_CHANNEL_JOB_SCOUT }}
+          SLACK_CHANNEL_SECTOR_INTEL: ${{ secrets.SLACK_CHANNEL_SECTOR_INTEL }}
+          SLACK_CHANNEL_AI_NEWS: ${{ secrets.SLACK_CHANNEL_AI_NEWS }}
+          SLACK_CHANNEL_CAREER_HR: ${{ secrets.SLACK_CHANNEL_CAREER_HR }}
+          SLACK_CHANNEL_BANKING_CC_PROJECTS: ${{ secrets.SLACK_CHANNEL_BANKING_CC_PROJECTS }}
+          SLACK_CHANNEL_AI_MASTERY: ${{ secrets.SLACK_CHANNEL_AI_MASTERY }}
+          SLACK_CHANNEL_CX_RESEARCH: ${{ secrets.SLACK_CHANNEL_CX_RESEARCH }}
+          SLACK_CHANNEL_FREE_CERTS: ${{ secrets.SLACK_CHANNEL_FREE_CERTS }}
+          SLACK_CHANNEL_INNOVATION_LAB: ${{ secrets.SLACK_CHANNEL_INNOVATION_LAB }}
+          SLACK_CHANNEL_DAILY_OPS_BRIEFING: ${{ secrets.SLACK_CHANNEL_DAILY_OPS_BRIEFING }}
+          SLACK_CHANNEL_ACCOUNTABILITY_COACH: ${{ secrets.SLACK_CHANNEL_ACCOUNTABILITY_COACH }}
+        run: python -c "
+          import logging
+          from ai_assistant.daily_digest import build_digest, distribute_digest_by_channel
+          logging.basicConfig(level=logging.INFO, format='%(levelname)s %(name)s: %(message)s')
+          digest = build_digest()
+          result = distribute_digest_by_channel(digest.supervision)
+          print(f'Distribution summary: {result[\"summary\"]}')"
 
       # The runner filesystem is thrown away, so five artefacts are persisted
       # by committing them back to `main`:
