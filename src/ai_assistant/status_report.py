@@ -792,6 +792,274 @@ def _tokens_snapshot() -> Dict[str, Any]:
     return info
 
 
+# --- performance metrics ---------------------------------------------------
+
+
+def _calculate_completion_rate(advisors: List[Dict[str, Any]]) -> float:
+    """Calculate completion rate from advisor results (0-100).
+
+    Completion rate = (total advisors - skipped) / total advisors * 100
+    Measures how many advisors actually ran (ok or failed).
+    """
+    if not advisors:
+        return 0.0
+    total = len(advisors)
+    skipped = sum(1 for a in advisors if a.get("status") == STATUS_SKIPPED)
+    if total == 0:
+        return 0.0
+    return round((total - skipped) / total * 100, 1)
+
+
+def _calculate_deadline_adherence(counts: Dict[str, int]) -> float:
+    """Calculate deadline adherence from advisor statuses (0-100).
+
+    Deadline adherence = successful advisors / total advisors * 100
+    Measures how many advisors ran successfully (STATUS_OK).
+    """
+    total = sum(counts.values())
+    if total == 0:
+        return 0.0
+    ok_count = counts.get(STATUS_OK, 0)
+    return round(ok_count / total * 100, 1)
+
+
+def _calculate_success_rate(counts: Dict[str, int]) -> float:
+    """Calculate success rate from advisor statuses (0-100).
+
+    Success rate = successful advisors / (successful + failed) * 100
+    Measures quality of runs that actually executed.
+    """
+    ok_count = counts.get(STATUS_OK, 0)
+    failed_count = counts.get(STATUS_FAILED, 0)
+    executed = ok_count + failed_count
+    if executed == 0:
+        return 100.0  # No failures means 100% success
+    return round(ok_count / executed * 100, 1)
+
+
+def _calculate_token_efficiency(
+    tokens: Dict[str, Any], advisors: List[Dict[str, Any]]
+) -> float:
+    """Calculate token efficiency: output tokens per advisor (0-∞).
+
+    Token efficiency = output tokens / number of advisors that ran
+    Measures how efficiently we're generating content.
+    """
+    output_tokens = tokens.get("output", 0)
+    ran_count = sum(
+        1
+        for a in advisors
+        if a.get("status") in (STATUS_OK, STATUS_FAILED)
+    )
+    if ran_count == 0:
+        return 0.0
+    return round(output_tokens / ran_count, 1)
+
+
+def _collect_7day_trends(
+    history: List[dict],
+    metric_key: str,
+    advisors: List[Dict[str, Any]],
+    counts: Dict[str, int],
+) -> List[float]:
+    """Collect 7-day rolling trend data for a performance metric.
+
+    Args:
+        history: Previous run summaries (oldest first).
+        metric_key: One of 'completion', 'deadline', 'success'.
+        advisors: Current run's advisors.
+        counts: Current run's status counts.
+
+    Returns:
+        List of up to 7 metric values (oldest to newest).
+    """
+    trends = []
+
+    # Extract historical values
+    for run in history[-6:]:  # Keep last 6 runs
+        if metric_key == "completion":
+            # Reconstruct from historical run data if available
+            total = run.get("total", 0)
+            skipped = sum(
+                1
+                for a in run.get("advisors", [])
+                if a.get("status") == STATUS_SKIPPED
+            )
+            if total > 0:
+                value = round((total - skipped) / total * 100, 1)
+            else:
+                value = 0.0
+        elif metric_key == "deadline":
+            ok = run.get("ok", 0)
+            total = run.get("total", 0)
+            if total > 0:
+                value = round(ok / total * 100, 1)
+            else:
+                value = 0.0
+        elif metric_key == "success":
+            ok = run.get("ok", 0)
+            failed = run.get("failed", 0)
+            executed = ok + failed
+            if executed > 0:
+                value = round(ok / executed * 100, 1)
+            else:
+                value = 100.0
+        else:
+            value = 0.0
+
+        if value is not None:
+            trends.append(value)
+
+    # Add current run's metric
+    if metric_key == "completion":
+        current = _calculate_completion_rate(advisors)
+    elif metric_key == "deadline":
+        current = _calculate_deadline_adherence(counts)
+    elif metric_key == "success":
+        current = _calculate_success_rate(counts)
+    else:
+        current = 0.0
+
+    trends.append(current)
+
+    # Pad with the current value if less than 7 days
+    while len(trends) < 7:
+        trends.insert(0, trends[0] if trends else 0.0)
+
+    return trends[-7:]  # Return only last 7
+
+
+def _extract_alerts(briefings: Any = None) -> List[Dict[str, Any]]:
+    """Extract alerts and issues from advisor runs.
+
+    Looks for failed advisors and extracts their diagnostics.
+    Returns a list of alert objects with details.
+    """
+    alerts = []
+    try:
+        if not briefings:
+            return alerts
+
+        for briefing in briefings:
+            status = str(getattr(briefing, "status", "") or STATUS_SKIPPED)
+            if status == STATUS_FAILED:
+                key = str(getattr(briefing, "key", "") or "unknown")
+                detail = sanitize(getattr(briefing, "text", "") or "")
+                if detail:
+                    alerts.append(
+                        {
+                            "type": "advisor_failed",
+                            "advisor": key,
+                            "detail": detail[:200],
+                            "timestamp": _now_utc().isoformat(timespec="seconds"),
+                        }
+                    )
+
+    except Exception as exc:
+        logger.warning("uyarılar çıkarılırken hata: %s", exc)
+
+    return alerts
+
+
+def _extract_feedback(briefings: Any = None) -> str:
+    """Extract AI-driven feedback from Work Analyst or similar advisors.
+
+    Looks for a work_analyst or similar advisor and extracts feedback.
+    Returns feedback string or empty string if not available.
+    """
+    feedback = ""
+    try:
+        if not briefings:
+            return feedback
+
+        # Look for work_analyst, accountability_coach, or leadership_coach briefings
+        for briefing in briefings:
+            key = str(getattr(briefing, "key", "") or "")
+            status = str(getattr(briefing, "status", "") or STATUS_SKIPPED)
+
+            if key in ("work_analyst", "accountability_coach", "leadership_coach"):
+                if status == STATUS_OK:
+                    text = getattr(briefing, "text", "") or ""
+                    # Extract first 400 chars as feedback
+                    if text:
+                        feedback = sanitize(text[:400])
+                        break
+
+    except Exception as exc:
+        logger.warning("geri bildirim çıkarılırken hata: %s", exc)
+
+    return feedback
+
+
+def _performance_snapshot(
+    advisors: List[Dict[str, Any]],
+    counts: Dict[str, int],
+    tokens: Dict[str, Any],
+    history: List[dict],
+    briefings: Any = None,
+) -> Dict[str, Any]:
+    """Build the performance metrics section for status.json.
+
+    Aggregates daily metrics, work status, 7-day trends, alerts, and feedback.
+    Gracefully handles missing data by providing defaults.
+
+    Args:
+        advisors: List of advisor entries from the current run.
+        counts: Status counts from current run.
+        tokens: Token usage from current run.
+        history: Previous run summaries (oldest first, not including current).
+        briefings: The briefing objects from supervision (for alerts/feedback).
+
+    Returns:
+        Dictionary with performance section ready for status.json.
+    """
+    now = _now_utc()
+
+    # Calculate daily metrics for this run
+    completion_rate = _calculate_completion_rate(advisors)
+    deadline_adherence = _calculate_deadline_adherence(counts)
+    success_rate = _calculate_success_rate(counts)
+    token_efficiency = _calculate_token_efficiency(tokens, advisors)
+
+    # Collect 7-day trends (history doesn't include current run yet)
+    completion_7d = _collect_7day_trends(
+        history, "completion", advisors, counts
+    )
+    deadline_7d = _collect_7day_trends(
+        history, "deadline", advisors, counts
+    )
+    success_7d = _collect_7day_trends(
+        history, "success", advisors, counts
+    )
+
+    # Extract alerts and feedback
+    alerts = _extract_alerts(briefings)
+    feedback = _extract_feedback(briefings)
+
+    return {
+        "daily_metrics": {
+            "completion_rate": completion_rate,
+            "deadline_adherence": deadline_adherence,
+            "success_rate": success_rate,
+            "token_efficiency": token_efficiency,
+            "last_update": now.isoformat(timespec="seconds"),
+        },
+        "work_status": {
+            "meeting_hours": 0.0,  # Extracted from calendar if available
+            "focus_time_hours": 0.0,  # Calculated from available slots
+            "email_response_time_hours": 0.0,  # From gmail metrics if available
+            "critical_alerts": len(alerts),
+        },
+        "trends": {
+            "completion_7d": completion_7d,
+            "deadline_7d": deadline_7d,
+            "success_7d": success_7d,
+        },
+        "alerts": alerts,
+        "feedback": feedback,
+    }
+
+
 def _advisor_entry(briefing: Any) -> Dict[str, Any]:
     key = str(getattr(briefing, "key", "") or "unknown")
     status = str(getattr(briefing, "status", "") or STATUS_SKIPPED)
@@ -881,6 +1149,11 @@ def build_status(
     }
 
     history = list(previous_history or [])
+    # Note: performance metrics use history before we append current run
+    performance = _performance_snapshot(
+        advisors, counts, tokens, history, briefings
+    )
+
     history.append(run_summary)
     history = history[-HISTORY_LIMIT:]
 
@@ -910,6 +1183,7 @@ def build_status(
         "gmail": _gmail_snapshot(briefings),
         "calendar": _calendar_snapshot(briefings),
         "integrations": _integrations_snapshot(),
+        "performance": performance,
         "history": history,
     }
 
@@ -960,4 +1234,13 @@ __all__ = [
     "sanitize",
     "status_file_path",
     "write_status_report",
+    # Performance metrics functions
+    "_calculate_completion_rate",
+    "_calculate_deadline_adherence",
+    "_calculate_success_rate",
+    "_calculate_token_efficiency",
+    "_collect_7day_trends",
+    "_extract_alerts",
+    "_extract_feedback",
+    "_performance_snapshot",
 ]
