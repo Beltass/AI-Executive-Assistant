@@ -245,6 +245,16 @@ def all_advisors() -> List[Advisor]:
       ExecutiveCoachingAdvisor
     - Old advisors kept but commented for rollback capability
     - Transition period: both old and new imports available
+
+    PHASE 1B CONSOLIDATION:
+    - New consolidated advisors: CareerDevelopmentAdvisor, MarketIntelligenceAdvisor,
+      AiInnovationAdvisor
+    - Nine more old advisors commented out (career_hr, job_scout, language_coach,
+      free_certs, sector_intel, ai_news, cx_research, banking_cc_projects,
+      ai_mastery, innovation_lab) plus daily_ops_briefing, superseded by
+      MorningOperationsAdvisor
+    - Their .py files stay on disk so a rollback is a comment change, not a revert
+    - Result: the team is down to the TEN advisors of the restructuring plan
     """
     from .weather import WeatherAdvisor
     # PHASE 1A: Replaced by consolidated MorningOperationsAdvisor
@@ -260,19 +270,32 @@ def all_advisors() -> List[Advisor]:
     # PHASE 1A: Consolidated into ExecutiveCoachingAdvisor
     # from .leadership_coach import LeadershipCoachAdvisor
 
+    # NEW CONSOLIDATED ADVISORS (PHASE 1B)
+    from .career_development import CareerDevelopmentAdvisor
+    from .market_intelligence import MarketIntelligenceAdvisor
+    from .ai_innovation import AiInnovationAdvisor
+
     from .kids_development import KidsDevelopmentAdvisor
-    from .career_hr import CareerHrAdvisor
-    from .job_scout import JobScoutAdvisor
-    from .sector_intel import SectorIntelAdvisor
-    from .ai_news import AiNewsAdvisor
-    from .free_certs import FreeCertsAdvisor
-    from .banking_cc_projects import BankingCcProjectsAdvisor
-    from .ai_mastery import AiMasteryAdvisor
-    from .cx_research import CxResearchAdvisor
-    from .daily_ops_briefing import DailyOpsBriefingAdvisor
-    from .language_coach import LanguageCoachAdvisor
+    # PHASE 1B: Consolidated into CareerDevelopmentAdvisor
+    # from .career_hr import CareerHrAdvisor
+    # from .job_scout import JobScoutAdvisor
+    # from .language_coach import LanguageCoachAdvisor
+    # from .free_certs import FreeCertsAdvisor
+
+    # PHASE 1B: Consolidated into MarketIntelligenceAdvisor
+    # from .sector_intel import SectorIntelAdvisor
+    # from .ai_news import AiNewsAdvisor
+    # from .cx_research import CxResearchAdvisor
+    # from .banking_cc_projects import BankingCcProjectsAdvisor
+
+    # PHASE 1B: Consolidated into AiInnovationAdvisor
+    # from .ai_mastery import AiMasteryAdvisor
+    # from .innovation_lab import InnovationLabAdvisor
+
+    # PHASE 1B: Superseded by MorningOperationsAdvisor (PHASE 1A)
+    # from .daily_ops_briefing import DailyOpsBriefingAdvisor
+
     from .anka_bridge import AnkaBridgeAdvisor
-    from .innovation_lab import InnovationLabAdvisor
     # PHASE 1A: Consolidated into ExecutiveCoachingAdvisor
     # from .accountability_coach import AccountabilityCoachAdvisor
     from .work_analyst import WorkAnalystAdvisor
@@ -284,20 +307,15 @@ def all_advisors() -> List[Advisor]:
         MorningOperationsAdvisor(),
         # Position 3: Communications and calendar (PHASE 1A consolidation)
         CommunicationsCalendarAdvisor(),
+        # Position 4: Career development (PHASE 1B consolidation)
+        CareerDevelopmentAdvisor(),
+        # Position 5: Market intelligence (PHASE 1B consolidation)
+        MarketIntelligenceAdvisor(),
+        # Position 6: AI mastery + innovation ideas (PHASE 1B consolidation)
+        AiInnovationAdvisor(),
         # Other advisors (unchanged)
         KidsDevelopmentAdvisor(),
-        CareerHrAdvisor(),
-        JobScoutAdvisor(),
-        SectorIntelAdvisor(),
-        AiNewsAdvisor(),
-        FreeCertsAdvisor(),
-        BankingCcProjectsAdvisor(),
-        AiMasteryAdvisor(),
-        CxResearchAdvisor(),
-        DailyOpsBriefingAdvisor(),
-        LanguageCoachAdvisor(),
         AnkaBridgeAdvisor(),
-        InnovationLabAdvisor(),
         # Executive coaching (PHASE 1A consolidation of Leadership + Accountability)
         ExecutiveCoachingAdvisor(),
         # Work Analyst LAST: consolidates all daily data after all advisors run.
