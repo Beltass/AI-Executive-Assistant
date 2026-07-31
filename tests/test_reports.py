@@ -224,6 +224,26 @@ def test_the_ops_briefing_advisor_declares_itself_private():
     assert DailyOpsBriefingAdvisor.private is True
 
 
+def test_private_key_list_matches_the_rosters_private_flags():
+    """The safety net only helps if it names every private advisor we run."""
+    from ai_assistant.advisors import all_advisors
+
+    roster = all_advisors()
+    private = {a.key for a in roster if a.private}
+    public = {a.key for a in roster if not a.private}
+
+    assert private == {
+        "communications_calendar",
+        "ai_innovation",
+        "executive_coaching",
+        "work_analyst",
+    }
+    # Every private advisor is covered…
+    assert private <= reports.PRIVATE_ADVISOR_KEYS
+    # …and no public one was swept in by mistake.
+    assert not (public & reports.PRIVATE_ADVISOR_KEYS)
+
+
 def test_advisors_are_public_by_default():
     assert Advisor.private is False
 

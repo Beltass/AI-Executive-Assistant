@@ -42,8 +42,8 @@ def _supervision() -> Supervision:
         briefings=[
             Briefing(key="weather", title="Hava Durumu", status=STATUS_OK, text="x" * 120),
             Briefing(
-                key="career_hr",
-                title="Kariyer & İK",
+                key="career_development",
+                title="Kariyer Gelişimi",
                 status=STATUS_FAILED,
                 text="gemini hatası: HTTP 429",
             ),
@@ -101,8 +101,8 @@ def test_advisor_entries_carry_name_status_category_and_size(tmp_path):
     assert weather["content_length"] == 120
     assert weather["emoji"]
 
-    assert advisors["career_hr"]["category"] == status_report.CATEGORY_CAREER
-    assert advisors["career_hr"]["detail"] == "gemini hatası: HTTP 429"
+    assert advisors["career_development"]["category"] == status_report.CATEGORY_CAREER
+    assert advisors["career_development"]["detail"] == "gemini hatası: HTTP 429"
     assert advisors["anka_bridge"]["status"] == STATUS_SKIPPED
 
 
@@ -126,6 +126,23 @@ def test_every_advisor_key_has_presentation_metadata():
 
     for advisor in all_advisors():
         assert advisor.key in status_report.ADVISOR_META, advisor.key
+        meta = status_report.ADVISOR_META[advisor.key]
+        assert meta["emoji"], advisor.key
+        assert meta["title"], advisor.key
+        assert meta["category"] in {
+            status_report.CATEGORY_CAREER,
+            status_report.CATEGORY_FAMILY,
+            status_report.CATEGORY_SECTOR,
+            status_report.CATEGORY_GROWTH,
+            status_report.CATEGORY_OPS,
+        }, advisor.key
+
+
+def test_presentation_metadata_carries_no_retired_advisors():
+    """The table must track the roster: a key nobody runs is dead weight."""
+    from ai_assistant.advisors import all_advisors
+
+    assert set(status_report.ADVISOR_META) == {a.key for a in all_advisors()}
 
 
 # --- secrets ----------------------------------------------------------------

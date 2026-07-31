@@ -65,33 +65,30 @@ def no_config(monkeypatch):
     yield
 
 
+#: The roster after the 20 -> 10 consolidation, in registration order.
+EXPECTED_ADVISOR_KEYS = [
+    "weather",
+    "morning_operations",
+    "communications_calendar",
+    "career_development",
+    "market_intelligence",
+    "ai_innovation",
+    "kids_development",
+    "anka_bridge",
+    "executive_coaching",
+    "work_analyst",
+]
+
+
 def test_all_advisors_discovered():
     advisors = all_advisors()
-    assert len(advisors) == 16
-    keys = {a.key for a in advisors}
-    assert keys == {
-        "weather",
-        "leadership_coach",
-        "kids_development",
-        "career_hr",
-        "job_scout",
-        "sector_intel",
-        "ai_news",
-        "free_certs",
-        "banking_cc_projects",
-        "ai_mastery",
-        "cx_research",
-        "daily_ops_briefing",
-        "language_coach",
-        "anka_bridge",
-        "innovation_lab",
-        "accountability_coach",
-    }
+    assert len(advisors) == 10
+    assert [a.key for a in advisors] == EXPECTED_ADVISOR_KEYS
 
 
-def test_accountability_coach_runs_last():
-    """It consolidates the OTHER advisors' tasks, so it must see them first."""
-    assert all_advisors()[-1].key == "accountability_coach"
+def test_work_analyst_runs_last():
+    """It consolidates the OTHER advisors' output, so it must see them first."""
+    assert all_advisors()[-1].key == "work_analyst"
 
 
 def test_weather_skipped_without_city(no_config):
@@ -111,10 +108,17 @@ def test_llm_personas_skipped_without_key(no_config, advisor_cls):
 
 
 def test_all_advisors_skipped_offline(no_config):
+    """Nothing configured => nothing runs, and nobody crashes.
+
+    ``work_analyst`` is the one exception by design: it consolidates the other
+    advisors' output rather than calling anything itself, so offline it still
+    returns a successful "no data yet" briefing instead of a skip.
+    """
     for advisor in all_advisors():
         briefing = advisor.generate_briefing()
         assert isinstance(briefing, Briefing)
-        assert briefing.status == STATUS_SKIPPED, f"{briefing.key}: {briefing.text}"
+        expected = STATUS_OK if advisor.key == "work_analyst" else STATUS_SKIPPED
+        assert briefing.status == expected, f"{briefing.key}: {briefing.text}"
         assert briefing.key and briefing.title
 
 

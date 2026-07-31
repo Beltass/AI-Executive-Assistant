@@ -65,16 +65,35 @@ class _CrashingAdvisor(Advisor):
 
 def test_manager_runs_all_advisors_offline(no_config):
     supervision = OperationsManager().run()
-    assert len(supervision.briefings) == 15
+    assert [b.key for b in supervision.briefings] == [
+        "weather",
+        "morning_operations",
+        "communications_calendar",
+        "career_development",
+        "market_intelligence",
+        "ai_innovation",
+        "kids_development",
+        "anka_bridge",
+        "executive_coaching",
+        "work_analyst",
+    ]
     for b in supervision.briefings:
         assert b.status in {STATUS_OK, STATUS_FAILED, STATUS_SKIPPED}
 
 
 def test_manager_all_skipped_offline(no_config):
+    """With nothing configured every advisor skips — except the work analyst.
+
+    It consolidates the others rather than calling out itself, so it returns a
+    successful "no data yet" briefing even offline.
+    """
     supervision = OperationsManager().run()
     counts = supervision.counts
     assert counts[STATUS_FAILED] == 0
-    assert counts[STATUS_SKIPPED] == len(supervision.briefings)
+    skipped = {b.key for b in supervision.briefings if b.status == STATUS_SKIPPED}
+    assert skipped == {b.key for b in supervision.briefings} - {"work_analyst"}
+    assert counts[STATUS_SKIPPED] == len(supervision.briefings) - 1
+    assert counts[STATUS_OK] == 1
     total = counts[STATUS_OK] + counts[STATUS_FAILED] + counts[STATUS_SKIPPED]
     assert total == len(supervision.briefings)
     assert "skipped" in supervision.summary_line()

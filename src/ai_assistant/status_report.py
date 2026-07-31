@@ -67,7 +67,16 @@ MAX_DETAIL_CHARS = 400
 #
 # Icon + category per advisor, kept HERE rather than on the advisor classes so
 # the advisors stay purely about producing briefings. ``category`` is what the
-# dashboard groups and filters by.
+# dashboard groups and filters by. ``title`` mirrors the advisor's Turkish title
+# for readability of this table; the value actually written to the status file
+# comes from the briefing itself, so the two can never drift apart at runtime.
+#
+# One entry per advisor in the CURRENT roster. The keys retired by the 20 -> 10
+# consolidation are deliberately NOT kept: every archived report card already
+# carries the emoji and category it was published with (they are baked into
+# ``frontend/reports/<date>/index.json``), and nothing re-derives metadata for a
+# key that no longer produces briefings. Anything unknown falls back to
+# ``DEFAULT_META`` rather than raising.
 
 CATEGORY_CAREER = "kariyer"
 CATEGORY_FAMILY = "aile"
@@ -76,24 +85,59 @@ CATEGORY_GROWTH = "kişisel gelişim"
 CATEGORY_OPS = "operasyon"
 
 ADVISOR_META: Dict[str, Dict[str, str]] = {
-    "weather": {"emoji": "🌤️", "category": CATEGORY_OPS},
-    "leadership_coach": {"emoji": "🧭", "category": CATEGORY_GROWTH},
-    "kids_development": {"emoji": "👨‍👩‍👧", "category": CATEGORY_FAMILY},
-    "career_hr": {"emoji": "💼", "category": CATEGORY_CAREER},
-    "job_scout": {"emoji": "🔎", "category": CATEGORY_CAREER},
-    "sector_intel": {"emoji": "📊", "category": CATEGORY_SECTOR},
-    "ai_news": {"emoji": "🤖", "category": CATEGORY_SECTOR},
-    "free_certs": {"emoji": "🎓", "category": CATEGORY_GROWTH},
-    "banking_cc_projects": {"emoji": "🏦", "category": CATEGORY_SECTOR},
-    "ai_mastery": {"emoji": "🧠", "category": CATEGORY_GROWTH},
-    "cx_research": {"emoji": "🎧", "category": CATEGORY_SECTOR},
-    "daily_ops_briefing": {"emoji": "📋", "category": CATEGORY_OPS},
-    "language_coach": {"emoji": "🗣️", "category": CATEGORY_GROWTH},
-    "anka_bridge": {"emoji": "🕊️", "category": CATEGORY_OPS},
-    "accountability_coach": {"emoji": "🔥", "category": CATEGORY_GROWTH},
+    "weather": {
+        "title": "Hava Durumu Meteoroloğu",
+        "emoji": "🌤️",
+        "category": CATEGORY_OPS,
+    },
+    "morning_operations": {
+        "title": "Sabah İşletme Brifingi",
+        "emoji": "📋",
+        "category": CATEGORY_OPS,
+    },
+    "communications_calendar": {
+        "title": "İletişim & Takvim Danışmanı",
+        "emoji": "📬",
+        "category": CATEGORY_OPS,
+    },
+    "career_development": {
+        "title": "Kariyer Gelişimi (İK · İlanlar · İngilizce · Sertifika)",
+        "emoji": "💼",
+        "category": CATEGORY_CAREER,
+    },
+    "market_intelligence": {
+        "title": "Pazar İstihbaratı (Sektör · YZ · CX · Bankacılık)",
+        "emoji": "📊",
+        "category": CATEGORY_SECTOR,
+    },
+    "ai_innovation": {
+        "title": "Yapay Zeka & İnovasyon (Ustalaşma · Fikirler)",
+        "emoji": "🧠",
+        "category": CATEGORY_GROWTH,
+    },
+    "kids_development": {
+        "title": "Çocuk Gelişimi Danışmanı",
+        "emoji": "👨‍👩‍👧",
+        "category": CATEGORY_FAMILY,
+    },
+    "anka_bridge": {
+        "title": "Anka Köprüsü",
+        "emoji": "🕊️",
+        "category": CATEGORY_OPS,
+    },
+    "executive_coaching": {
+        "title": "Yönetici Koçu (Gelişim + Hesap Verebilirlik)",
+        "emoji": "🧭",
+        "category": CATEGORY_GROWTH,
+    },
+    "work_analyst": {
+        "title": "İş Analisti Danışmanı",
+        "emoji": "📈",
+        "category": CATEGORY_OPS,
+    },
 }
 
-DEFAULT_META = {"emoji": "🧩", "category": CATEGORY_OPS}
+DEFAULT_META = {"title": "", "emoji": "🧩", "category": CATEGORY_OPS}
 
 
 # --- sanitising -------------------------------------------------------------

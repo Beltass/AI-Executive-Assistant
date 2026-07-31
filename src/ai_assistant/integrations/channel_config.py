@@ -4,7 +4,7 @@ Maps each advisor to a Slack channel ID for targeted distribution. Loads channel
 mappings from environment variables with a fallback to the main channel.
 
 Channel environment variables follow the pattern: SLACK_CHANNEL_<ADVISOR_KEY_UPPERCASE>
-Example: SLACK_CHANNEL_WEATHER, SLACK_CHANNEL_JOB_SCOUT, etc.
+Example: SLACK_CHANNEL_WEATHER, SLACK_CHANNEL_MARKET_INTELLIGENCE, etc.
 
 If a specific channel is not configured, the advisor's report falls back to
 SLACK_MAIN_CHANNEL if set, otherwise the legacy SLACK_CHANNEL is used.
@@ -26,7 +26,7 @@ def _advisor_channel_env(advisor_key: str) -> str:
     """Build the env var name for an advisor's channel.
 
     Example: "weather" -> "SLACK_CHANNEL_WEATHER"
-    Example: "job_scout" -> "SLACK_CHANNEL_JOB_SCOUT"
+    Example: "market_intelligence" -> "SLACK_CHANNEL_MARKET_INTELLIGENCE"
     """
     return f"SLACK_CHANNEL_{advisor_key.upper()}"
 
@@ -113,24 +113,21 @@ class ChannelConfig:
         """List of all known advisor keys for fallback checking.
 
         This is a static list to avoid circular imports from the advisors module.
+        It mirrors the ten advisors registered in ``ai_assistant.advisors``; an
+        advisor missing from here only loses the "is any channel configured at
+        all?" probe, never its delivery (``get_channel`` works for any key).
         """
         return [
             "weather",
-            "leadership_coach",
+            "morning_operations",
+            "communications_calendar",
+            "career_development",
+            "market_intelligence",
+            "ai_innovation",
             "kids_development",
-            "career_hr",
-            "job_scout",
-            "sector_intel",
-            "ai_news",
-            "free_certs",
-            "banking_cc_projects",
-            "ai_mastery",
-            "cx_research",
-            "daily_ops_briefing",
-            "language_coach",
             "anka_bridge",
-            "innovation_lab",
-            "accountability_coach",
+            "executive_coaching",
+            "work_analyst",
         ]
 
 

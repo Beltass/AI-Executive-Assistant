@@ -67,7 +67,24 @@ DEFAULT_RETENTION_DAYS = 30
 #: Advisors whose content must never be published to the PUBLIC dashboard.
 #: Duplicated deliberately: :attr:`ai_assistant.advisors.Advisor.private` is the
 #: source of truth, this set is the safety net if that flag is ever lost.
-PRIVATE_ADVISOR_KEYS = frozenset({"daily_ops_briefing"})
+#: Every advisor of the current roster that declares ``private = True`` MUST be
+#: listed here (``tests/test_reports.py`` pins the two lists together).
+_PRIVATE_ADVISOR_KEYS_CURRENT = frozenset(
+    {
+        "communications_calendar",  # real names, subjects and meetings
+        "ai_innovation",            # reasons about the user's own backlog
+        "executive_coaching",       # personal development + accountability
+        "work_analyst",             # consolidates everyone else's private work
+    }
+)
+
+#: Keys of advisors that no longer run but were private while they did. Kept
+#: forever: this list is a privacy net, and a stale card left in an archived
+#: index by an older version must still be dropped on merge. Removing a name
+#: here can only ever leak, never fix.
+_PRIVATE_ADVISOR_KEYS_RETIRED = frozenset({"daily_ops_briefing"})
+
+PRIVATE_ADVISOR_KEYS = _PRIVATE_ADVISOR_KEYS_CURRENT | _PRIVATE_ADVISOR_KEYS_RETIRED
 
 #: The bolded one-liner every advisor is asked to open its section with.
 HEADLINE_MARKER = "Öne çıkan"
