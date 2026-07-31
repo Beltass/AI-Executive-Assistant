@@ -241,6 +241,7 @@ def all_advisors() -> List[Advisor]:
     provider SDK eagerly and so a broken module cannot break discovery.
     """
     from .weather import WeatherAdvisor
+    from .morning_briefing import MorningBriefingAdvisor
     from .mail_analyst import MailAnalystAdvisor
     from .day_planner import DayPlannerAdvisor
     from .leadership_coach import LeadershipCoachAdvisor
@@ -258,9 +259,11 @@ def all_advisors() -> List[Advisor]:
     from .anka_bridge import AnkaBridgeAdvisor
     from .innovation_lab import InnovationLabAdvisor
     from .accountability_coach import AccountabilityCoachAdvisor
+    from .work_analyst import WorkAnalystAdvisor
 
     return [
         WeatherAdvisor(),
+        MorningBriefingAdvisor(),
         MailAnalystAdvisor(),
         DayPlannerAdvisor(),
         LeadershipCoachAdvisor(),
@@ -280,6 +283,8 @@ def all_advisors() -> List[Advisor]:
         # LAST on purpose: the accountability coach consolidates the OTHER
         # advisors' "✅ Bugünün görevi" items, so it must see them first.
         AccountabilityCoachAdvisor(),
+        # Work Analyst LAST: consolidates all daily data after all advisors run.
+        WorkAnalystAdvisor(),
     ]
 
 
