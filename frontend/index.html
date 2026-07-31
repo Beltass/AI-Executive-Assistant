@@ -311,6 +311,32 @@
                 <div class="details__body" id="table-history"></div>
               </details>
             </div>
+
+            <!-- Magnitude on a week × hour grid: WHEN the runs happen, which
+                 the stacked columns above cannot show. Sequential ramp, one
+                 hue, plus a written scale. -->
+            <div class="chart-card" style="margin-top: var(--s4)">
+              <div class="chart-card__head">
+                <span class="chart-card__title">Çalıştırma yoğunluğu</span>
+                <span class="chart-card__sub" id="activity-sub"></span>
+              </div>
+              <p class="chart-card__sub">
+                Haftanın günü × saat (İstanbul). Koyu/parlak hücre o saatte daha
+                çok çalıştırma demektir.
+              </p>
+              <div class="chart chart--scroll-x" id="chart-activity"></div>
+            </div>
+          </section>
+
+          <!-- --- per-advisor analysis table --- -->
+          <section aria-labelledby="advisor-table-title">
+            <div class="section-head">
+              <h2 id="advisor-table-title">Ajan karnesi</h2>
+              <span class="chart-card__sub" id="advisor-table-sub"></span>
+            </div>
+            <div class="chart-card">
+              <div id="table-advisors"></div>
+            </div>
           </section>
         </div>
       </section>
@@ -507,20 +533,41 @@
             <div class="chart" id="chart-split"></div>
           </div>
 
+          <div class="charts charts--2">
+            <!-- Part-to-whole: the ring answers "who eats the budget", and the
+                 total sits in the middle so the share and the absolute number
+                 are read together. The legend carries every slice's per cent,
+                 so identity is never colour alone. -->
+            <div class="chart-card">
+              <div class="chart-card__head">
+                <span class="chart-card__title">Token dağılımı — ajan başına</span>
+                <span class="chart-card__sub" id="agents-donut-sub">tahmini</span>
+              </div>
+              <div class="chart" id="chart-agents"></div>
+            </div>
+
+            <!-- Magnitude: the same advisors ranked, with the number printed on
+                 every bar (which is also the relief for the light-mode steps
+                 that sit under 3:1). -->
+            <div class="chart-card">
+              <div class="chart-card__head">
+                <span class="chart-card__title">Ajan başına tahmini token</span>
+                <span class="chart-card__sub">büyükten küçüğe</span>
+              </div>
+              <div class="chart" id="chart-agent-bars"></div>
+            </div>
+          </div>
+
           <div class="chart-card">
             <div class="chart-card__head">
-              <span class="chart-card__title">Ajan başına: token payı ve çıktı payı</span>
-              <span class="chart-card__sub">tahmini · son çalıştırmalar</span>
+              <span class="chart-card__title">Verim — 1.000 token başına üretilen karakter</span>
+              <span class="chart-card__sub">yüksek olan iyi</span>
             </div>
             <p class="chart-card__sub">
               Token payı çıktı payından belirgin yüksekse, o ajan ürettiğinden
               fazlasını harcıyor demektir — kısaltmaya oradan başlanır.
             </p>
-            <ul class="legend" aria-label="Pay göstergesi">
-              <li><span class="swatch swatch--s1" aria-hidden="true"></span> Tahmini token payı</li>
-              <li><span class="swatch swatch--s2" aria-hidden="true"></span> Üretilen metin payı</li>
-            </ul>
-            <div class="chart" id="chart-agents"></div>
+            <div class="chart" id="chart-agent-efficiency"></div>
             <details class="details">
               <summary>Tablo görünümü</summary>
               <div class="details__body" id="table-agents"></div>
@@ -826,7 +873,16 @@
             <div class="section-head">
               <h2 id="trends-title"><span aria-hidden="true">📊</span> Eğilimler (7 Gün)</h2>
             </div>
-            <div id="trends-charts" class="trends-grid" style="margin-top: var(--s3)"></div>
+            <!-- Three rates on ONE axis (all of them are per cent), so a single
+                 plot is honest here — a crosshair reads all three at the same
+                 day. The legend is built by the chart. -->
+            <div class="chart-card" style="margin-top: var(--s3)">
+              <div class="chart-card__head">
+                <span class="chart-card__title">Tamamlanma · tarih uyumu · başarı</span>
+                <span class="chart-card__sub" id="trends-sub">son 7 gün · %</span>
+              </div>
+              <div class="chart chart--tall" id="chart-trends-7d"></div>
+            </div>
           </section>
 
           <!-- --- Alerts Panel --- -->

@@ -2051,3 +2051,501 @@ button {
     grid-template-columns: 1fr;
   }
 }
+
+/* ==========================================================================
+   ==  CHARTS V2 — appended block (lineChart · barChart · donutChart ·      ==
+   ==  sparkline · heatmap · dataTable). Self-contained: everything the     ==
+   ==  v2 builders in charts.js reference lives between these markers, so   ==
+   ==  it can be moved or removed in one piece.                             ==
+   ========================================================================== */
+
+/* --- 1. palette extension -------------------------------------------------
+ * Slots 1–3 are already defined at the top of this file; 4–8 continue the
+ * SAME fixed categorical order (hues are assigned by slot, never cycled and
+ * never by rank). The eight-slot order was validated as a set against both
+ * surfaces: worst adjacent CVD ΔE 8.4 dark / 9.1 light, worst adjacent
+ * normal-vision ΔE 19.3 dark / 19.6 light. Three light steps (aqua, yellow,
+ * magenta) sit under 3:1 on the light surface, which is why every builder
+ * that can use them ships direct value labels AND a table view.
+ *
+ * The ramp is SEQUENTIAL (one hue, magnitude only) and is stepped separately
+ * for each surface — light→dark on light, dark→bright on dark. It is not an
+ * inversion of the other, and it is never a rainbow.
+ * -------------------------------------------------------------------------- */
+
+:root {
+  --series-4: #c98500; /* yellow  */
+  --series-5: #d55181; /* magenta */
+  --series-6: #008300; /* green   */
+  --series-7: #9085e9; /* violet  */
+  --series-8: #e66767; /* red     */
+
+  --ramp-0: #232322; /* "no activity" — reads as surface, not as data */
+  --ramp-1: #184f95;
+  --ramp-2: #256abf;
+  --ramp-3: #3987e5;
+  --ramp-4: #6da7ec;
+  --ramp-5: #9ec5f4;
+}
+
+:root[data-theme="light"] {
+  --series-4: #eda100;
+  --series-5: #e87ba4;
+  --series-6: #008300;
+  --series-7: #4a3aa7;
+  --series-8: #e34948;
+
+  --ramp-0: #f0efec;
+  --ramp-1: #b7d3f6;
+  --ramp-2: #86b6ef;
+  --ramp-3: #5598e7;
+  --ramp-4: #2a78d6;
+  --ramp-5: #184f95;
+}
+
+/* --- 2. first-paint entrance ---------------------------------------------
+ * Added exactly once per host by firstPaint() in charts.js, so the 60-second
+ * auto-refresh and the theme toggle never replay it.
+ * -------------------------------------------------------------------------- */
+
+@keyframes aia-chart-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes aia-chart-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.chart--anim .chart__marks:not(.chart__marks--cells) {
+  animation: aia-chart-rise 420ms cubic-bezier(0.2, 0, 0.2, 1) both;
+}
+
+.chart--anim .chart__cell {
+  animation: aia-chart-fade 320ms cubic-bezier(0.2, 0, 0.2, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chart--anim .chart__marks:not(.chart__marks--cells),
+  .chart--anim .chart__cell {
+    animation: none;
+  }
+}
+
+/* --- 3. shared marks ------------------------------------------------------ */
+
+/* Hit targets are appended LAST so the pointer reaches them: a rect painted
+ * under a bar never fires, and the tooltip is delegated off [data-tip]. */
+.chart__hits {
+  pointer-events: all;
+}
+
+.chart__bar {
+  stroke: none;
+}
+
+.chart__cross {
+  stroke: var(--axis);
+  stroke-width: 1;
+  pointer-events: none;
+}
+
+.chart__focus {
+  pointer-events: none;
+}
+
+/* --- 4. donutChart -------------------------------------------------------- */
+
+.chart__arc {
+  stroke: none;
+  cursor: pointer;
+  transition: opacity 160ms cubic-bezier(0.2, 0, 0.2, 1);
+}
+
+.chart__arc:hover,
+.chart__arc:focus-visible {
+  opacity: 0.82;
+}
+
+.chart__arc:focus-visible {
+  outline: 2px solid var(--series-1);
+  outline-offset: 2px;
+}
+
+/* The centre carries the total, so the ring never needs a number on every
+ * slice — the legend carries the per-slice shares. */
+.chart__center-value {
+  fill: var(--text-1);
+  font-family: var(--font);
+  font-size: 26px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.chart__center-label {
+  fill: var(--text-3);
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.legend__value {
+  margin-left: var(--s1);
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- 5. sparkline --------------------------------------------------------- */
+
+.spark {
+  display: block;
+  width: 100%;
+  min-height: 40px;
+  margin-top: var(--s2);
+}
+
+.spark__svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.spark__line {
+  fill: none;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.spark-empty {
+  display: inline-block;
+  padding-top: var(--s2);
+  font-size: var(--t-xs);
+  color: var(--text-3);
+}
+
+/* --- 6. heatmap ----------------------------------------------------------- */
+
+.chart__cell {
+  cursor: pointer;
+  transition: opacity 160ms cubic-bezier(0.2, 0, 0.2, 1);
+}
+
+.chart__cell:hover {
+  opacity: 0.75;
+}
+
+.chart__cell:focus-visible {
+  outline: 2px solid var(--series-1);
+  outline-offset: 1px;
+}
+
+.heat-scale {
+  display: flex;
+  align-items: center;
+  gap: var(--s1);
+  margin-top: var(--s3);
+  font-size: var(--t-xs);
+  color: var(--text-3);
+}
+
+.heat-scale__swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+/* --- 7. dataTable --------------------------------------------------------- */
+
+.dtable-wrap {
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.dtable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--t-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.dtable th,
+.dtable td {
+  padding: var(--s2) var(--s3);
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.dtable thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface-2);
+  color: var(--text-3);
+  font-size: var(--t-xs);
+  font-weight: 700;
+  padding: 0;
+}
+
+.dtable .num {
+  text-align: right;
+}
+
+.dtable tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.dtable tbody tr:hover td {
+  background: var(--surface-3);
+}
+
+.dtable__key {
+  font-weight: 600;
+  color: var(--text-1);
+}
+
+.dtable__sort {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s1);
+  width: 100%;
+  padding: var(--s2) var(--s3);
+  background: none;
+  border: 0;
+  color: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  text-align: inherit;
+  cursor: pointer;
+}
+
+.dtable .num .dtable__sort {
+  justify-content: flex-end;
+}
+
+.dtable__sort:hover {
+  color: var(--text-1);
+}
+
+.dtable__sort.is-active {
+  color: var(--text-1);
+}
+
+.dtable__arrow {
+  font-size: 9px;
+  opacity: 0.55;
+}
+
+.dtable__sort.is-active .dtable__arrow {
+  opacity: 1;
+}
+
+.dtable__note {
+  margin-top: var(--s2);
+  font-size: var(--t-xs);
+  color: var(--text-3);
+}
+
+/* A magnitude cell: the number reads first, the bar is the recessive
+ * secondary encoding underneath it. */
+.cell-bar {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  min-width: 76px;
+}
+
+.cell-bar__value {
+  font-variant-numeric: tabular-nums;
+}
+
+.cell-bar__track {
+  display: block;
+  width: 100%;
+  height: 4px;
+  border-radius: var(--r-pill);
+  background: var(--surface-3);
+  overflow: hidden;
+}
+
+.cell-bar__fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--r-pill);
+  background: var(--series-1);
+}
+
+/* Direction is a glyph + a screen-reader word first, colour only third. */
+.trend {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-variant-numeric: tabular-nums;
+}
+
+.trend--up {
+  color: var(--good);
+}
+
+.trend--down {
+  color: var(--critical);
+}
+
+.trend--flat {
+  color: var(--text-3);
+}
+
+/* --- 8. dataTable below 640px: stacked key/value cards --------------------
+ * A nine-column grid inside a horizontal scrollbar inside the page's vertical
+ * scroll is the worst of both. On a phone each row becomes a card, and the
+ * column headers become a row of sort chips so sorting stays reachable.
+ * -------------------------------------------------------------------------- */
+
+@media (max-width: 640px) {
+  .dtable-wrap {
+    max-height: none !important;
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .dtable,
+  .dtable thead,
+  .dtable tbody,
+  .dtable tr,
+  .dtable th,
+  .dtable td {
+    display: block;
+    width: auto;
+  }
+
+  .dtable thead tr {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s1);
+    margin-bottom: var(--s3);
+  }
+
+  .dtable thead th {
+    position: static;
+    padding: 0;
+    border: 0;
+    background: none;
+    width: auto;
+  }
+
+  /* A header with nothing to click is noise in a chip row. */
+  .dtable__th--static {
+    display: none;
+  }
+
+  .dtable thead th .dtable__sort {
+    width: auto;
+    padding: 5px var(--s3);
+    border: 1px solid var(--border);
+    border-radius: var(--r-pill);
+    background: var(--surface-2);
+    font-size: var(--t-xs);
+  }
+
+  .dtable thead th .dtable__sort.is-active {
+    border-color: var(--series-1);
+    background: color-mix(in srgb, var(--series-1) 14%, var(--surface-2));
+  }
+
+  .dtable tbody tr {
+    margin-bottom: var(--s3);
+    padding: var(--s3);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    background: var(--surface-1);
+  }
+
+  .dtable tbody tr:hover td {
+    background: none;
+  }
+
+  .dtable tbody td {
+    display: grid;
+    grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+    align-items: baseline;
+    gap: var(--s3);
+    padding: var(--s1) 0;
+    border-bottom: 0;
+    text-align: right;
+    white-space: normal;
+  }
+
+  .dtable tbody td::before {
+    content: attr(data-label);
+    color: var(--text-3);
+    font-size: var(--t-xs);
+    text-align: left;
+  }
+
+  /* The first cell is the card's title, not a key/value pair. */
+  .dtable tbody td.dtable__key {
+    display: block;
+    padding: 0 0 var(--s2);
+    margin-bottom: var(--s2);
+    border-bottom: 1px solid var(--border);
+    font-size: var(--t-md);
+    text-align: left;
+  }
+
+  .dtable tbody td.dtable__key::before {
+    content: none;
+  }
+
+  .dtable tbody td.num {
+    text-align: right;
+  }
+
+  .cell-bar {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
+/* --- 9. hosts for the v2 charts wired into the tabs ----------------------- */
+
+.metric-card__spark {
+  display: block;
+  margin-top: var(--s2);
+  min-height: 34px;
+}
+
+.chart--tall {
+  min-height: 220px;
+}
+
+/* The heatmap can be wider than a phone; let it scroll on its own rather than
+ * forcing the whole card to. */
+.chart--scroll-x {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ==========================================================================
+   ==  end CHARTS V2 appended block                                        ==
+   ========================================================================== */

@@ -64,7 +64,14 @@
   };
   var RECO_ICON = { good: "✅", warn: "⚠️", info: "ℹ️" };
 
-  var INNOVATION_ID = "innovation_lab";
+  /* The advisor whose report fills the "Öneriler & Fikirler" tab.
+   *
+   * The consolidation renamed it, so the CURRENT key is first and the retired
+   * one is kept as a fallback: an archived day published before the rename
+   * only has `innovation_lab` in its index, and that day must still open in
+   * this tab. The reading view (#/rapor/<date>/<id>) is driven by the URL and
+   * never consults this list, so no historical permalink depends on it. */
+  var INNOVATION_IDS = ["ai_innovation", "innovation_lab"];
 
   var DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
   var ID_RE = /^[A-Za-z0-9_-]+$/;
@@ -116,6 +123,18 @@
 
   function trNumber(value) {
     return num(value).toLocaleString("tr-TR");
+  }
+
+  /** Turkish decimal (comma separator) with a fixed number of digits. */
+  function trDecimal(value, digits) {
+    return num(value).toLocaleString("tr-TR", {
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits
+    });
+  }
+
+  function pad2(value) {
+    return (value < 10 ? "0" : "") + value;
   }
 
   function duration(seconds) {
@@ -504,6 +523,236 @@
     );
   }
 
+  /* ---------------------------------------------------------------------- */
+  /* run activity heatmap                                                    */
+  /* ---------------------------------------------------------------------- */
+
+  var WEEKDAYS = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"];
+  var WEEKDAYS_LONG = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"];
+
+  /**
+   * Read the Istanbul weekday + hour out of a history entry.
+   *
+   * `at_istanbul` is already local ("30.07.2026 18:01"), so it is preferred:
+   * deriving the hour from the UTC `at` would smear an 18:00 run into 15:00.
+   * Returns null when neither field parses — the caller just skips the entry.
+   */
+  function istanbulSlot(entry) {
+    if (!entry) return null;
+    var local = /^(\d{2})\.(\d{2})\.(\d{4})\s+(\d{2}):(\d{2})/.exec(entry.at_istanbul || "");
+    if (local) {
+      var day = Number(local[1]);
+      var month = Number(local[2]);
+      var year = Number(local[3]);
+      var stamp = new Date(Date.UTC(year, month - 1, day));
+      if (isNaN(stamp.getTime())) return null;
+      // getUTCDay() is 0=Sunday; our rows start on Monday.
+      return { row: (stamp.getUTCDay() + 6) % 7, hour: Number(local[4]) };
+    }
+    var iso = entry.at ? new Date(entry.at) : null;
+    if (!iso || isNaN(iso.getTime())) return null;
+    return { row: (iso.getUTCDay() + 6) % 7, hour: iso.getUTCHours() };
+  }
+
+  function renderActivity(history) {
+    var host = $("chart-activity");
+    if (!host || !charts.heatmap) return;
+
+    var matrix = [];
+    var r;
+    var c;
+    for (r = 0; r < 7; r += 1) {
+      matrix.push([]);
+      for (c = 0; c < 24; c += 1) matrix[r].push(0);
+    }
+
+    var counted = 0;
+    history.forEach(function (entry) {
+      var slot = istanbulSlot(entry);
+      if (!slot || slot.hour < 0 || slot.hour > 23) return;
+      matrix[slot.row][slot.hour] += 1;
+      counted += 1;
+    });
+
+    // A tick on every hour is unreadable at phone width; every third is enough
+    // to place a cell, and the tooltip carries the exact hour anyway.
+    var colLabels = [];
+    for (c = 0; c < 24; c += 1) colLabels.push(c % 3 === 0 ? pad2(c) : "");
+
+    var cells = [];
+    for (r = 0; r < 7; r += 1) {
+      cells.push([]);
+      for (c = 0; c < 24; c += 1) {
+        cells[r].push({
+          value: matrix[r][c],
+          label: WEEKDAYS_LONG[r] + " " + pad2(c) + ":00"
+        });
+      }
+    }
+
+    charts.heatmap(host, cells, {
+      rowLabels: WEEKDAYS,
+      colLabels: colLabels,
+      aria: "Haftanın günü ve saate göre çalıştırma yoğunluğu",
+      unit: "çalıştırma",
+      zeroLabel: "çalıştırma yok",
+      lowLabel: "az",
+      highLabel: "çok",
+      empty: "Veri yok."
+    });
+
+    text(
+      $("activity-sub"),
+      counted ? counted + " çalıştırma işaretlendi" : ""
+    );
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* per-advisor scorecard                                                   */
+  /* ---------------------------------------------------------------------- */
+
+  var ADVISOR_TONE = { ok: "ok", failed: "failed", skipped: "skipped" };
+
+  /**
+   * Fold the metrics history into one row per advisor id.
+   *
+   * Neither status.json nor metrics.json measures an advisor's WALL CLOCK time
+   * — only the whole run's latency is timed. So "süre" here is that latency
+   * split across the advisors of the same run in proportion to their estimated
+   * tokens, which is the same attribution metrics.py already uses for the
+   * token column and is labelled "tahmini" in the table's note. Nothing on the
+   * Python side changes.
+   */
+  function advisorMetrics(runs) {
+    var bucket = {};
+    runs.slice(-7).forEach(function (run) {
+      var runTokens = num(run.total_tokens);
+      var latency = num(run.latency_seconds);
+      (run.agents || []).forEach(function (agent) {
+        if (!agent || !agent.id) return;
+        var entry = bucket[agent.id] || {
+          id: agent.id,
+          name: agent.name || agent.id,
+          tokens: 0,
+          chars: 0,
+          seconds: 0,
+          lastAt: "",
+          lastOrder: 0
+        };
+        var tokens = num(agent.est_total_tokens);
+        entry.tokens += tokens;
+        entry.chars += num(agent.output_chars);
+        if (runTokens > 0 && latency > 0) entry.seconds += latency * (tokens / runTokens);
+        if (agent.name) entry.name = agent.name;
+
+        var order = Date.parse(run.at || "");
+        if (!isFinite(order)) order = 0;
+        if (!entry.lastAt || order >= entry.lastOrder) {
+          entry.lastAt = run.at_istanbul || run.at || "";
+          entry.lastOrder = order;
+        }
+        bucket[agent.id] = entry;
+      });
+    });
+    return bucket;
+  }
+
+  function renderAdvisorTable(advisors) {
+    var host = $("table-advisors");
+    if (!host || !charts.dataTable) return;
+
+    var runs = metricRuns();
+    var perAdvisor = advisorMetrics(runs);
+
+    var rows = advisors.map(function (advisor) {
+      var m = perAdvisor[advisor.id] || {};
+      var status = ADVISOR_TONE[advisor.status] ? advisor.status : "skipped";
+      var quiet = advisor.nothing_new === true;
+      var tokens = num(m.tokens);
+      var chars = num(m.chars);
+      return {
+        id: advisor.id,
+        advisor: (advisor.emoji ? advisor.emoji + " " : "") + (advisor.name || advisor.id),
+        sortName: advisor.name || advisor.id,
+        durum: {
+          tone: status,
+          icon: quiet ? "🟰" : STATUS_ICON[status],
+          label: quiet ? "Yeni bulgu yok" : STATUS_LABEL[status],
+          // Sorting a badge needs an explicit order — alphabetical on the
+          // Turkish label would put "Atlandı" above "Çalıştı".
+          order: status === "failed" ? 0 : status === "ok" ? 1 : 2
+        },
+        sure: m.seconds != null ? num(m.seconds) : 0,
+        token: tokens,
+        verim: tokens > 0 ? Math.round((chars / tokens) * 1000) : 0,
+        son: m.lastAt || "",
+        sonOrder: num(m.lastOrder)
+      };
+    });
+
+    var verimMax = rows.reduce(function (acc, row) {
+      return Math.max(acc, row.verim);
+    }, 0);
+
+    charts.dataTable(
+      host,
+      [
+        { key: "advisor", label: "Ajan", sortValue: function (row) { return row.sortName; } },
+        { key: "durum", label: "Durum", type: "badge" },
+        {
+          key: "sure",
+          label: "Süre",
+          type: "num",
+          format: function (value) {
+            return value > 0 ? duration(value) : "—";
+          }
+        },
+        {
+          key: "token",
+          label: "Token",
+          type: "num",
+          format: function (value) {
+            return value > 0 ? trNumber(Math.round(value)) : "—";
+          }
+        },
+        {
+          key: "verim",
+          label: "Verim",
+          type: "pct",
+          barMax: verimMax || 1,
+          color: "var(--series-3)",
+          format: function (value) {
+            return value > 0 ? trNumber(value) + " kr./1K" : "—";
+          }
+        },
+        {
+          key: "son",
+          label: "Son çalışma",
+          sortValue: function (row) { return row.sonOrder; },
+          format: function (value) {
+            return value || "—";
+          }
+        }
+      ],
+      rows,
+      {
+        sort: { key: "token", dir: "desc" },
+        caption: "Ajan başına durum, süre, token, verim ve son çalışma",
+        empty: "Veri yok.",
+        note:
+          "Süre ve token ajan başına ölçülmez: son 7 çalıştırmanın toplam " +
+          "gecikmesi ve token'ı, ajanların tahmini payına göre bölüştürülmüştür. " +
+          "Verim = 1.000 token başına üretilen karakter (yüksek olan iyi). " +
+          "Başlığa tıklayarak sıralayabilirsin."
+      }
+    );
+
+    text(
+      $("advisor-table-sub"),
+      rows.length ? rows.length + " ajan · sıralanabilir" : ""
+    );
+  }
+
   function renderSistem() {
     var data = state.status;
     if (!data) return;
@@ -520,6 +769,8 @@
     renderFilters(advisors);
     renderAgentCards(advisors);
     renderHistory(history);
+    renderActivity(history);
+    renderAdvisorTable(advisors);
   }
 
   /* ====================================================================== */
@@ -798,39 +1049,54 @@
   }
 
   function renderPerfCharts(runs, last) {
-    if (!charts.trend) return;
+    if (!charts.splitBar) return;
 
-    var points = runs.map(function (run) {
-      return {
-        value: num(run.total_tokens),
-        label: (run.at_istanbul || "") + " · " + (run.mode_label || ""),
-        short: shortStamp(run)
-      };
-    });
-    charts.trend($("chart-tokens"), points, {
-      name: "Toplam token",
-      unit: "",
-      color: "var(--series-1)"
-    });
+    /* --- trend over recent runs -------------------------------------------
+     * Token count and latency are two different scales, so they are two plots
+     * and never one dual-axis chart: overlaying them would invent a
+     * correlation the numbers do not contain.
+     * ---------------------------------------------------------------------- */
+    var recent = runs.slice(-24);
 
-    charts.trend(
-      $("chart-latency"),
-      runs.map(function (run) {
-        return {
-          value: num(run.latency_seconds),
-          label: run.at_istanbul || "",
-          short: shortStamp(run)
-        };
-      }),
-      {
-        name: "Gecikme",
-        unit: "sn",
-        color: "var(--series-3)",
-        format: function (value) {
-          return Math.round(value) + " sn";
+    if (charts.lineChart) {
+      charts.lineChart(
+        $("chart-tokens"),
+        recent.map(function (run) {
+          return {
+            value: num(run.total_tokens),
+            label: (run.at_istanbul || "") + " · " + (run.mode_label || ""),
+            short: shortStamp(run)
+          };
+        }),
+        {
+          name: "Toplam token",
+          aria: "Çalıştırma başına toplam token eğilimi",
+          color: "var(--series-1)",
+          format: function (value) {
+            return trNumber(Math.round(value)) + " token";
+          }
         }
-      }
-    );
+      );
+
+      charts.lineChart(
+        $("chart-latency"),
+        recent.map(function (run) {
+          return {
+            value: num(run.latency_seconds),
+            label: run.at_istanbul || "",
+            short: shortStamp(run)
+          };
+        }),
+        {
+          name: "Gecikme",
+          aria: "Model çağrısı gecikmesi eğilimi",
+          color: "var(--series-3)",
+          format: function (value) {
+            return Math.round(value) + " sn";
+          }
+        }
+      );
+    }
 
     charts.splitBar(
       $("chart-split"),
@@ -848,7 +1114,88 @@
     );
 
     var agents = aggregateAgents(runs);
-    charts.groupedShares($("chart-agents"), agents, { limit: 10 });
+
+    /* --- token distribution by advisor ------------------------------------
+     * Part-to-whole, so a ring with the total in the middle. The builder caps
+     * the ring at six slices and folds the tail into one honest "Diğer" —
+     * past six the hues stop being reliably distinguishable.
+     * ---------------------------------------------------------------------- */
+    if (charts.donutChart) {
+      var tokenTotal = agents.reduce(function (acc, row) {
+        return acc + num(row.tokens);
+      }, 0);
+      charts.donutChart(
+        $("chart-agents"),
+        agents.map(function (row) {
+          return { name: row.name || row.id, value: num(row.tokens) };
+        }),
+        {
+          aria: "Ajan başına tahmini token dağılımı",
+          centerValue: charts.compact ? charts.compact(tokenTotal) : String(tokenTotal),
+          centerLabel: "toplam token",
+          legendLabel: "Ajan dağılımı göstergesi",
+          format: function (value) {
+            return trNumber(Math.round(value)) + " token";
+          }
+        }
+      );
+      text(
+        $("agents-donut-sub"),
+        agents.length
+          ? "tahmini · " + agents.length + " ajan · son " + Math.min(runs.length, 7) + " çalıştırma"
+          : "tahmini"
+      );
+    }
+
+    /* --- the same advisors, ranked ---------------------------------------- */
+    if (charts.barChart) {
+      charts.barChart(
+        $("chart-agent-bars"),
+        agents.map(function (row) {
+          return {
+            label: row.name || row.id,
+            value: num(row.tokens),
+            note:
+              "token payı %" + String(row.token_share).replace(".", ",") +
+              " · çıktı payı %" + String(row.output_share).replace(".", ",")
+          };
+        }),
+        {
+          limit: 10,
+          aria: "Ajan başına tahmini token karşılaştırması",
+          color: "var(--series-1)",
+          format: function (value) {
+            return trNumber(Math.round(value));
+          }
+        }
+      );
+
+      // Chars produced per 1.000 tokens spent: the "is it worth it" measure.
+      // Different question, different scale — so it is its own chart.
+      charts.barChart(
+        $("chart-agent-efficiency"),
+        agents
+          .map(function (row) {
+            return {
+              label: row.name || row.id,
+              value: num(row.tokens) ? Math.round((num(row.chars) / num(row.tokens)) * 1000) : 0,
+              note: trNumber(Math.round(num(row.chars))) + " karakter · " +
+                trNumber(Math.round(num(row.tokens))) + " token"
+            };
+          })
+          .sort(function (a, b) {
+            return b.value - a.value;
+          }),
+        {
+          limit: 10,
+          aria: "Ajan başına 1000 token başına üretilen karakter",
+          color: "var(--series-3)",
+          format: function (value) {
+            return trNumber(Math.round(value)) + " kr.";
+          }
+        }
+      );
+    }
 
     if (charts.table) {
       charts.table(
@@ -1017,8 +1364,10 @@
     var date = latestDay();
     var day = state.days[date];
     var entries = day && Array.isArray(day.reports) ? day.reports : [];
+    // Take the first id that the day actually published: the current key wins,
+    // and an archived day from before the rename still resolves.
     var card = entries.filter(function (entry) {
-      return entry.id === INNOVATION_ID;
+      return INNOVATION_IDS.indexOf(entry.id) !== -1;
     })[0];
 
     if (!card) {
@@ -1026,6 +1375,7 @@
       show($("fikirler-body"), false);
       return;
     }
+    var id = card.id;
 
     show($("fikirler-empty"), false);
     show($("fikirler-body"), true);
@@ -1034,14 +1384,14 @@
       prettyDate(date) + " · " + (card.headline || "") +
         " · ⏱️ ~" + (card.read_minutes || 1) + " dk okuma"
     );
-    $("fikirler-link").href = "#/rapor/" + date + "/" + INNOVATION_ID;
+    $("fikirler-link").href = "#/rapor/" + date + "/" + id;
 
-    var key = date + "/" + INNOVATION_ID;
+    var key = date + "/" + id;
     if (state.docs[key]) {
       $("fikirler-body-text").innerHTML = renderMarkdown(state.docs[key].markdown || "");
       return;
     }
-    fetchJson("./reports/" + date + "/" + INNOVATION_ID + ".json")
+    fetchJson("./reports/" + date + "/" + id + ".json")
       .then(function (doc) {
         state.docs[key] = doc;
         $("fikirler-body-text").innerHTML = renderMarkdown(doc.markdown || "");
@@ -1319,7 +1669,14 @@
     return "→";
   }
 
-  function renderMetricCard(label, value, unit, trend) {
+  /**
+   * A metric card, optionally with its own history riding underneath it.
+   *
+   * `spark` is the raw 7-day series (or null). The sparkline is appended AFTER
+   * the card is in the DOM by the caller — charts.sparkline measures its host,
+   * so drawing into a detached node would size it against nothing.
+   */
+  function renderMetricCard(label, value, unit, trend, spark, color) {
     var card = make("div", "metric-card");
     var head = make("div", "metric-card__head");
     head.appendChild(make("span", "metric-card__label", label));
@@ -1334,7 +1691,26 @@
       body.appendChild(make("span", "metric-card__unit", unit));
     }
     card.appendChild(body);
+
+    if (charts.sparkline && Array.isArray(spark) && spark.length >= 2) {
+      var host = make("div", "metric-card__spark");
+      card.appendChild(host);
+      card.__aiaSpark = function () {
+        charts.sparkline(host, spark, {
+          name: label,
+          color: color || "var(--series-1)",
+          digits: 1,
+          height: 34
+        });
+      };
+    }
     return card;
+  }
+
+  /** Append a metric card and draw its sparkline once it can measure itself. */
+  function mountMetricCard(host, card) {
+    host.appendChild(card);
+    if (card.__aiaSpark) card.__aiaSpark();
   }
 
   function renderAlertItem(severity, message) {
@@ -1348,25 +1724,89 @@
     return item;
   }
 
-  function renderSparkline(container, data, color) {
-    if (!data || !Array.isArray(data) || data.length < 2) {
-      container.textContent = "Veri yok";
+  /* The 7-day series a metric card rides on. `trends` is written by the Python
+   * side as { completion_7d: [...], deadline_7d: [...], success_7d: [...] };
+   * anything else falls back to "<key>_7d", so a new metric picks its own
+   * history up without a change here. */
+  function trendSeries(trends, key, explicit) {
+    var raw = trends[explicit || key + "_7d"];
+    if (!Array.isArray(raw)) return null;
+    var values = raw
+      .map(function (v) {
+        return typeof v === "object" && v ? Number(v.value) : Number(v);
+      })
+      .filter(function (v) {
+        return isFinite(v);
+      });
+    return values.length >= 2 ? values : null;
+  }
+
+  var TREND_SERIES = [
+    { key: "completion_7d", name: "Tamamlanma", color: "var(--series-1)" },
+    { key: "deadline_7d", name: "Tarih uyumu", color: "var(--series-2)" },
+    { key: "success_7d", name: "Başarı", color: "var(--series-3)" }
+  ];
+
+  /**
+   * The 7-day rates as one multi-series line.
+   *
+   * All three are per cent, which is the ONLY reason they share a plot — a
+   * common unit is what makes a single y-axis honest. The crosshair reads all
+   * three at the same day, which is the whole point of stacking them here.
+   */
+  function renderTrendChart(trends) {
+    var host = $("chart-trends-7d");
+    if (!host) return;
+    if (!charts.lineChart) {
+      host.textContent = "Veri yok.";
       return;
     }
-    var values = data.map(function (v) { return num(v); });
-    var min = Math.min.apply(null, values);
-    var max = Math.max.apply(null, values);
-    var range = max - min || 1;
-    var width = 100 / values.length;
 
-    values.forEach(function (val, i) {
-      var bar = make("div", "sparkline__bar");
-      var height = ((val - min) / range) * 100;
-      bar.style.height = height + "%";
-      bar.style.backgroundColor = color || "var(--series-1)";
-      bar.style.width = width + "%";
-      container.appendChild(bar);
-    });
+    var longest = 0;
+    var series = TREND_SERIES.map(function (spec) {
+      var values = trendSeries(trends || {}, spec.key, spec.key);
+      if (!values) return null;
+      longest = Math.max(longest, values.length);
+      return { spec: spec, values: values };
+    }).filter(Boolean);
+
+    // Days are labelled backwards from today: the last reading is "bugün".
+    function dayLabel(index, length) {
+      var back = length - 1 - index;
+      if (back === 0) return { short: "bugün", label: "bugün" };
+      if (back === 1) return { short: "dün", label: "dün" };
+      var d = new Date();
+      d.setDate(d.getDate() - back);
+      var short = pad2(d.getDate()) + "." + pad2(d.getMonth() + 1);
+      return { short: short, label: short + " (" + back + " gün önce)" };
+    }
+
+    charts.lineChart(
+      host,
+      series.map(function (item) {
+        return {
+          name: item.spec.name,
+          color: item.spec.color,
+          points: item.values.map(function (value, index) {
+            var stamp = dayLabel(index, item.values.length);
+            return { value: value, label: stamp.label, short: stamp.short };
+          })
+        };
+      }),
+      {
+        aria: "Son 7 günün tamamlanma, tarih uyumu ve başarı oranları",
+        legendLabel: "Eğilim göstergesi",
+        single: "Eğilim için en az iki günlük ölçüm gerekiyor.",
+        format: function (value) {
+          return "%" + trDecimal(value, 1);
+        }
+      }
+    );
+
+    text(
+      $("trends-sub"),
+      series.length ? "son " + longest + " gün · %" : "son 7 gün · %"
+    );
   }
 
   function renderPerformance() {
@@ -1394,19 +1834,30 @@
     var dailyHost = $("daily-metrics");
     dailyHost.innerHTML = "";
 
+    // Each card carries its own 7-day history, so the single number is read
+    // against where it came from instead of on its own.
     var metricsList = [
-      { key: "completion_rate", label: "Tamamlanma Oranı", unit: "%" },
-      { key: "deadline_adherence", label: "Tarih Uyumu", unit: "%" },
-      { key: "success_rate", label: "Başarı Oranı", unit: "%" },
-      { key: "token_efficiency", label: "Token Verimliği", unit: "token/çıktı" }
+      { key: "completion_rate", label: "Tamamlanma Oranı", unit: "%", spark: "completion_7d", color: "var(--series-1)" },
+      { key: "deadline_adherence", label: "Tarih Uyumu", unit: "%", spark: "deadline_7d", color: "var(--series-2)" },
+      { key: "success_rate", label: "Başarı Oranı", unit: "%", spark: "success_7d", color: "var(--series-3)" },
+      { key: "token_efficiency", label: "Token Verimliği", unit: "token/çıktı", color: "var(--series-4)" }
     ];
 
     metricsList.forEach(function (metric) {
       var value = daily[metric.key];
-      if (value != null) {
-        var trend = renderTrendArrow(value, daily[metric.key + "_prev"] || null);
-        dailyHost.appendChild(renderMetricCard(metric.label, value.toFixed(1), metric.unit, trend));
-      }
+      if (value == null || !isFinite(Number(value))) return;
+      var trend = renderTrendArrow(Number(value), daily[metric.key + "_prev"] != null ? Number(daily[metric.key + "_prev"]) : null);
+      mountMetricCard(
+        dailyHost,
+        renderMetricCard(
+          metric.label,
+          Number(value).toFixed(1),
+          metric.unit,
+          trend,
+          trendSeries(trends, metric.key, metric.spark),
+          metric.color
+        )
+      );
     });
 
     // === WORK STATUS ===
@@ -1421,41 +1872,30 @@
 
     workList.forEach(function (item) {
       var value = work[item.key];
-      if (value != null) {
-        workHost.appendChild(renderMetricCard(item.label, value.toFixed(1), item.unit));
-      }
+      if (value == null || !isFinite(Number(value))) return;
+      mountMetricCard(
+        workHost,
+        renderMetricCard(
+          item.label,
+          Number(value).toFixed(1),
+          item.unit,
+          null,
+          trendSeries(trends, item.key, item.spark),
+          item.color || "var(--series-5)"
+        )
+      );
     });
 
     // Add alert count if available
     if (alerts.length > 0) {
       var alertCount = alerts.filter(function (a) { return a.severity === "critical"; }).length;
       if (alertCount > 0) {
-        workHost.appendChild(renderMetricCard("Kritik Uyarı", alertCount, "adet"));
+        mountMetricCard(workHost, renderMetricCard("Kritik Uyarı", alertCount, "adet"));
       }
     }
 
-    // === TRENDS CHART (Mini Sparklines) ===
-    var trendsHost = $("trends-charts");
-    trendsHost.innerHTML = "";
-
-    var trendsList = [
-      { key: "completion_7d", label: "Tamamlanma Eğilimi (7 gün)", color: "var(--series-1)" },
-      { key: "deadline_7d", label: "Tarih Uyumu Eğilimi (7 gün)", color: "var(--series-2)" },
-      { key: "success_7d", label: "Başarı Eğilimi (7 gün)", color: "var(--series-3)" }
-    ];
-
-    trendsList.forEach(function (trendItem) {
-      var trendData = trends[trendItem.key];
-      if (trendData && Array.isArray(trendData)) {
-        var trendCard = make("div", "trend-card");
-        var label = make("div", "trend-card__label", trendItem.label);
-        trendCard.appendChild(label);
-        var sparkline = make("div", "sparkline");
-        renderSparkline(sparkline, trendData, trendItem.color);
-        trendCard.appendChild(sparkline);
-        trendsHost.appendChild(trendCard);
-      }
-    });
+    // === TRENDS (7 days, three rates, one axis) ===
+    renderTrendChart(trends);
 
     // === ALERTS PANEL ===
     var alertsHost = $("alerts-panel");

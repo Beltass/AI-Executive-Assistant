@@ -114,6 +114,9 @@
 
   function emptyBox(host, message) {
     host.innerHTML = "";
+    // Drop any repaint callback a previous (non-empty) render left behind, so a
+    // resize cannot bring stale marks back on top of the empty state.
+    host.__aiaDraw = null;
     var box = document.createElement("p");
     box.className = "chart-empty";
     box.textContent = message || "Veri yok.";
@@ -283,8 +286,14 @@
       return Math.max(acc, s.points.length);
     }, 0);
 
-    if (!list.length || longest < 2) {
-      emptyBox(host, opts.empty || "Grafik için en az iki ölçüm gerekiyor.");
+    // Nothing at all and "only one reading" are different problems, and the
+    // empty state says which: a missing file is not a young history.
+    if (!list.length) {
+      emptyBox(host, opts.empty || "Veri yok.");
+      return;
+    }
+    if (longest < 2) {
+      emptyBox(host, opts.single || "Eğilim için en az iki ölçüm gerekiyor.");
       return;
     }
 
@@ -545,6 +554,10 @@
 
         var barH = narrow ? 12 : Math.min(16, rowH - 16);
         var marks = group("chart__marks chart__marks--h");
+        // Hit targets go in their OWN group appended last: painted under the
+        // bars they would never receive the pointer, and the tooltip (which is
+        // delegated off `[data-tip]`) would silently never fire.
+        var hits = group("chart__hits");
         rows.forEach(function (row, index) {
           var top = padT + index * rowH;
           var color = row.color || opts.color || SERIES[0];
@@ -571,7 +584,7 @@
           value.textContent = fmt(row.value);
           marks.appendChild(value);
 
-          svg.appendChild(
+          hits.appendChild(
             hoverable(
               el("rect", { class: "chart__hit", x: 0, y: top, width: W, height: rowH }),
               row.label + "\n" + fmt(row.value) + (row.note ? "\n" + row.note : "")
@@ -585,6 +598,7 @@
             x1: labelW, x2: labelW, y1: padT, y2: padT + rows.length * rowH
           })
         );
+        svg.appendChild(hits);
       } else {
         var H2 = opts.height || (W < 420 ? 180 : 210);
         var padT2 = 14;
@@ -610,6 +624,7 @@
         var band = plotW2 / rows.length;
         var colW = Math.min(24, Math.max(4, band - 6));
         var vmarks = group("chart__marks chart__marks--v");
+        var vhits = group("chart__hits");
         rows.forEach(function (row, index) {
           var x = padL2 + band * index + (band - colW) / 2;
           var h = (row.value / max) * plotH2;
@@ -620,7 +635,7 @@
               class: "chart__bar"
             })
           );
-          svg.appendChild(
+          vhits.appendChild(
             hoverable(
               el("rect", {
                 class: "chart__hit",
@@ -640,6 +655,7 @@
             x1: padL2, x2: W - padR2, y1: padT2 + plotH2, y2: padT2 + plotH2
           })
         );
+        svg.appendChild(vhits);
 
         var every = Math.max(1, Math.ceil(rows.length / Math.max(2, Math.floor(plotW2 / 60))));
         rows.forEach(function (row, index) {
@@ -818,9 +834,12 @@
       });
     if (data.length < 2) {
       host.innerHTML = "";
+      host.__aiaDraw = null;
       var none = document.createElement("span");
       none.className = "spark-empty";
-      none.textContent = opts.empty || "veri yok";
+      // Inline inside a metric card, so this is a span and not the boxed
+      // `.chart-empty` — same words, a size that fits where it lives.
+      none.textContent = opts.empty || "Veri yok.";
       host.appendChild(none);
       return;
     }
@@ -925,7 +944,7 @@
     });
 
     if (!rows.length || !cols || !any) {
-      emptyBox(host, opts.empty || "Henüz etkinlik verisi yok.");
+      emptyBox(host, opts.empty || "Veri yok.");
       return;
     }
 
@@ -934,7 +953,15 @@
       var rowLabels = opts.rowLabels || [];
       var colLabels = opts.colLabels || [];
       var gap = 2;
-      var labelW = rowLabels.length ? Math.ceil(textWidth("Cmt", 11)) + 8 : 0;
+      // Size the gutter to the WIDEST row label actually passed, not to a
+      // hard-coded sample: "Pazartesi" and "Pzt" want different gutters.
+      var labelW = rowLabels.length
+        ? Math.ceil(
+            rowLabels.reduce(function (acc, label) {
+              return Math.max(acc, textWidth(label, 11));
+            }, 0)
+          ) + 8
+        : 0;
       var headH = colLabels.length ? 16 : 0;
 
       var cell = Math.floor((W - labelW - gap) / cols) - gap;
@@ -1171,6 +1198,9 @@
         if (column.width) th.style.width = column.width;
 
         if (column.sortable === false) {
+          // Marked so the <640px chip row can drop it: a header with nothing
+          // to click is noise once the table has become a stack of cards.
+          th.className = (th.className ? th.className + " " : "") + "dtable__th--static";
           th.textContent = column.label;
         } else {
           var active = sort && sort.key === column.key;
@@ -1186,11 +1216,18 @@
           button.appendChild(arrow);
           button.title = "Sırala: " + column.label;
           button.addEventListener("click", function () {
-            var dir = active && sort.dir === "desc" ? "asc" : "desc";
-            if (active && sort.dir === "asc") dir = "desc";
-            host.__aiaSort = { key: column.key, dir: active ? (sort.dir === "desc" ? "asc" : "desc") : dir };
+            // First click on a column sorts biggest-first (what you want from a
+            // "who spends the most" table); clicking the active column flips it.
+            host.__aiaSort = {
+              key: column.key,
+              dir: active && sort.dir === "desc" ? "asc" : "desc"
+            };
             sort = host.__aiaSort;
             paint();
+            // Sorting is a keyboard action too: keep focus on the header the
+            // user just pressed instead of dumping it back to <body>.
+            var again = host.querySelector(".dtable__sort.is-active");
+            if (again) again.focus();
           });
           th.appendChild(button);
         }
@@ -1723,11 +1760,22 @@
   }
 
   global.AIACharts = {
+    /* v2 — responsive (viewBox at measured width), hoverable, empty-safe */
+    lineChart: lineChart,
+    barChart: barChart,
+    donutChart: donutChart,
+    sparkline: sparkline,
+    heatmap: heatmap,
+    dataTable: dataTable,
+
+    /* v1 — still rendered by app.js; fixed-viewBox but battle-tested */
     stackedRuns: stackedRuns,
     trend: trend,
     splitBar: splitBar,
     groupedShares: groupedShares,
     table: table,
+
+    /* formatting helper shared with the caller */
     compact: compact
   };
 })(typeof window !== "undefined" ? window : this);
