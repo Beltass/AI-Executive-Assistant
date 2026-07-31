@@ -241,6 +241,8 @@ def all_advisors() -> List[Advisor]:
     provider SDK eagerly and so a broken module cannot break discovery.
     """
     from .weather import WeatherAdvisor
+    from .mail_analyst import MailAnalystAdvisor
+    from .day_planner import DayPlannerAdvisor
     from .leadership_coach import LeadershipCoachAdvisor
     from .kids_development import KidsDevelopmentAdvisor
     from .career_hr import CareerHrAdvisor
@@ -259,6 +261,8 @@ def all_advisors() -> List[Advisor]:
 
     return [
         WeatherAdvisor(),
+        MailAnalystAdvisor(),
+        DayPlannerAdvisor(),
         LeadershipCoachAdvisor(),
         KidsDevelopmentAdvisor(),
         CareerHrAdvisor(),
