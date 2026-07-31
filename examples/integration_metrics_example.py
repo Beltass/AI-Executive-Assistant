@@ -20,9 +20,9 @@ import sys
 import os
 
 # Add src to path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from src.ai_assistant.integration_tracker import (
+from ai_assistant.integration_tracker import (
     check_integration_health,
     get_metrics,
     persist_metrics,
@@ -30,7 +30,7 @@ from src.ai_assistant.integration_tracker import (
     record_drive_document,
     record_slack_message,
 )
-from src.ai_assistant.status_report import IntegrationMetrics
+from ai_assistant.status_report import IntegrationMetrics
 
 
 def example_slack_tracking():
