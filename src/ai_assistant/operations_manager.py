@@ -16,18 +16,33 @@ Exits non-zero only when a *configured* advisor actually FAILED (mirroring
 By default the LLM-backed advisors share ONE batched model call
 (``DIGEST_BATCH_MODE``, see :mod:`ai_assistant.advisors._batch`); set it to
 ``false`` to go back to one call per advisor.
+
+After each advisor runs successfully, the manager automatically distributes
+the report to configured integrations:
+
+- **Slack Channels**: Posts to advisor-specific channels (SLACK_CHANNEL_<ADVISOR>)
+- **Asana**: Creates tasks from actionable items (ASANA_TOKEN)
+- **Google Drive**: Archives reports to Drive (GOOGLE_DRIVE_FOLDER_ID)
+
+All integrations degrade gracefully: failures are logged but never break the run.
 """
 
 from __future__ import annotations
 
+import json
+import logging
+import os
 import sys
 from dataclasses import dataclass, field
-from typing import List, Optional
+from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 from .advisors import Advisor, Briefing, all_advisors, is_quiet
 from .advisors._batch import run_batch
 from .config import MODE_FULL, briefing_mode, mode_label
 from .integrations import STATUS_FAILED, STATUS_OK, STATUS_SKIPPED, llm
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -80,11 +95,22 @@ class Supervision:
 
 
 class OperationsManager:
-    """Supervisor that registers and runs the advisor team."""
+    """Supervisor that registers and runs the advisor team.
+
+    After each advisor runs successfully, automatically distributes the report to:
+    - Slack channels (if SLACK_CHANNEL_<ADVISOR> configured)
+    - Asana projects (if ASANA_TOKEN configured)
+    - Google Drive (if GOOGLE_DRIVE_FOLDER_ID configured)
+
+    All integrations are optional and degrade gracefully on failure.
+    """
 
     def __init__(self, advisors: Optional[List[Advisor]] = None) -> None:
         # Auto-discover the full advisor team unless an explicit list is given.
         self.advisors: List[Advisor] = list(advisors) if advisors is not None else all_advisors()
+
+        # Distribution status tracking (per-advisor)
+        self.distribution_status: Dict[str, Dict[str, Any]] = {}
 
     def register(self, advisor: Advisor) -> None:
         """Add an advisor to the supervised team."""

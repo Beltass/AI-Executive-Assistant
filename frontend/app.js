@@ -36,7 +36,7 @@
   var CLOCK_MS = 20000; // how often the "x dk önce" label is recomputed
   var STALE_HOURS = 12; // older than this and we say so, loudly
 
-  var TABS = ["sistem", "icerik", "performans", "isler", "fikirler"];
+  var TABS = ["sistem", "icerik", "performans", "isler", "fikirler", "entegrasyonlar"];
   var DEFAULT_TAB = "sistem";
 
   var STATUS_LABEL = { ok: "Çalıştı", failed: "Hata", skipped: "Atlandı" };
@@ -1053,6 +1053,164 @@
   }
 
   /* ====================================================================== */
+  /* TAB 6 — 🔗 İntegrasyonlar & Bağlantılar                                */
+  /* ====================================================================== */
+
+  function renderIntegrationCard(title, emoji, items, color) {
+    var card = make("div", "integration-card integration-card--" + color);
+    var head = make("div", "integration-card__head");
+    head.appendChild(make("span", "integration-card__emoji", emoji));
+    head.appendChild(make("h3", "integration-card__title", title));
+    card.appendChild(head);
+
+    var body = make("div", "integration-card__body");
+    items.forEach(function (item) {
+      var row = make("div", "integration-item");
+      row.appendChild(make("span", "integration-item__label", item.label));
+      row.appendChild(make("span", "integration-item__value", item.value));
+      if (item.status) {
+        row.appendChild(make("span", "integration-item__status integration-item__status--" + item.status,
+          item.status === "ok" ? "✓" : (item.status === "warning" ? "⚠" : "✗")));
+      }
+      body.appendChild(row);
+    });
+    card.appendChild(body);
+    return card;
+  }
+
+  function renderEntegrasyonlar() {
+    var data = state.status;
+    if (!data) return;
+
+    var integrations = (data.integrations || {});
+    var slack = integrations.slack || {};
+    var asana = integrations.asana || {};
+    var drive = integrations.drive || {};
+    var distribution = integrations.distribution || {};
+
+    var host = $("integrations-grid");
+    host.innerHTML = "";
+
+    // Slack Channels
+    var slackItems = [
+      {
+        label: "Yapılandırılmış kanallar",
+        value: slack.configured_channels || "0"
+      },
+      {
+        label: "Son ileti",
+        value: slack.last_post ? relativeTime(slack.last_post) : "Hiçbir zaman",
+        status: (slack.failures && slack.failures.length) ? "error" : "ok"
+      }
+    ];
+    if (slack.failures && slack.failures.length) {
+      slackItems.push({
+        label: "Hatalar",
+        value: slack.failures.join(", "),
+        status: "error"
+      });
+    }
+    host.appendChild(renderIntegrationCard("Slack Kanalları", "💬", slackItems, "slack"));
+
+    // Asana Projects
+    var asanaItems = [
+      {
+        label: "Aktif projeler",
+        value: asana.projects || "0"
+      },
+      {
+        label: "Toplam görev",
+        value: asana.tasks || "0"
+      },
+      {
+        label: "Son güncelleme",
+        value: asana.last_update ? relativeTime(asana.last_update) : "—",
+        status: (asana.failures && asana.failures.length) ? "error" : "ok"
+      }
+    ];
+    if (asana.workspace_url) {
+      asanaItems.push({
+        label: "Çalışma alanı",
+        value: "Asana'da aç"
+      });
+    }
+    if (asana.failures && asana.failures.length) {
+      asanaItems.push({
+        label: "Hatalar",
+        value: asana.failures.join(", "),
+        status: "error"
+      });
+    }
+    host.appendChild(renderIntegrationCard("Asana Projeleri", "📌", asanaItems, "asana"));
+
+    // Google Drive
+    var driveItems = [
+      {
+        label: "Toplam belgeler",
+        value: drive.total_docs || "0"
+      },
+      {
+        label: "Arşiv belgeleri",
+        value: (drive.archive_docs || "0") + " / " + (drive.total_docs || "0")
+      },
+      {
+        label: "Son senkronizasyon",
+        value: drive.last_sync ? relativeTime(drive.last_sync) : "—",
+        status: (drive.failures && drive.failures.length) ? "error" : "ok"
+      }
+    ];
+    if (drive.folder_size) {
+      driveItems.push({
+        label: "Klasör boyutu",
+        value: drive.folder_size
+      });
+    }
+    if (drive.failures && drive.failures.length) {
+      driveItems.push({
+        label: "Hatalar",
+        value: drive.failures.join(", "),
+        status: "error"
+      });
+    }
+    host.appendChild(renderIntegrationCard("Google Drive", "📁", driveItems, "drive"));
+
+    // Distribution Status
+    var distItems = [
+      {
+        label: "Toplam dağıtım",
+        value: distribution.total_attempts || "0"
+      },
+      {
+        label: "Başarılı",
+        value: distribution.success_count || "0",
+        status: "ok"
+      },
+      {
+        label: "Başarısız",
+        value: distribution.failure_count || "0",
+        status: (distribution.failure_count && distribution.failure_count > 0) ? "error" : "ok"
+      }
+    ];
+    if (distribution.failed_advisors && distribution.failed_advisors.length) {
+      distItems.push({
+        label: "Başarısız ajanlar",
+        value: distribution.failed_advisors.join(", "),
+        status: "error"
+      });
+    }
+    if (distribution.last_attempt) {
+      distItems.push({
+        label: "Son deneme",
+        value: relativeTime(distribution.last_attempt)
+      });
+    }
+    host.appendChild(renderIntegrationCard("Dağıtım Durumu", "📤", distItems, "distribution"));
+
+    show($("entegrasyonlar-empty"), false);
+    show($("entegrasyonlar-body"), true);
+  }
+
+  /* ====================================================================== */
   /* routing                                                                */
   /* ====================================================================== */
 
@@ -1251,6 +1409,7 @@
     renderSistem();
     renderPerformans();
     renderIsler();
+    renderEntegrasyonlar();
     updateFreshness();
   }
 
