@@ -254,6 +254,7 @@ def all_advisors() -> List[Advisor]:
     from .daily_ops_briefing import DailyOpsBriefingAdvisor
     from .language_coach import LanguageCoachAdvisor
     from .anka_bridge import AnkaBridgeAdvisor
+    from .innovation_lab import InnovationLabAdvisor
     from .accountability_coach import AccountabilityCoachAdvisor
 
     return [
@@ -271,6 +272,7 @@ def all_advisors() -> List[Advisor]:
         DailyOpsBriefingAdvisor(),
         LanguageCoachAdvisor(),
         AnkaBridgeAdvisor(),
+        InnovationLabAdvisor(),
         # LAST on purpose: the accountability coach consolidates the OTHER
         # advisors' "✅ Bugünün görevi" items, so it must see them first.
         AccountabilityCoachAdvisor(),
