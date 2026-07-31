@@ -18,6 +18,7 @@ from .integrations import (
     STATUS_FAILED,
     STATUS_OK,
     STATUS_SKIPPED,
+    asana,
     gmail,
     google_calendar,
     google_drive,
@@ -36,6 +37,7 @@ CHECKS: List[Callable[[], CheckResult]] = [
     todoist.check_connection,
     notion.check_connection,
     llm.check_connection,
+    asana.check_connection,
 ]
 
 
