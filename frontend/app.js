@@ -919,6 +919,35 @@
           return "";
         };
 
+  // Mirrors ai_assistant.reports._HEADLINE_RE: the explicit "**Öne çıkan:** …"
+  // marker line, decoration and all, so it can be recognised at the START of
+  // a raw markdown blob.
+  var HEADLINE_LINE_RE = /^[\s>#*\-+_`•·]*(?:o|ö)ne\s*(?:c|ç)(?:i|ı)kan(?:\s+bulgu)?\s*[:\-–—]/i;
+
+  /**
+   * Drop a leading "Öne çıkan:" line from a SCHEMA 1 document's raw markdown.
+   *
+   * A schema 2 document never needs this: the Python side already lifts that
+   * sentence into `headline` and removes it from the derived `sections`. A
+   * schema 1 archive never went through that split, so its `markdown` still
+   * opens with the same line `doc-lead` already shows above it — without this,
+   * every legacy report in the archive prints its lead sentence twice, one
+   * line apart. Only that one line is ever removed; the rest of the body,
+   * including a first sentence with no such marker, is untouched.
+   */
+  function stripLeadingHeadlineLine(markdown) {
+    var text = String(markdown || "");
+    var lines = text.split("\n");
+    for (var i = 0; i < lines.length; i += 1) {
+      if (!lines[i].trim()) continue;
+      if (HEADLINE_LINE_RE.test(lines[i])) {
+        return lines.slice(i + 1).join("\n").replace(/^\n+/, "");
+      }
+      break;
+    }
+    return text;
+  }
+
   /** A document's list field, or [] — an old document simply has none. */
   function docList(doc, name) {
     var value = doc ? doc[name] : null;
@@ -1058,9 +1087,13 @@
     var sections = docList(doc, "sections");
 
     if (!sections.length) {
-      // Schema 1, or an advisor that wrote nothing but prose.
+      // Schema 1, or an advisor that wrote nothing but prose. The lead above
+      // already shows the headline, so a schema 1 blob that opens with the
+      // same explicit marker line must not print that sentence twice.
       var prose = make("div", "doc-prose");
-      prose.innerHTML = renderMarkdown(doc.markdown || "");
+      var raw = doc.markdown || "";
+      if (doc.headline) raw = stripLeadingHeadlineLine(raw);
+      prose.innerHTML = renderMarkdown(raw);
       host.appendChild(prose);
       return;
     }

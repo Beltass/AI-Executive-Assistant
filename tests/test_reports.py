@@ -327,6 +327,252 @@ def test_read_minutes_never_reaches_zero():
     assert reports.read_minutes(1000) == 5
 
 
+# --- structured schema: key metrics, sections, action items, sources --------
+
+
+def test_derive_key_metrics_reads_only_the_labelled_figure_shape():
+    text = (
+        "**Sıcaklık:** 23 °C ↑\n"
+        "- **Nem:** 61 % →\n"
+        "Rüzgar hızı bugün oldukça yüksek olacak.\n"
+        "**Basınç:** 1012 hPa ↓\n"
+    )
+    metrics = reports.derive_key_metrics(text)
+    assert [m.label for m in metrics] == ["Sıcaklık", "Nem", "Basınç"]
+    assert metrics[0].value == "23"
+    assert metrics[0].unit == "°C"
+    assert metrics[0].trend == "up"
+    assert metrics[1].trend == "flat"
+    assert metrics[2].trend == "down"
+
+
+def test_derive_key_metrics_ignores_running_prose():
+    text = "Bugün üç toplantı var ve saat 14:00'te bir görüşme planlandı."
+    assert reports.derive_key_metrics(text) == []
+
+
+def test_derive_key_metrics_caps_and_dedupes_by_label():
+    lines = "\n".join(f"**Gösterge {i}:** {i} birim" for i in range(10))
+    lines += f"\n**Gösterge 0:** 999 birim"  # a repeat of the first label
+    metrics = reports.derive_key_metrics(lines)
+    assert len(metrics) == reports.MAX_KEY_METRICS
+    assert metrics[0].value == "0"  # the first occurrence wins, not the repeat
+
+
+def test_extract_sources_prefers_link_labels_and_dedupes_by_url():
+    text = (
+        "Bkz. [Gartner](https://www.gartner.com/report) için detaylar. "
+        "Ayrıca https://www.gartner.com/report tekrar geçiyor. "
+        "Ham bağlantı: https://example.com/whitepaper.pdf"
+    )
+    sources = reports.extract_sources(text)
+    assert [s.url for s in sources] == [
+        "https://www.gartner.com/report",
+        "https://example.com/whitepaper.pdf",
+    ]
+    assert sources[0].title == "Gartner"
+    assert sources[1].title == "example.com"  # bare URL titled by its domain
+
+
+def test_extract_sources_caps_at_the_configured_limit():
+    text = "\n".join(f"https://example.com/{i}" for i in range(reports.MAX_SOURCES + 5))
+    sources = reports.extract_sources(text)
+    assert len(sources) == reports.MAX_SOURCES
+
+
+def test_split_sections_lifts_the_task_heading_into_action_items():
+    text = (
+        "**Öne çıkan:** Ritmi sabitle.\n\n"
+        "Açılış paragrafı burada.\n\n"
+        "#### ✅ Bugünün görevi\n"
+        "- Ekip toplantısını planla (son tarih: bugün) (sorumlu: Sen)\n"
+        "- Notları paylaş\n\n"
+        "## Ek düşünceler\n"
+        "Bu bölüm sıradan metin olarak kalır.\n"
+    )
+    sections, actions, sources = reports.split_sections(text)
+
+    assert len(actions) == 2
+    assert actions[0].text == "Ekip toplantısını planla"
+    assert actions[0].deadline == "bugün"
+    assert actions[0].owner == "Sen"
+    assert actions[1].text == "Notları paylaş"
+
+    # The action heading itself never becomes a body section, but everything
+    # else the advisor wrote keeps its place.
+    titles = [s.title for s in sections]
+    assert "Ek düşünceler" in titles
+    assert not any("görevi" in (t or "").lower() for t in titles)
+
+    # The opening "Öne çıkan" line is dropped from the section body — it is
+    # already the document's lead — but the rest of the opening paragraph stays.
+    assert sections[0].title == ""
+    assert "Açılış paragrafı burada." in sections[0].body
+    assert "Öne çıkan" not in sections[0].body
+
+
+def test_split_sections_lifts_a_sources_heading_into_the_reference_list():
+    text = (
+        "Gövde metni.\n\n"
+        "## Kaynaklar\n"
+        "- **Kuruluş:** *Harvard Business Review* — müşteri sadakati stratejileri "
+        "[makale](https://hbr.org/article)\n"
+        "- [McKinsey](https://mckinsey.com/insight)\n"
+    )
+    sections, actions, sources = reports.split_sections(text)
+    assert not actions
+    assert [s.url for s in sources] == [
+        "https://hbr.org/article",
+        "https://mckinsey.com/insight",
+    ]
+    assert sources[0].note == "müşteri sadakati stratejileri"
+    assert not any((s.title or "").lower() == "kaynaklar" for s in sections)
+
+
+def test_split_sections_with_no_headings_is_one_untitled_section():
+    """A report with zero headings must render exactly as it always did."""
+    text = "**Öne çıkan:** Kısa bulgu.\n\nSade bir paragraf, başlıksız."
+    sections, actions, sources = reports.split_sections(text)
+    assert not actions
+    assert not sources
+    assert len(sections) == 1
+    assert sections[0].title == ""
+    assert "Sade bir paragraf" in sections[0].body
+
+
+def test_coerce_helpers_prefer_advisor_supplied_structure_over_derivation():
+    """An advisor that hands over its own structure wins; nothing is derived."""
+    from types import SimpleNamespace
+
+    briefing = SimpleNamespace(
+        key="market_intelligence",
+        title="Piyasa İstihbaratı",
+        status=STATUS_OK,
+        text="**Öne çıkan:** Metinden türetilecek başlık.\n\nGövde metni burada.",
+        report={
+            "headline": "Advisor'ın kendi başlığı.",
+            "key_metrics": [{"label": "Endeks", "value": "1234", "trend": "up"}],
+            "action_items": ["Bugün fiyat listesini gözden geçir (deadline: yarın)"],
+            "sources": ["https://www.imf.org/reports"],
+        },
+    )
+    report = reports.build_report(briefing, "2026-07-31", NOW)
+
+    assert report.headline == "Advisor'ın kendi başlığı."
+    assert [m.label for m in report.key_metrics] == ["Endeks"]
+    assert report.key_metrics[0].trend == "up"
+    assert [a.text for a in report.action_items] == [
+        "Bugün fiyat listesini gözden geçir"
+    ]
+    assert report.action_items[0].deadline == "yarın"
+    assert [s.url for s in report.sources] == ["https://www.imf.org/reports"]
+
+
+def test_build_report_falls_back_to_derivation_when_nothing_is_supplied():
+    """Every advisor of the current roster: prose only, still a full document."""
+    report = reports.build_report(_briefing(), "2026-07-31", NOW)
+    assert report.sections
+    assert report.sources  # the Coursera link in SECTION
+    assert report.headline == "Ekibinin haftalık ritmini 20 dakikalık bir kontrol"
+
+
+# --- markdown export (Drive / Slack previews) --------------------------------
+
+
+def test_render_markdown_document_mirrors_the_reading_view_structure():
+    report = reports.build_report(
+        _briefing(
+            text=(
+                "**Öne çıkan:** Ritmi sabitle.\n\n"
+                "**Sıcaklık:** 23 °C ↑\n\n"
+                "## Neden önemli\n"
+                "Gövde metni burada.\n\n"
+                "#### ✅ Bugünün görevi\n"
+                "- Ekip toplantısını planla (son tarih: bugün)\n\n"
+                "## Kaynaklar\n"
+                "- **Kuruluş:** *Gartner* — piyasa analizi "
+                "[rapor](https://www.gartner.com/report)\n"
+            )
+        ),
+        "2026-07-31",
+        NOW,
+    )
+    markdown = report.to_markdown()
+
+    # Title block.
+    assert markdown.startswith(f"# {report.emoji} {report.name}")
+    assert "**Tarih:** 2026-07-31" in markdown
+    assert "**Öne çıkan:** Ritmi sabitle." in markdown
+
+    # A real Markdown table for the key metrics, not a prose recap.
+    assert "## Öne çıkan göstergeler" in markdown
+    assert "| Gösterge | Değer | Eğilim |" in markdown
+    assert "| Sıcaklık | 23 °C | ↑ |" in markdown
+
+    # The body section survives verbatim.
+    assert "## Neden önemli" in markdown
+    assert "Gövde metni burada." in markdown
+
+    # The action checklist renders as real Markdown checkboxes.
+    assert "## Aksiyonlar" in markdown
+    assert "- [ ] Ekip toplantısını planla" in markdown
+    assert "(son tarih: bugün)" in markdown
+
+    # The sources list is numbered and keeps the advisor's note.
+    assert "## Kaynaklar" in markdown
+    assert (
+        "1. [Kuruluş: Gartner](https://www.gartner.com/report) — piyasa analizi"
+        in markdown
+    )
+
+    # A generation stamp closes the document.
+    assert "Hazırlanma:" in markdown
+
+
+def test_render_markdown_document_degrades_cleanly_for_prose_only_input():
+    """The Drive export of a plain report is still one clean file, not a dump."""
+    report = reports.build_report(
+        _briefing(text="Sade bir paragraf, hiç başlık veya liste yok."),
+        "2026-07-31",
+        NOW,
+    )
+    markdown = report.to_markdown()
+    assert "Sade bir paragraf" in markdown
+    assert "## Öne çıkan göstergeler" not in markdown  # nothing to tabulate
+    assert "## Aksiyonlar" not in markdown
+    assert "## Kaynaklar" not in markdown
+
+
+def test_published_document_carries_every_structured_field():
+    report = reports.build_report(_briefing(), "2026-07-31", NOW)
+    document = report.document()
+    assert document["schema_version"] == reports.SCHEMA_VERSION
+    for field in ("key_metrics", "sections", "action_items", "sources", "meta"):
+        assert field in document
+    assert isinstance(document["sections"], list) and document["sections"]
+
+
+def test_real_archived_legacy_reports_have_no_structured_fields():
+    """Locks in the assumption the frontend degrades against: a day published
+    before schema 2 existed is a bare markdown blob, nothing more."""
+    import glob
+    import os
+
+    root = os.path.join(
+        os.path.dirname(__file__), "..", "frontend", "reports", "2026-07-30"
+    )
+    files = sorted(glob.glob(os.path.join(root, "*.json")))
+    files = [f for f in files if not f.endswith("index.json")]
+    assert len(files) >= 2, "expected at least two real legacy documents on disk"
+    for path in files:
+        with open(path, encoding="utf-8") as fh:
+            data = json.load(fh)
+        assert data.get("schema_version") == 1
+        assert "markdown" in data
+        for field in ("key_metrics", "sections", "action_items", "sources"):
+            assert field not in data
+
+
 # --- pruning ----------------------------------------------------------------
 
 

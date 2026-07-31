@@ -274,6 +274,139 @@ def test_no_secret_shaped_string_is_hardcoded_in_the_frontend():
         assert "hooks.slack.com" not in body
 
 
+# --- reading view (per-advisor report document) ------------------------------
+
+
+def test_the_reading_view_has_a_title_block_lead_metrics_body_and_blocks(html):
+    """Every element the structured document renderer reaches for exists."""
+    for element_id in [
+        "doc-kicker",
+        "doc-emoji",
+        "doc-title",
+        "doc-meta",
+        "doc-facts",
+        "doc-lead",
+        "doc-metrics",
+        "doc-body",
+        "doc-actions",
+        "doc-actions-list",
+        "doc-sources",
+        "doc-sources-list",
+        "doc-stamp",
+        "doc-print",
+        "doc-back-day",
+    ]:
+        assert f'id="{element_id}"' in html
+
+
+def test_the_action_checklist_renders_deadline_and_owner_as_badges(app):
+    """Gap check: the schema's ActionItem.deadline/owner must reach the DOM,
+    not stop at the JSON — a deadline is a badge, never plain trailing text."""
+    block = app.split("function renderDocActions(doc)", 1)[1].split(
+        "\n  function ", 1
+    )[0]
+    assert "checklist__item" in block
+    assert "badge--deadline" in block
+    assert "badge--owner" in block
+    assert "📅" in block and "👤" in block
+
+
+def test_schema_1_archives_do_not_repeat_the_headline_inside_the_body(app):
+    """A legacy (schema 1) document has no `sections`, so its raw markdown
+    still opens with the same "Öne çıkan:" line `doc-lead` already shows.
+    Without stripping it, every report published before schema 2 existed
+    prints its lead sentence twice, one line apart."""
+    assert "function stripLeadingHeadlineLine(markdown)" in app
+    assert "HEADLINE_LINE_RE" in app
+    block = app.split("function renderDocBody(doc)", 1)[1].split("sections.forEach", 1)[0]
+    assert "stripLeadingHeadlineLine" in block
+
+
+def test_strip_leading_headline_line_only_drops_the_explicit_marker():
+    """Executes the real regex/function under node — not just a string check.
+
+    Only the leading, EXPLICIT "Öne çıkan:" marker line is ever removed; a
+    schema 1 body with no such marker (the common case: a plain first
+    sentence with no bolded lead) must be returned untouched, or a legacy
+    report with no explicit marker would silently lose its opening line.
+    """
+    if shutil_which_node() is None:
+        pytest.skip("node is not installed")
+    body = APP.read_text(encoding="utf-8")
+    func_match = re.search(
+        r"function stripLeadingHeadlineLine\(markdown\) \{.*?\n  \}\n", body, re.DOTALL
+    )
+    re_match = re.search(r"var HEADLINE_LINE_RE = .*?;\n", body)
+    assert func_match and re_match
+
+    script = (
+        re_match.group(0)
+        + func_match.group(0)
+        + "var cases = JSON.parse(require('fs').readFileSync(0, 'utf8'));"
+        + "process.stdout.write(JSON.stringify(cases.map(stripLeadingHeadlineLine)));"
+    )
+    result = subprocess.run(
+        ["node", "-e", script],
+        input=json.dumps(
+            [
+                "**Öne çıkan:** Ritmi sabitle.\n\nDevamı burada.",
+                "Öne çıkan: Ritmi sabitle.\nDevamı burada.",
+                "Sıradan bir ilk cümle, işaret yok.\nDevamı burada.",
+                "",
+            ]
+        ),
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    assert result.returncode == 0, result.stderr
+    out = json.loads(result.stdout)
+    assert out[0] == "Devamı burada."
+    assert out[1] == "Devamı burada."
+    # No marker line at all: the whole body must survive unchanged.
+    assert out[2] == "Sıradan bir ilk cümle, işaret yok.\nDevamı burada."
+    assert out[3] == ""
+
+
+def test_print_stylesheet_hides_the_app_chrome_and_forces_ink_on_white(css):
+    assert "@media print" in css
+    block = css.split("@media print {", 1)[1]
+    # The shell never survives to paper: nav, tab bar, buttons, banners.
+    for selector in [".topbar", ".tabbar", ".banner", ".doc-nav", ".no-print"]:
+        assert selector in block
+    # A dark theme printed as-is wastes a cartridge and reads worse — colours
+    # are forced to ink on white regardless of which theme was active.
+    assert "#ffffff" in block and "#000000" in block
+    # Sensible page breaks: a card must not split mid-block, a heading must
+    # not end a page with nothing under it.
+    assert "break-inside: avoid" in block
+    assert "break-after: avoid" in block
+
+
+def test_mobile_reading_view_stays_single_column_at_375px(css):
+    """The prose measure is capped for readability, and the phone breakpoint
+    covers a 375px viewport comfortably (the common iPhone width)."""
+    assert "max-width: 68ch" in css
+    assert "@media (max-width: 480px)" in css
+    mobile = css.split("@media (max-width: 480px)", 1)[1].split("@media", 1)[0]
+    assert ".doc " in mobile or ".doc {" in mobile
+    assert ".doc__metrics" in mobile
+
+
+def test_a_sections_table_degrades_through_the_shared_data_table_builder(app):
+    """A section's `table` spec must go through the same `dataTable` that
+    already collapses to a card stack below 640px — not a bespoke markup."""
+    assert "function mountSectionTable(host, spec)" in app
+    block = app.split("function mountSectionTable(host, spec)", 1)[1].split(
+        "function mountSectionChart", 1
+    )[0]
+    assert "charts.dataTable" in block
+
+
+def shutil_which_node():
+    return shutil.which("node")
+
+
 # --- charts.js under node ---------------------------------------------------
 
 node_only = pytest.mark.skipif(
