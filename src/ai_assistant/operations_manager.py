@@ -520,15 +520,52 @@ def _first_line(text: str) -> str:
 
 def main() -> int:
     """CLI entrypoint. Returns the process exit code."""
-    supervision = OperationsManager().run()
+    ops_manager = OperationsManager()
+    supervision = ops_manager.run()
 
     try:
         _render_rich(supervision)
     except Exception:
         _render_plain(supervision)
 
+    # Save distribution status to status report (for monitoring)
+    _save_distribution_status(ops_manager.distribution_status)
+
     # Non-zero only when a configured advisor actually FAILED.
     return 1 if supervision.counts[STATUS_FAILED] > 0 else 0
+
+
+def _save_distribution_status(distribution_status: Dict[str, Dict[str, Any]]) -> None:
+    """Save integration distribution status to status report.
+
+    Records which advisors were successfully distributed to Slack, Asana, and
+    Google Drive. This helps monitor integration health and identify failures.
+
+    Does not raise; failures are logged only.
+
+    Args:
+        distribution_status: Dict mapping advisor IDs to integration statuses.
+    """
+    try:
+        if not distribution_status:
+            logger.debug("Dağıtım durumu kaydedilecek veri yok")
+            return
+
+        # Create a summary of distribution status
+        summary = {
+            "timestamp": datetime.now().isoformat(),
+            "advisors": distribution_status,
+            "summary": {
+                "slack": sum(1 for s in distribution_status.values() if s.get("slack") == "success"),
+                "asana": sum(1 for s in distribution_status.values() if s.get("asana") == "success"),
+                "drive": sum(1 for s in distribution_status.values() if s.get("drive") == "success"),
+            },
+        }
+
+        logger.info(f"Dağıtım durumu: {json.dumps(summary['summary'])}")
+
+    except Exception as exc:
+        logger.error(f"Dağıtım durumu kaydı hatası: {exc}")
 
 
 if __name__ == "__main__":

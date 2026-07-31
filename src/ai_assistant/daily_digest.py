@@ -102,9 +102,7 @@ def build_digest(supervision: Supervision | None = None) -> Digest:
     return Digest(text="\n".join(lines), supervision=supervision)
 
 
-def distribute_digest_by_channel(
-    supervision: Supervision, briefing_json: Optional[str] = None
-) -> dict:
+def distribute_digest_by_channel(supervision: Supervision) -> dict:
     """Distribute digest to multi-channel Slack by advisor.
 
     Posts the briefing summary to SLACK_MAIN_CHANNEL and each advisor's report
@@ -113,14 +111,14 @@ def distribute_digest_by_channel(
 
     Args:
         supervision: The Supervision object containing briefings and metadata.
-        briefing_json: Optional pre-built briefing JSON for reference.
 
     Returns:
         A distribution result dictionary with keys:
-            - "main_channel": CheckResult for main channel post
-            - "advisor_channels": dict of advisor_key -> CheckResult
+            - "main_channel": result status for main channel post
+            - "advisor_channels": dict of advisor_key -> result status
             - "summary": Human-readable summary of distribution
     """
+    from .integrations._common import failed, http_post, ok, skipped_reason
     from .integrations.channel_config import get_channel_config
     from .integrations.slack_channels import SlackChannelNotifier
 
@@ -143,74 +141,18 @@ def distribute_digest_by_channel(
     main_channel = config.main_channel or os.getenv("SLACK_CHANNEL", "").strip()
     if main_channel:
         logger.info(f"Distributing briefing summary to main channel: {main_channel}")
-        # Build a brief summary for main channel
-        summary_text = _build_channel_summary(supervision)
-        try:
-            # Use the notifier's _send method to post to main channel
-            from .integrations._common import ok, failed
-
-            payload = {
-                "channel": main_channel,
-                "text": f"🗓️ {date.today().strftime('%d.%m.%Y')} — Günlük Brifing Özeti",
-                "blocks": _build_summary_blocks(supervision, summary_text),
-            }
-            if notifier.webhook_url:
-                from .integrations._common import http_post
-
-                resp = http_post(notifier.webhook_url, json=payload)
-                if resp.is_success:
-                    data = resp.json()
-                    if data.get("ok"):
-                        result["main_channel"] = ok("Slack Main Channel", main_channel)
-                        logger.info(f"Main channel post succeeded: {main_channel}")
-                    else:
-                        error = data.get("error", "unknown")
-                        result["main_channel"] = failed("Slack Main Channel", error)
-                        logger.error(f"Main channel post failed: {error}")
-                else:
-                    result["main_channel"] = failed("Slack Main Channel", f"HTTP {resp.status_code}")
-                    logger.error(f"Main channel HTTP error: {resp.status_code}")
-            elif notifier.bot_token:
-                from .integrations._common import http_post
-
-                resp = http_post(
-                    "https://slack.com/api/chat.postMessage",
-                    headers={"Authorization": f"Bearer {notifier.bot_token}"},
-                    json=payload,
-                )
-                try:
-                    data = resp.json()
-                    if data.get("ok"):
-                        result["main_channel"] = ok("Slack Main Channel", main_channel)
-                        logger.info(f"Main channel post succeeded: {main_channel}")
-                    else:
-                        error = data.get("error", "unknown")
-                        result["main_channel"] = failed("Slack Main Channel", error)
-                        logger.error(f"Main channel post failed: {error}")
-                except Exception:
-                    result["main_channel"] = failed(
-                        "Slack Main Channel", f"HTTP {resp.status_code}: non-JSON response"
-                    )
-                    logger.error(f"Main channel JSON error: {resp.status_code}")
-            else:
-                result["main_channel"] = failed(
-                    "Slack Main Channel", "No webhook URL or bot token configured"
-                )
-                logger.warning("No Slack credentials configured for main channel post")
-        except Exception as exc:
-            result["main_channel"] = failed("Slack Main Channel", str(exc))
-            logger.error(f"Error posting to main channel: {exc}")
+        result["main_channel"] = _post_to_main_channel(
+            notifier, main_channel, supervision
+        )
+    else:
+        logger.warning("No main channel configured for briefing summary")
 
     # Distribute each advisor's report to their specific channel
-    from . import reports
-
-    publication = reports.Publication()  # This will be populated by the caller if needed
-
     for briefing in supervision.briefings:
         advisor_key = briefing.key
         advisor_title = briefing.title
 
-        # Skip private or non-OK briefings for channel distribution
+        # Skip non-OK briefings for channel distribution
         if briefing.status != STATUS_OK:
             logger.debug(f"Skipping {advisor_title}: status is {briefing.status}")
             continue
@@ -222,70 +164,9 @@ def distribute_digest_by_channel(
             continue
 
         logger.info(f"Distributing {advisor_title} to channel: {channel}")
-
-        try:
-            # Build advisor-specific message
-            advisor_blocks = _build_advisor_blocks(briefing)
-            payload = {
-                "channel": channel,
-                "text": f"{briefing.title}",
-                "blocks": advisor_blocks,
-            }
-
-            if notifier.webhook_url:
-                from .integrations._common import http_post
-
-                resp = http_post(notifier.webhook_url, json=payload)
-                if resp.is_success:
-                    data = resp.json()
-                    if data.get("ok"):
-                        result["advisor_channels"][advisor_key] = ok(
-                            f"Slack ({advisor_title})", channel
-                        )
-                        logger.info(f"Advisor channel post succeeded: {advisor_title} → {channel}")
-                    else:
-                        error = data.get("error", "unknown")
-                        result["advisor_channels"][advisor_key] = failed(
-                            f"Slack ({advisor_title})", error
-                        )
-                        logger.error(f"Advisor channel post failed ({advisor_title}): {error}")
-                else:
-                    result["advisor_channels"][advisor_key] = failed(
-                        f"Slack ({advisor_title})", f"HTTP {resp.status_code}"
-                    )
-                    logger.error(f"Advisor HTTP error ({advisor_title}): {resp.status_code}")
-            elif notifier.bot_token:
-                from .integrations._common import http_post
-
-                resp = http_post(
-                    "https://slack.com/api/chat.postMessage",
-                    headers={"Authorization": f"Bearer {notifier.bot_token}"},
-                    json=payload,
-                )
-                try:
-                    data = resp.json()
-                    if data.get("ok"):
-                        result["advisor_channels"][advisor_key] = ok(
-                            f"Slack ({advisor_title})", channel
-                        )
-                        logger.info(f"Advisor channel post succeeded: {advisor_title} → {channel}")
-                    else:
-                        error = data.get("error", "unknown")
-                        result["advisor_channels"][advisor_key] = failed(
-                            f"Slack ({advisor_title})", error
-                        )
-                        logger.error(f"Advisor channel post failed ({advisor_title}): {error}")
-                except Exception:
-                    result["advisor_channels"][advisor_key] = failed(
-                        f"Slack ({advisor_title})", f"HTTP {resp.status_code}: non-JSON"
-                    )
-                    logger.error(f"Advisor JSON error ({advisor_title}): {resp.status_code}")
-
-        except Exception as exc:
-            result["advisor_channels"][advisor_key] = failed(
-                f"Slack ({advisor_title})", str(exc)
-            )
-            logger.error(f"Error distributing {advisor_title} to {channel}: {exc}")
+        result["advisor_channels"][advisor_key] = _post_to_advisor_channel(
+            notifier, channel, briefing
+        )
 
     # Build summary
     succeeded = sum(
@@ -293,14 +174,126 @@ def distribute_digest_by_channel(
         for v in result["advisor_channels"].values()
         if v and getattr(v, "status", "") == STATUS_OK
     )
-    if result["main_channel"] and getattr(result["main_channel"], "status", "") == STATUS_OK:
+    main_ok = (
+        result["main_channel"]
+        and getattr(result["main_channel"], "status", "") == STATUS_OK
+    )
+
+    if main_ok:
         result["summary"] = (
             f"Multi-channel distribution: main channel + {succeeded} advisor channels"
         )
-    else:
+    elif succeeded > 0:
         result["summary"] = f"Partial distribution: {succeeded} advisor channels"
+    else:
+        result["summary"] = "No channels posted"
 
     return result
+
+
+def _post_to_main_channel(
+    notifier: "SlackChannelNotifier", channel: str, supervision: Supervision
+) -> object:
+    """Post briefing summary to main channel. Returns CheckResult."""
+    from .integrations._common import failed, http_post, ok
+
+    try:
+        summary_text = _build_channel_summary(supervision)
+        payload = {
+            "channel": channel,
+            "text": f"🗓️ {date.today().strftime('%d.%m.%Y')} — Günlük Brifing Özeti",
+            "blocks": _build_summary_blocks(supervision, summary_text),
+        }
+
+        if notifier.webhook_url:
+            resp = http_post(notifier.webhook_url, json=payload)
+            if resp.is_success:
+                data = resp.json()
+                if data.get("ok"):
+                    logger.info(f"Main channel post succeeded: {channel}")
+                    return ok("Slack Main Channel", channel)
+                error = data.get("error", "unknown")
+                logger.error(f"Main channel post failed: {error}")
+                return failed("Slack Main Channel", error)
+            logger.error(f"Main channel HTTP error: {resp.status_code}")
+            return failed("Slack Main Channel", f"HTTP {resp.status_code}")
+
+        if notifier.bot_token:
+            resp = http_post(
+                "https://slack.com/api/chat.postMessage",
+                headers={"Authorization": f"Bearer {notifier.bot_token}"},
+                json=payload,
+            )
+            try:
+                data = resp.json()
+                if data.get("ok"):
+                    logger.info(f"Main channel post succeeded: {channel}")
+                    return ok("Slack Main Channel", channel)
+                error = data.get("error", "unknown")
+                logger.error(f"Main channel post failed: {error}")
+                return failed("Slack Main Channel", error)
+            except Exception as exc:
+                logger.error(f"Main channel JSON error: {exc}")
+                return failed("Slack Main Channel", f"HTTP {resp.status_code}: non-JSON")
+
+        logger.warning("No Slack credentials for main channel post")
+        return failed("Slack Main Channel", "No credentials configured")
+
+    except Exception as exc:
+        logger.error(f"Error posting to main channel: {exc}")
+        return failed("Slack Main Channel", str(exc))
+
+
+def _post_to_advisor_channel(notifier: "SlackChannelNotifier", channel: str, briefing) -> object:
+    """Post advisor report to specific channel. Returns CheckResult."""
+    from .integrations._common import failed, http_post, ok
+
+    advisor_title = briefing.title
+    try:
+        advisor_blocks = _build_advisor_blocks(briefing)
+        payload = {
+            "channel": channel,
+            "text": f"{briefing.title}",
+            "blocks": advisor_blocks,
+        }
+
+        if notifier.webhook_url:
+            resp = http_post(notifier.webhook_url, json=payload)
+            if resp.is_success:
+                data = resp.json()
+                if data.get("ok"):
+                    logger.info(f"Advisor post succeeded: {advisor_title} → {channel}")
+                    return ok(f"Slack ({advisor_title})", channel)
+                error = data.get("error", "unknown")
+                logger.error(f"Advisor post failed ({advisor_title}): {error}")
+                return failed(f"Slack ({advisor_title})", error)
+            logger.error(f"Advisor HTTP error ({advisor_title}): {resp.status_code}")
+            return failed(f"Slack ({advisor_title})", f"HTTP {resp.status_code}")
+
+        if notifier.bot_token:
+            resp = http_post(
+                "https://slack.com/api/chat.postMessage",
+                headers={"Authorization": f"Bearer {notifier.bot_token}"},
+                json=payload,
+            )
+            try:
+                data = resp.json()
+                if data.get("ok"):
+                    logger.info(f"Advisor post succeeded: {advisor_title} → {channel}")
+                    return ok(f"Slack ({advisor_title})", channel)
+                error = data.get("error", "unknown")
+                logger.error(f"Advisor post failed ({advisor_title}): {error}")
+                return failed(f"Slack ({advisor_title})", error)
+            except Exception as exc:
+                logger.error(f"Advisor JSON error ({advisor_title}): {exc}")
+                return failed(f"Slack ({advisor_title})", f"HTTP {resp.status_code}: non-JSON")
+
+        logger.warning(f"No Slack credentials for advisor channel: {advisor_title}")
+        return failed(f"Slack ({advisor_title})", "No credentials configured")
+
+    except Exception as exc:
+        logger.error(f"Error distributing {advisor_title} to {channel}: {exc}")
+        return failed(f"Slack ({advisor_title})", str(exc))
 
 
 def _build_channel_summary(supervision: Supervision) -> str:
