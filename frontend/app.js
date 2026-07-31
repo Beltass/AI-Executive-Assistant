@@ -1,32 +1,43 @@
-/* AI Executive Assistant — Ajan Panosu
+/* AI Executive Assistant — dashboard app.
  *
- * Vanilla JS, no framework, no build, no CDN. Two jobs:
+ * Vanilla JS, no framework, no build, no CDN. It reads four static JSON files
+ * written by the Python side and renders five tabs:
  *
- *   1. MONITOR — fetch ./status.json (written by ai_assistant.status_report
- *      after every briefing run) and render how the run went.
- *   2. READ — fetch ./reports/<gün>/<ajan>.json (written by
- *      ai_assistant.reports) and typeset each advisor's briefing as its own
- *      document, so a 400-word report is comfortable to read on a phone
- *      instead of being a wall of text in Slack.
+ *   status.json   — how the last briefing run went (ai_assistant.status_report)
+ *   metrics.json  — the rolling token/latency history (ai_assistant.metrics)
+ *   health.json   — the watchdog's technical verdict (ai_assistant.watchdog)
+ *   reports/…     — one readable document per advisor (ai_assistant.reports)
  *
- * A hash router keeps the whole thing in one static page:
- *   #/                            pano
- *   #/raporlar                    arşiv (son 30 gün)
+ * ROUTING. The active tab lives in the URL hash, so a tab is shareable,
+ * bookmarkable and the browser's back button works:
+ *
+ *   #/sistem                      🖥️  Sistem & Ajanlar   (default)
+ *   #/icerik                      📄  İçerik & Raporlar
+ *   #/performans                  📊  Performans & Token
+ *   #/isler                       ✅  İşler & Takip
+ *   #/fikirler                    💡  Öneriler & Fikirler
+ *   #/raporlar                    arşiv (İçerik sekmesi içinde)
  *   #/raporlar/2026-07-31         o günün raporları
  *   #/rapor/2026-07-31/ajan_id    tek rapor (okuma görünümü)
  *
- * The Markdown the advisors emit is rendered by the small, deliberately
- * limited renderer below. It ESCAPES the source first and only then applies a
- * safe subset of Markdown, so a report can never inject HTML into this page.
+ * The Markdown the advisors emit is rendered by markdown.js, which ESCAPES the
+ * source before it applies a safe subset — which is what makes it safe to feed
+ * model-generated text into innerHTML.
  */
 (function () {
   "use strict";
 
   var STATUS_URL = "./status.json";
-  var REPORTS_URL = "./reports/index.json";
-  var REFRESH_MS = 60000; // live monitor: re-read the file every minute
+  var METRICS_URL = "./metrics.json";
+  var HEALTH_URL = "./health.json";
+  var ARCHIVE_URL = "./reports/index.json";
+
+  var REFRESH_MS = 60000; // live monitor: re-read the files every minute
   var CLOCK_MS = 20000; // how often the "x dk önce" label is recomputed
   var STALE_HOURS = 12; // older than this and we say so, loudly
+
+  var TABS = ["sistem", "icerik", "performans", "isler", "fikirler"];
+  var DEFAULT_TAB = "sistem";
 
   var STATUS_LABEL = { ok: "Çalıştı", failed: "Hata", skipped: "Atlandı" };
   var STATUS_ICON = { ok: "✅", failed: "⚠️", skipped: "⏭️" };
@@ -39,37 +50,45 @@
   var SLACK_LABEL = {
     ok: { label: "Gönderildi", cls: "ok", icon: "✅" },
     failed: { label: "Gönderilemedi", cls: "failed", icon: "⚠️" },
-    skipped: { label: "Atlandı", cls: "skipped", icon: "⏭️" }
+    skipped: { label: "Atlanmış", cls: "skipped", icon: "⏭️" }
   };
-  // The 10:00 run is the full briefing; the 14:00/18:00/22:00 ones only carry
-  // what is new since the previous run.
   var MODE = {
-    full: {
-      label: "Tam brifing",
-      icon: "🗓️",
-      cls: "ok",
-      note: "Tüm ajanlar, tüm bölümler."
-    },
-    incremental: {
-      label: "Artımlı",
-      icon: "🔄",
-      cls: "partial",
-      note: "Yalnızca önceki çalıştırmadan sonraki yeni bulgular."
-    }
+    full: { label: "Tam brifing", icon: "🗓️", cls: "ok" },
+    incremental: { label: "Artımlı", icon: "🔄", cls: "partial" }
   };
+  // The watchdog's three severities. Icon + Turkish word, never colour alone.
+  var SEVERITY = {
+    ok: { icon: "🟢", label: "Sağlıklı", cls: "ok" },
+    warn: { icon: "🟡", label: "Dikkat", cls: "warn" },
+    critical: { icon: "🔴", label: "Müdahale gerek", cls: "critical" }
+  };
+  var RECO_ICON = { good: "✅", warn: "⚠️", info: "ℹ️" };
+
+  var INNOVATION_ID = "innovation_lab";
 
   var DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
   var ID_RE = /^[A-Za-z0-9_-]+$/;
 
   var state = {
-    data: null,
-    category: "*",
-    lastFetch: null,
-    archive: null, // reports/index.json
+    status: null,
+    metrics: null,
+    health: null,
+    archive: null,
     days: {}, // date -> day index
     docs: {}, // "date/id" -> document
-    route: { name: "dashboard" }
+    category: "*",
+    search: "",
+    lastFetch: null,
+    tab: DEFAULT_TAB,
+    route: { name: "tab", tab: DEFAULT_TAB },
+    loaded: false
   };
+
+  var charts = window.AIACharts || {};
+
+  /* ====================================================================== */
+  /* helpers                                                                */
+  /* ====================================================================== */
 
   function $(id) {
     return document.getElementById(id);
@@ -79,7 +98,25 @@
     if (el) el.textContent = value;
   }
 
-  /* --- small formatters -------------------------------------------------- */
+  function show(el, visible) {
+    if (el) el.hidden = !visible;
+  }
+
+  function make(tag, className, content) {
+    var node = document.createElement(tag);
+    if (className) node.className = className;
+    if (content != null) node.textContent = String(content);
+    return node;
+  }
+
+  function num(value) {
+    var n = Number(value);
+    return isFinite(n) ? n : 0;
+  }
+
+  function trNumber(value) {
+    return num(value).toLocaleString("tr-TR");
+  }
 
   function duration(seconds) {
     if (seconds === null || seconds === undefined || isNaN(seconds)) return "–";
@@ -107,15 +144,6 @@
     return Math.floor(diff / 86400) + " gün önce";
   }
 
-  function shortTime(entry) {
-    // Prefer the pre-formatted Istanbul label the producer wrote; fall back to
-    // the raw timestamp so an older file still renders. The mode icon tells the
-    // 10:00 full briefing apart from the incremental top-ups at a glance.
-    var label = entry.at_istanbul || entry.at || "–";
-    var mode = MODE[entry.mode];
-    return mode ? mode.icon + " " + label : label;
-  }
-
   var TR_MONTHS = [
     "Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
     "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"
@@ -132,25 +160,23 @@
     // The reports are dated in Istanbul time (UTC+3, fixed since 2016), so the
     // "bugün" badge must be too — otherwise a 01:00 visit from Europe would
     // call yesterday's briefing today's.
-    var now = new Date(Date.now() + 3 * 3600 * 1000);
-    return now.toISOString().slice(0, 10);
+    return new Date(Date.now() + 3 * 3600 * 1000).toISOString().slice(0, 10);
   }
 
-  /* --- markdown ----------------------------------------------------------- */
-  /*
-   * Lives in markdown.js so it can be unit-tested outside a browser (see
-   * tests/test_frontend_markdown.py). It ESCAPES before it marks up, which is
-   * what makes it safe to feed model-generated text into innerHTML below.
-   */
-  var renderMarkdown = (typeof AIAMarkdown !== "undefined" && AIAMarkdown.renderMarkdown)
-    ? AIAMarkdown.renderMarkdown
-    : function (source) {
-        // markdown.js failed to load: show the raw text rather than nothing,
-        // and never touch innerHTML with it.
-        return "";
-      };
+  function shortStamp(entry) {
+    var label = entry.at_istanbul || entry.at || "";
+    // "31.07.2026 10:04" -> "10:04"
+    var parts = label.split(" ");
+    return parts.length > 1 ? parts[1] : label.slice(0, 10);
+  }
 
-  /* --- fetching ----------------------------------------------------------- */
+  var renderMarkdown =
+    typeof AIAMarkdown !== "undefined" && AIAMarkdown.renderMarkdown
+      ? AIAMarkdown.renderMarkdown
+      : function () {
+          // markdown.js failed to load: render nothing rather than raw HTML.
+          return "";
+        };
 
   function fetchJson(url) {
     // Cache-bust: a static host (Pages, Vercel) will happily serve a stale copy.
@@ -167,154 +193,247 @@
       });
   }
 
-  /* --- state screens ----------------------------------------------------- */
-
-  function showState(icon, title, body) {
-    $("content").hidden = true;
-    var box = $("state");
-    box.hidden = false;
-    text($("state-icon"), icon);
-    text($("state-title"), title);
-    text($("state-text"), body || "");
+  /** Fetch that resolves to null instead of rejecting — for optional files. */
+  function fetchOptional(url) {
+    return fetchJson(url).catch(function () {
+      return null;
+    });
   }
 
-  function showContent() {
-    $("state").hidden = true;
-    $("content").hidden = false;
+  /* ====================================================================== */
+  /* theme                                                                  */
+  /* ====================================================================== */
+
+  function currentTheme() {
+    return document.documentElement.getAttribute("data-theme") === "light"
+      ? "light"
+      : "dark";
   }
 
-  /* --- rendering: the monitor -------------------------------------------- */
+  function applyTheme(theme) {
+    document.documentElement.setAttribute("data-theme", theme);
+    var toggle = $("theme-toggle");
+    var light = theme === "light";
+    text($("theme-icon"), light ? "🌙" : "☀️");
+    if (toggle) {
+      toggle.setAttribute("aria-label", light ? "Koyu temaya geç" : "Açık temaya geç");
+    }
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute("content", light ? "#f9f9f7" : "#0d0d0d");
+    try {
+      localStorage.setItem("aia-theme", theme);
+    } catch (error) {
+      /* storage disabled: the choice just does not persist */
+    }
+    // The charts read their colours from CSS custom properties, so they must be
+    // rebuilt for the new theme's values.
+    if (state.loaded) renderCharts();
+  }
 
-  function renderSummary(data) {
+  /* ====================================================================== */
+  /* TAB 1 — 🖥️ Sistem & Ajanlar                                            */
+  /* ====================================================================== */
+
+  function successRate(history) {
+    var scored = history.filter(function (entry) {
+      return entry.conclusion && entry.conclusion !== "idle";
+    });
+    if (!scored.length) return null;
+    var good = scored.filter(function (entry) {
+      return entry.conclusion === "ok";
+    }).length;
+    return { rate: Math.round((good / scored.length) * 100), total: scored.length };
+  }
+
+  function renderHealthHeader(data) {
+    var run = data.run || {};
+    var conclusion = CONCLUSION[run.conclusion] || CONCLUSION.idle;
+    var slack = SLACK_LABEL[(data.slack || {}).status] || SLACK_LABEL.skipped;
+    var mode = MODE[run.mode] || MODE.full;
+    var health = state.health || {};
+    var severity = SEVERITY[health.severity] || null;
+
+    // The dot prefers the watchdog's verdict (it knows about staleness and
+    // quota too); without it the run's own conclusion is the honest fallback.
+    text($("health-dot"), severity ? severity.icon : conclusion.icon);
+    text(
+      $("health-headline"),
+      severity ? severity.label + " — " + (health.headline || "") : conclusion.label
+    );
+    var badge = $("health-badge");
+    badge.className = "badge badge--" + (severity ? severity.cls : conclusion.cls);
+    badge.textContent = conclusion.icon + " " + conclusion.label;
+
+    text(
+      $("hh-last"),
+      (data.generated_at_istanbul || "–") +
+        (data.generated_at ? " · " + relativeTime(data.generated_at) : "")
+    );
+    text($("hh-duration"), duration(run.duration_seconds));
+    text($("hh-mode"), mode.icon + " " + mode.label);
+    text($("hh-slack"), slack.icon + " " + slack.label);
+
+    var history = Array.isArray(data.history) ? data.history : [];
+    var rate = successRate(history);
+    text(
+      $("hh-uptime"),
+      rate ? "%" + rate.rate + " (son " + rate.total + " çalıştırma)" : "—"
+    );
+
+    var batch = run.batch || {};
+    text($("hh-model"), batch.model || batch.provider || "—");
+
+    var tokens = run.tokens || {};
+    text(
+      $("hh-tokens"),
+      tokens.called && tokens.total
+        ? trNumber(tokens.total) + " token"
+        : "model çağrısı yok"
+    );
+
+    text(
+      $("last-run-label"),
+      conclusion.icon + " " + conclusion.label + " · " +
+        (data.generated_at_istanbul || "–") + " (İstanbul)"
+    );
+  }
+
+  function renderWatchdog() {
+    var health = state.health;
+    var host = $("watchdog-checks");
+    var badge = $("watchdog-badge");
+    host.innerHTML = "";
+
+    if (!health) {
+      show(badge, false);
+      text(
+        $("watchdog-note"),
+        "Teknik nöbetçi henüz çalışmadı. Saat başı çalışan kontrol iş akışı " +
+          "health.json dosyasını oluşturduğunda buraya teknik bulgular gelecek."
+      );
+      return;
+    }
+
+    var severity = SEVERITY[health.severity] || SEVERITY.ok;
+    show(badge, true);
+    badge.className = "badge badge--" + severity.cls;
+    badge.textContent = severity.icon + " " + severity.label;
+
+    text(
+      $("watchdog-note"),
+      (health.headline || "") +
+        (health.generated_at_istanbul
+          ? " · kontrol: " + health.generated_at_istanbul
+          : "")
+    );
+
+    var checks = Array.isArray(health.checks) ? health.checks : [];
+    // Problems first: a green list is reassuring, a red line is actionable.
+    var order = { critical: 0, warn: 1, ok: 2 };
+    checks
+      .slice()
+      .sort(function (a, b) {
+        return (order[a.severity] || 3) - (order[b.severity] || 3);
+      })
+      .forEach(function (check) {
+        var kind = SEVERITY[check.severity] || SEVERITY.ok;
+        var card = make("div", "check check--" + kind.cls);
+        card.appendChild(make("span", "check__icon", kind.icon));
+
+        var body = make("div");
+        body.appendChild(make("h3", "check__name", check.name || check.id || "Kontrol"));
+        body.appendChild(make("p", "check__detail", check.detail || ""));
+        if (check.remedy && check.severity !== "ok") {
+          body.appendChild(make("p", "check__fix", "🔧 " + check.remedy));
+        }
+        card.appendChild(body);
+        host.appendChild(card);
+      });
+  }
+
+  function renderSummaryTiles(data) {
     var run = data.run || {};
     text($("stat-total"), run.total != null ? run.total : "–");
     text($("stat-ok"), run.ok != null ? run.ok : "–");
     text($("stat-failed"), run.failed != null ? run.failed : "–");
     text($("stat-skipped"), run.skipped != null ? run.skipped : "–");
-    text($("stat-duration"), duration(run.duration_seconds));
-
-    // Run mode. Older status files have no mode at all — they were all full
-    // briefings back then, so that is the safe fallback.
-    var mode = MODE[run.mode] || MODE.full;
-    var modeBadge = $("mode-badge");
-    modeBadge.className = "badge badge--" + mode.cls;
-    modeBadge.textContent = mode.icon + " " + mode.label;
-    text($("mode-note"), mode.note);
     text($("stat-new"), run.new_findings != null ? run.new_findings : "–");
-
-    var conclusion = CONCLUSION[run.conclusion] || CONCLUSION.idle;
-    var slack = SLACK_LABEL[(data.slack || {}).status] || SLACK_LABEL.skipped;
-    var badge = $("slack-badge");
-    badge.className = "badge badge--" + slack.cls;
-    badge.textContent = slack.icon + " " + slack.label;
-    text($("slack-detail"), (data.slack || {}).detail || "");
-
-    text(
-      $("last-run-label"),
-      conclusion.icon +
-        " " +
-        conclusion.label +
-        " · son çalıştırma " +
-        (data.generated_at_istanbul || "–") +
-        " (İstanbul)"
-    );
-
     var batch = run.batch || {};
-    text($("batch-used"), batch.used ? "✅ kullanıldı" : batch.attempted ? "⚠️ denendi, düştü" : "⏭️ kullanılmadı");
     text(
-      $("batch-sections"),
-      (batch.sections_produced || 0) + " / " + (batch.sections_requested || 0)
+      $("stat-batch"),
+      (batch.sections_produced || 0) + "/" + (batch.sections_requested || 0)
     );
-    text($("batch-model"), batch.model || (batch.provider ? batch.provider : "—"));
-  }
 
-  function renderAccountability(data) {
-    var acc = data.accountability || {};
-    text($("streak-value"), acc.streak || 0);
-    text($("task-count"), acc.today_task_count || 0);
-    text(
-      $("streak-note"),
-      acc.available
-        ? acc.last_date
-          ? "Son kayıt: " + acc.last_date
-          : ""
-        : "Henüz kayıtlı seri yok — ilk görev listesiyle birlikte başlayacak."
-    );
-  }
-
-  function categories(advisors) {
-    var seen = [];
-    advisors.forEach(function (a) {
-      if (a.category && seen.indexOf(a.category) === -1) seen.push(a.category);
-    });
-    return seen;
+    // A failure count on the tab itself, so a problem is visible from any tab.
+    var badge = $("badge-sistem");
+    if (run.failed > 0) {
+      badge.hidden = false;
+      badge.className = "tab__badge tab__badge--alert";
+      badge.textContent = String(run.failed);
+    } else {
+      badge.hidden = true;
+    }
   }
 
   function renderFilters(advisors) {
     var host = $("filters");
     host.innerHTML = "";
+    var seen = [];
+    advisors.forEach(function (a) {
+      if (a.category && seen.indexOf(a.category) === -1) seen.push(a.category);
+    });
+
     var options = [{ key: "*", label: "Tümü (" + advisors.length + ")" }];
-    categories(advisors).forEach(function (cat) {
+    seen.forEach(function (category) {
       var count = advisors.filter(function (a) {
-        return a.category === cat;
+        return a.category === category;
       }).length;
-      options.push({ key: cat, label: cat + " (" + count + ")" });
+      options.push({ key: category, label: category + " (" + count + ")" });
     });
 
     options.forEach(function (option) {
-      var button = document.createElement("button");
+      var button = make("button", "chip", option.label);
       button.type = "button";
-      button.className = "chip";
-      button.textContent = option.label;
-      button.setAttribute("aria-pressed", state.category === option.key ? "true" : "false");
+      button.setAttribute(
+        "aria-pressed",
+        state.category === option.key ? "true" : "false"
+      );
       button.addEventListener("click", function () {
         state.category = option.key;
         renderFilters(advisors);
-        renderCards(advisors);
+        renderAgentCards(advisors);
       });
       host.appendChild(button);
     });
   }
 
-  function renderCards(advisors) {
+  function renderAgentCards(advisors) {
     var grid = $("advisor-grid");
     grid.innerHTML = "";
     var visible = advisors.filter(function (a) {
       return state.category === "*" || a.category === state.category;
     });
-
-    $("empty-filter").hidden = visible.length > 0;
+    show($("advisors-empty"), visible.length === 0);
 
     visible.forEach(function (advisor) {
       var status = STATUS_LABEL[advisor.status] ? advisor.status : "skipped";
       // "Nothing new" is not the same as "not configured": the advisor ran and
       // deliberately stayed quiet because the user already knows.
       var quiet = advisor.nothing_new === true;
-      var card = document.createElement("article");
-      card.className = "card card--" + status;
 
-      var head = document.createElement("div");
-      head.className = "card__head";
-
-      var emoji = document.createElement("span");
-      emoji.className = "card__emoji";
+      var card = make("article", "agent agent--" + status);
+      var head = make("div", "agent__head");
+      var emoji = make("span", "agent__emoji", advisor.emoji || "🧩");
       emoji.setAttribute("aria-hidden", "true");
-      emoji.textContent = advisor.emoji || "🧩";
 
-      var name = document.createElement("h3");
-      name.className = "card__name";
-      name.textContent = advisor.name || advisor.id;
-      var id = document.createElement("span");
-      id.className = "card__id";
-      id.textContent = advisor.id;
-      name.appendChild(id);
+      var name = make("h3", "agent__name", advisor.name || advisor.id);
+      name.appendChild(make("span", "agent__id", advisor.id));
 
-      // Icon + word, never color alone.
-      var badge = document.createElement("span");
-      badge.className = "badge badge--" + status;
-      badge.textContent = quiet
-        ? "🟰 Yeni bulgu yok"
-        : STATUS_ICON[status] + " " + STATUS_LABEL[status];
+      var badge = make(
+        "span",
+        "badge badge--" + status,
+        quiet ? "🟰 Yeni bulgu yok" : STATUS_ICON[status] + " " + STATUS_LABEL[status]
+      );
 
       head.appendChild(emoji);
       head.appendChild(name);
@@ -322,18 +441,12 @@
       card.appendChild(head);
 
       if (advisor.detail) {
-        var detail = document.createElement("p");
-        detail.className = "card__detail";
-        detail.textContent = advisor.detail;
-        card.appendChild(detail);
+        card.appendChild(make("p", "agent__detail", advisor.detail));
       }
 
-      var foot = document.createElement("div");
-      foot.className = "card__foot";
-      var tag = document.createElement("span");
-      tag.className = "tag";
-      tag.textContent = advisor.category || "—";
-      var size = document.createElement("span");
+      var foot = make("div", "agent__foot");
+      foot.appendChild(make("span", "tag", advisor.category || "—"));
+      var size = make("span");
       if (quiet) {
         size.textContent = "0 yeni bulgu";
       } else if (status === "ok") {
@@ -343,7 +456,6 @@
       } else {
         size.textContent = "—";
       }
-      foot.appendChild(tag);
       foot.appendChild(size);
       card.appendChild(foot);
 
@@ -351,224 +463,175 @@
     });
   }
 
-  function renderChart(history) {
-    var chart = $("chart");
-    chart.innerHTML = "";
-    if (!history.length) {
-      text($("chart-caption"), "Henüz geçmiş kaydı yok.");
-      return;
-    }
-
-    var max = history.reduce(function (acc, entry) {
-      return Math.max(acc, (entry.ok || 0) + (entry.failed || 0) + (entry.skipped || 0), 1);
-    }, 1);
-
-    history.forEach(function (entry) {
-      var ok = entry.ok || 0;
-      var failed = entry.failed || 0;
-      var skipped = entry.skipped || 0;
-      var total = ok + failed + skipped;
-
-      var bar = document.createElement("div");
-      bar.className = "bar";
-      bar.tabIndex = 0;
-      var summary =
-        shortTime(entry) +
-        " — ✅ " + ok + " · ⚠️ " + failed + " · ⏭️ " + skipped +
-        (entry.duration_seconds != null ? " · " + duration(entry.duration_seconds) : "");
-      bar.setAttribute("aria-label", summary);
-      bar.dataset.tip = summary;
-
-      // Stack order top→bottom: skipped, failed, ok (ok anchored to baseline).
-      [
-        ["skipped", skipped],
-        ["failed", failed],
-        ["ok", ok]
-      ].forEach(function (pair) {
-        if (!pair[1]) return;
-        var seg = document.createElement("div");
-        seg.className = "seg seg--" + pair[0];
-        // Scale against the tallest run so bars stay comparable.
-        seg.style.height = ((pair[1] / max) * 100).toFixed(2) + "%";
-        bar.appendChild(seg);
-      });
-
-      if (!total) {
-        var empty = document.createElement("div");
-        empty.className = "seg seg--skipped";
-        empty.style.height = "2px";
-        bar.appendChild(empty);
-      }
-
-      chart.appendChild(bar);
-    });
-
+  function renderHistory(history) {
+    var recent = history.slice(-24);
+    if (charts.stackedRuns) charts.stackedRuns($("chart-history"), recent);
     text(
-      $("chart-caption"),
-      "Son " + history.length + " çalıştırma (en yenisi sağda). Bir sütunun " +
-        "üzerine gelerek sayıları görebilirsin."
+      $("history-sub"),
+      recent.length ? "son " + recent.length + " çalıştırma" : ""
+    );
+
+    if (!charts.table) return;
+    charts.table(
+      $("table-history"),
+      [
+        { label: "Zaman" },
+        { label: "Sonuç" },
+        { label: "✅", num: true },
+        { label: "⚠️", num: true },
+        { label: "⏭️", num: true },
+        { label: "Süre", num: true },
+        { label: "Slack" }
+      ],
+      history
+        .slice(-12)
+        .reverse()
+        .map(function (entry) {
+          var conclusion = CONCLUSION[entry.conclusion] || CONCLUSION.idle;
+          var slack = SLACK_LABEL[entry.slack] || SLACK_LABEL.skipped;
+          var mode = MODE[entry.mode];
+          return [
+            (mode ? mode.icon + " " : "") + (entry.at_istanbul || entry.at || "—"),
+            conclusion.icon + " " + conclusion.label,
+            entry.ok || 0,
+            entry.failed || 0,
+            entry.skipped || 0,
+            duration(entry.duration_seconds),
+            slack.icon + " " + slack.label
+          ];
+        }),
+      "Son çalıştırmaların tablo görünümü"
     );
   }
 
-  function renderTable(history) {
-    var body = $("history-body");
-    body.innerHTML = "";
-    var recent = history.slice(-10).reverse();
-    recent.forEach(function (entry) {
-      var row = document.createElement("tr");
-      var conclusion = CONCLUSION[entry.conclusion] || CONCLUSION.idle;
-      var slack = SLACK_LABEL[entry.slack] || SLACK_LABEL.skipped;
+  function renderSistem() {
+    var data = state.status;
+    if (!data) return;
+    show($("sistem-state"), false);
+    show($("sistem-error"), false);
+    show($("sistem-body"), true);
 
-      [
-        shortTime(entry),
-        null, // conclusion badge, built below
-        entry.ok || 0,
-        entry.failed || 0,
-        entry.skipped || 0,
-        duration(entry.duration_seconds),
-        slack.icon + " " + slack.label
-      ].forEach(function (value, index) {
-        var cell = document.createElement("td");
-        if (index === 1) {
-          var badge = document.createElement("span");
-          badge.className = "badge badge--" + conclusion.cls;
-          badge.textContent = conclusion.icon + " " + conclusion.label;
-          cell.appendChild(badge);
-        } else {
-          cell.textContent = String(value);
-          if (index >= 2 && index <= 5) cell.className = "num";
-        }
-        row.appendChild(cell);
-      });
-      body.appendChild(row);
-    });
-  }
-
-  function render(data) {
-    state.data = data;
     var advisors = Array.isArray(data.advisors) ? data.advisors : [];
     var history = Array.isArray(data.history) ? data.history : [];
 
-    if (!advisors.length && !history.length) {
-      showState(
-        "🕰️",
-        "Henüz veri yok",
-        "Danışman ekibi henüz çalışmadı ya da durum dosyası oluşturulmadı. " +
-          "İlk brifing çalıştırmasından sonra bu pano dolacak."
-      );
-      updateFreshness();
-      return;
-    }
-
-    showContent();
-    renderSummary(data);
-    renderAccountability(data);
+    renderHealthHeader(data);
+    renderWatchdog();
+    renderSummaryTiles(data);
     renderFilters(advisors);
-    renderCards(advisors);
-    renderChart(history);
-    renderTable(history);
-    updateFreshness();
+    renderAgentCards(advisors);
+    renderHistory(history);
   }
 
-  /* --- rendering: the reports -------------------------------------------- */
+  /* ====================================================================== */
+  /* TAB 2 — 📄 İçerik & Raporlar                                           */
+  /* ====================================================================== */
 
   function reportCard(entry, date) {
-    var link = document.createElement("a");
-    link.className = "report-card";
+    var link = make("a", "report-card");
     link.href = "#/rapor/" + date + "/" + entry.id;
 
-    var head = document.createElement("div");
-    head.className = "report-card__head";
-
-    var emoji = document.createElement("span");
-    emoji.className = "report-card__emoji";
+    var head = make("div", "report-card__head");
+    var emoji = make("span", "report-card__emoji", entry.emoji || "📄");
     emoji.setAttribute("aria-hidden", "true");
-    emoji.textContent = entry.emoji || "📄";
-
-    var name = document.createElement("h3");
-    name.className = "report-card__name";
-    name.textContent = entry.name || entry.id;
-
     head.appendChild(emoji);
-    head.appendChild(name);
+    head.appendChild(make("h3", "report-card__name", entry.name || entry.id));
     link.appendChild(head);
 
-    var lead = document.createElement("p");
-    lead.className = "report-card__lead";
-    lead.textContent = entry.headline || entry.excerpt || "";
-    link.appendChild(lead);
+    link.appendChild(
+      make("p", "report-card__lead", entry.headline || entry.excerpt || "")
+    );
 
-    var foot = document.createElement("div");
-    foot.className = "report-card__foot";
-    var tag = document.createElement("span");
-    tag.className = "tag";
-    tag.textContent = entry.category || "—";
-    var meta = document.createElement("span");
-    meta.textContent =
-      "⏱️ ~" + (entry.read_minutes || 1) + " dk okuma · " + (entry.words || 0) + " kelime";
-    foot.appendChild(tag);
-    foot.appendChild(meta);
+    var foot = make("div", "report-card__foot");
+    foot.appendChild(make("span", "tag", entry.category || "—"));
+    foot.appendChild(
+      make(
+        "span",
+        null,
+        "⏱️ ~" + (entry.read_minutes || 1) + " dk okuma · " + (entry.words || 0) + " kelime"
+      )
+    );
     link.appendChild(foot);
-
     return link;
   }
 
-  function renderReportsSection(day) {
+  function matchesSearch(entry, query) {
+    if (!query) return true;
+    var haystack = [
+      entry.name,
+      entry.id,
+      entry.category,
+      entry.headline,
+      entry.excerpt
+    ]
+      .join(" ")
+      .toLocaleLowerCase("tr");
+    return haystack.indexOf(query) !== -1;
+  }
+
+  function renderReportsList() {
     var host = $("report-grid");
     host.innerHTML = "";
-    var note = $("reports-note");
+    var day = state.days[latestDay()];
     var entries = day && Array.isArray(day.reports) ? day.reports : [];
+    var query = state.search.trim().toLocaleLowerCase("tr");
+    var visible = entries.filter(function (entry) {
+      return matchesSearch(entry, query);
+    });
 
     if (!entries.length) {
       text(
-        note,
+        $("reports-note"),
         "Bu çalıştırmada yayınlanmış rapor yok. Tam brifing İstanbul saatiyle " +
           "10:00'da hazırlanır."
       );
-      $("reports-empty").hidden = false;
+      show($("reports-empty"), true);
+      $("reports-empty").textContent = "Henüz yayınlanmış rapor yok.";
       return;
     }
-    $("reports-empty").hidden = true;
+
     var isToday = day.date === todayIso();
     text(
-      note,
+      $("reports-note"),
       (isToday ? "Bugünün brifingi" : prettyDate(day.date) + " brifingi") +
-        " · " + entries.length + " rapor · " +
-        (day.generated_at_istanbul || "") +
-        (day.generated_at_istanbul ? " (İstanbul)" : "")
+        " · " + entries.length + " rapor" +
+        (day.generated_at_istanbul ? " · " + day.generated_at_istanbul + " (İstanbul)" : "")
     );
-    entries.forEach(function (entry) {
+
+    if (!visible.length) {
+      show($("reports-empty"), true);
+      $("reports-empty").textContent =
+        "“" + state.search + "” için rapor bulunamadı.";
+      return;
+    }
+    show($("reports-empty"), false);
+
+    visible.forEach(function (entry) {
       host.appendChild(reportCard(entry, day.date));
     });
+
+    var badge = $("badge-icerik");
+    badge.hidden = false;
+    badge.className = "tab__badge";
+    badge.textContent = String(entries.length);
   }
 
-  function renderArchive(archive) {
+  function renderArchive() {
+    var archive = state.archive;
     var host = $("archive-list");
     host.innerHTML = "";
     var days = archive && Array.isArray(archive.days) ? archive.days : [];
-    $("archive-empty").hidden = days.length > 0;
+    show($("archive-empty"), days.length === 0);
 
     days.forEach(function (day) {
-      var link = document.createElement("a");
-      link.className = "archive-row";
+      var link = make("a", "archive-row");
       link.href = "#/raporlar/" + day.date;
 
-      var left = document.createElement("span");
-      left.className = "archive-row__date";
-      left.textContent = prettyDate(day.date);
+      var left = make("span", "archive-row__date", prettyDate(day.date));
       if (day.date === todayIso()) {
-        var badge = document.createElement("span");
-        badge.className = "badge badge--ok";
-        badge.textContent = "bugün";
-        left.appendChild(badge);
+        left.appendChild(make("span", "badge badge--ok", "bugün"));
       }
-
-      var right = document.createElement("span");
-      right.className = "archive-row__meta";
-      right.textContent = (day.count || 0) + " rapor";
-
       link.appendChild(left);
-      link.appendChild(right);
+      link.appendChild(make("span", "archive-row__meta", (day.count || 0) + " rapor"));
       host.appendChild(link);
     });
 
@@ -596,14 +659,19 @@
     } else {
       lead.hidden = true;
     }
-    // The ONLY innerHTML in this file, and its input went through
-    // renderMarkdown(), which escapes before it marks up.
+    // The ONLY innerHTML with model-generated input in this file, and it went
+    // through renderMarkdown(), which escapes before it marks up.
     $("doc-body").innerHTML = renderMarkdown(doc.markdown || "");
     $("doc-back-day").href = "#/raporlar/" + doc.date;
   }
 
+  function latestDay() {
+    var days = state.archive && Array.isArray(state.archive.days) ? state.archive.days : [];
+    return days.length ? days[0].date : "";
+  }
+
   function loadArchive() {
-    return fetchJson(REPORTS_URL)
+    return fetchJson(ARCHIVE_URL)
       .then(function (archive) {
         state.archive = archive;
         return archive;
@@ -615,6 +683,7 @@
   }
 
   function loadDay(date) {
+    if (!date) return Promise.resolve(null);
     if (state.days[date]) return Promise.resolve(state.days[date]);
     return fetchJson("./reports/" + date + "/index.json")
       .then(function (day) {
@@ -626,87 +695,439 @@
       });
   }
 
-  function latestDay() {
-    var days = state.archive && Array.isArray(state.archive.days) ? state.archive.days : [];
-    return days.length ? days[0].date : "";
-  }
-
   function refreshReports() {
     return loadArchive().then(function () {
       var date = latestDay();
       if (!date) {
-        renderReportsSection(null);
+        renderReportsList();
+        renderIdeas();
         return null;
       }
       // Always re-read the newest day: an incremental run adds to it.
       delete state.days[date];
       return loadDay(date).then(function (day) {
-        renderReportsSection(day);
+        renderReportsList();
+        renderIdeas();
         return day;
       });
     });
   }
 
-  /* --- router ------------------------------------------------------------- */
+  /* ====================================================================== */
+  /* TAB 3 — 📊 Performans & Token                                          */
+  /* ====================================================================== */
 
-  var VIEWS = ["view-dashboard", "view-report", "view-archive", "view-day"];
-
-  function showView(id) {
-    VIEWS.forEach(function (name) {
-      var el = $(name);
-      if (el) el.hidden = name !== id;
+  function metricRuns() {
+    var metrics = state.metrics;
+    var runs = metrics && Array.isArray(metrics.runs) ? metrics.runs : [];
+    return runs.filter(function (run) {
+      return run && num(run.total_tokens) > 0;
     });
-    if (id !== "view-dashboard") window.scrollTo(0, 0);
   }
+
+  function renderRecommendations() {
+    var host = $("recos");
+    host.innerHTML = "";
+    var tips =
+      state.metrics && Array.isArray(state.metrics.recommendations)
+        ? state.metrics.recommendations
+        : [];
+    show($("recos-empty"), tips.length === 0);
+
+    tips.forEach(function (tip) {
+      var card = make("div", "reco reco--" + (tip.severity || "info"));
+      card.appendChild(
+        make("span", "reco__icon", RECO_ICON[tip.severity] || RECO_ICON.info)
+      );
+      var body = make("div");
+      var title = make("h3", "reco__title");
+      title.appendChild(document.createTextNode(tip.title || ""));
+      if (tip.metric) title.appendChild(make("span", "reco__metric", tip.metric));
+      body.appendChild(title);
+      body.appendChild(make("p", "reco__detail", tip.detail || ""));
+      card.appendChild(body);
+      host.appendChild(card);
+    });
+  }
+
+  function renderPerformans() {
+    var runs = metricRuns();
+    var totals = (state.metrics && state.metrics.totals) || {};
+
+    if (!runs.length) {
+      show($("perf-empty"), true);
+      show($("perf-body"), false);
+      return;
+    }
+    show($("perf-empty"), false);
+    show($("perf-body"), true);
+
+    var last = runs[runs.length - 1];
+
+    // The one hero figure of this view.
+    text($("perf-hero"), trNumber(last.total_tokens));
+    text($("perf-hero-note"), "token");
+    text(
+      $("perf-hero-sub"),
+      (last.at_istanbul || "") + " · " + (last.mode_label || last.mode || "") +
+        " · " + (last.model || "—") + " · " + (last.sections || 0) + " bölüm üretildi"
+    );
+
+    text($("perf-efficiency"), trNumber(Math.round(last.chars_per_1k_tokens || 0)));
+    text($("perf-per-section"), trNumber(Math.round(last.tokens_per_section || 0)));
+    text($("perf-latency"), (totals.avg_latency_seconds || 0).toFixed(0) + " sn");
+    text(
+      $("perf-resilience"),
+      (totals.fallback_runs || 0) + " / " + (totals.retry_total || 0)
+    );
+    text(
+      $("perf-resilience-note"),
+      "yedek modele düşen çalıştırma / toplam yeniden deneme"
+    );
+
+    renderRecommendations();
+    renderPerfCharts(runs, last);
+
+    var notes = [(state.metrics && state.metrics.attribution_note) || ""];
+    // Seeded history is labelled out loud, so nobody mistakes the first-publish
+    // sample for a measurement.
+    if (state.metrics && state.metrics.sample_note) {
+      notes.push("⚠️ " + state.metrics.sample_note);
+    }
+    text($("attribution-note"), notes.filter(Boolean).join(" "));
+  }
+
+  function renderPerfCharts(runs, last) {
+    if (!charts.trend) return;
+
+    var points = runs.map(function (run) {
+      return {
+        value: num(run.total_tokens),
+        label: (run.at_istanbul || "") + " · " + (run.mode_label || ""),
+        short: shortStamp(run)
+      };
+    });
+    charts.trend($("chart-tokens"), points, {
+      name: "Toplam token",
+      unit: "",
+      color: "var(--series-1)"
+    });
+
+    charts.trend(
+      $("chart-latency"),
+      runs.map(function (run) {
+        return {
+          value: num(run.latency_seconds),
+          label: run.at_istanbul || "",
+          short: shortStamp(run)
+        };
+      }),
+      {
+        name: "Gecikme",
+        unit: "sn",
+        color: "var(--series-3)",
+        format: function (value) {
+          return Math.round(value) + " sn";
+        }
+      }
+    );
+
+    charts.splitBar(
+      $("chart-split"),
+      [
+        { name: "Girdi (prompt)", value: num(last.prompt_tokens), color: "var(--series-1)" },
+        { name: "Çıktı (yanıt)", value: num(last.output_tokens), color: "var(--series-2)" },
+        { name: "Düşünme", value: num(last.thoughts_tokens), color: "var(--series-3)" }
+      ],
+      {}
+    );
+    text(
+      $("split-sub"),
+      "son çalıştırma · düşünme payı %" +
+        String(last.thoughts_share || 0).replace(".", ",")
+    );
+
+    var agents = aggregateAgents(runs);
+    charts.groupedShares($("chart-agents"), agents, { limit: 10 });
+
+    if (charts.table) {
+      charts.table(
+        $("table-agents"),
+        [
+          { label: "Ajan" },
+          { label: "Tahmini token", num: true },
+          { label: "Token payı", num: true },
+          { label: "Çıktı payı", num: true },
+          { label: "Fark", num: true }
+        ],
+        agents.map(function (row) {
+          return [
+            row.name,
+            trNumber(row.tokens),
+            "%" + String(row.token_share).replace(".", ","),
+            "%" + String(row.output_share).replace(".", ","),
+            (row.gap > 0 ? "+" : "") + String(row.gap).replace(".", ",")
+          ];
+        }),
+        "Ajan başına tahmini token ve çıktı payları"
+      );
+
+      charts.table(
+        $("table-runs"),
+        [
+          { label: "Zaman" },
+          { label: "Mod" },
+          { label: "Girdi", num: true },
+          { label: "Çıktı", num: true },
+          { label: "Düşünme", num: true },
+          { label: "Toplam", num: true },
+          { label: "Bölüm", num: true },
+          { label: "Gecikme", num: true },
+          { label: "Yedek" }
+        ],
+        runs
+          .slice()
+          .reverse()
+          .map(function (run) {
+            return [
+              run.at_istanbul || run.at || "—",
+              (MODE[run.mode] || MODE.full).label,
+              trNumber(run.prompt_tokens),
+              trNumber(run.output_tokens),
+              trNumber(run.thoughts_tokens),
+              trNumber(run.total_tokens),
+              run.sections || 0,
+              Math.round(num(run.latency_seconds)) + " sn",
+              run.fallback_used ? "⚠️ evet" : "✅ hayır"
+            ];
+          }),
+        "Çalıştırma başına token ve gecikme"
+      );
+    }
+  }
+
+  /** Sum the per-run agent estimates into one table, mirroring metrics.py. */
+  function aggregateAgents(runs) {
+    var bucket = {};
+    runs.slice(-7).forEach(function (run) {
+      (run.agents || []).forEach(function (row) {
+        if (!row || !row.id) return;
+        var entry = bucket[row.id] || { id: row.id, name: row.name || row.id, tokens: 0, chars: 0 };
+        entry.tokens += num(row.est_total_tokens);
+        entry.chars += num(row.output_chars);
+        if (row.name) entry.name = row.name;
+        bucket[row.id] = entry;
+      });
+    });
+
+    var rows = Object.keys(bucket).map(function (key) {
+      return bucket[key];
+    });
+    var tokenTotal = rows.reduce(function (acc, row) {
+      return acc + row.tokens;
+    }, 0);
+    var charTotal = rows.reduce(function (acc, row) {
+      return acc + row.chars;
+    }, 0);
+
+    rows.forEach(function (row) {
+      row.token_share = tokenTotal ? Math.round((row.tokens / tokenTotal) * 1000) / 10 : 0;
+      row.output_share = charTotal ? Math.round((row.chars / charTotal) * 1000) / 10 : 0;
+      row.gap = Math.round((row.token_share - row.output_share) * 10) / 10;
+    });
+    rows.sort(function (a, b) {
+      return b.tokens - a.tokens;
+    });
+    return rows;
+  }
+
+  /* ====================================================================== */
+  /* TAB 4 — ✅ İşler & Takip                                               */
+  /* ====================================================================== */
+
+  function renderIsler() {
+    var acc = (state.status && state.status.accountability) || {};
+    var tasks = Array.isArray(acc.tasks) ? acc.tasks : [];
+
+    if (!acc.available || (!tasks.length && !acc.streak)) {
+      show($("isler-empty"), true);
+      show($("isler-body"), false);
+      return;
+    }
+    show($("isler-empty"), false);
+    show($("isler-body"), true);
+
+    text($("streak-value"), acc.streak || 0);
+    text($("task-count"), tasks.length || acc.today_task_count || 0);
+    text($("task-days"), acc.history_days || 0);
+    text($("task-last"), acc.last_date ? "son kayıt " + acc.last_date : "");
+
+    var host = $("task-list");
+    host.innerHTML = "";
+
+    if (!tasks.length) {
+      // A status file written before the task list was published still knows
+      // the COUNT. Say so plainly rather than showing an empty box that looks
+      // broken.
+      host.appendChild(
+        make(
+          "p",
+          "chart-empty",
+          acc.today_task_count
+            ? acc.today_task_count +
+                " görev kayıtlı, ancak listesi bu çalıştırmada yayınlanmamış. " +
+                "Bir sonraki tam brifingden sonra maddeler burada görünecek."
+            : "Bugün için görev üretilmedi."
+        )
+      );
+    }
+
+    tasks.forEach(function (task, index) {
+      var row = make("div", "task");
+      row.appendChild(make("span", "task__num", index + 1));
+
+      var body = make("div", "task__body");
+      // The coach writes "*Advisor Title* — the task".
+      var match = /^\*(.+?)\*\s*[—-]\s*([\s\S]*)$/.exec(task);
+      if (match) {
+        body.appendChild(make("span", "task__owner", match[1]));
+        body.appendChild(make("p", "task__text", match[2]));
+      } else {
+        body.appendChild(make("p", "task__text", task));
+      }
+      row.appendChild(body);
+      host.appendChild(row);
+    });
+
+    var badge = $("badge-isler");
+    if (tasks.length) {
+      badge.hidden = false;
+      badge.className = "tab__badge";
+      badge.textContent = String(tasks.length);
+    } else {
+      badge.hidden = true;
+    }
+  }
+
+  /* ====================================================================== */
+  /* TAB 5 — 💡 Öneriler & Fikirler                                         */
+  /* ====================================================================== */
+
+  function renderIdeas() {
+    var date = latestDay();
+    var day = state.days[date];
+    var entries = day && Array.isArray(day.reports) ? day.reports : [];
+    var card = entries.filter(function (entry) {
+      return entry.id === INNOVATION_ID;
+    })[0];
+
+    if (!card) {
+      show($("fikirler-empty"), true);
+      show($("fikirler-body"), false);
+      return;
+    }
+
+    show($("fikirler-empty"), false);
+    show($("fikirler-body"), true);
+    text(
+      $("fikirler-note"),
+      prettyDate(date) + " · " + (card.headline || "") +
+        " · ⏱️ ~" + (card.read_minutes || 1) + " dk okuma"
+    );
+    $("fikirler-link").href = "#/rapor/" + date + "/" + INNOVATION_ID;
+
+    var key = date + "/" + INNOVATION_ID;
+    if (state.docs[key]) {
+      $("fikirler-body-text").innerHTML = renderMarkdown(state.docs[key].markdown || "");
+      return;
+    }
+    fetchJson("./reports/" + date + "/" + INNOVATION_ID + ".json")
+      .then(function (doc) {
+        state.docs[key] = doc;
+        $("fikirler-body-text").innerHTML = renderMarkdown(doc.markdown || "");
+      })
+      .catch(function () {
+        $("fikirler-body-text").textContent =
+          "Öneri belgesi okunamadı. Tam raporu açmayı deneyebilirsin.";
+      });
+  }
+
+  /* ====================================================================== */
+  /* routing                                                                */
+  /* ====================================================================== */
 
   function parseRoute() {
     var raw = (window.location.hash || "").replace(/^#\/?/, "");
     var parts = raw.split("/").filter(Boolean).map(decodeURIComponent);
-    if (!parts.length) return { name: "dashboard" };
+    if (!parts.length) return { name: "tab", tab: DEFAULT_TAB };
+
     if (parts[0] === "raporlar") {
-      if (parts[1] && DATE_RE.test(parts[1])) return { name: "day", date: parts[1] };
-      return { name: "archive" };
+      if (parts[1] && DATE_RE.test(parts[1])) {
+        return { name: "day", tab: "icerik", date: parts[1] };
+      }
+      return { name: "archive", tab: "icerik" };
     }
-    if (parts[0] === "rapor" && DATE_RE.test(parts[1] || "") && ID_RE.test(parts[2] || "")) {
-      return { name: "report", date: parts[1], id: parts[2] };
+    if (
+      parts[0] === "rapor" &&
+      DATE_RE.test(parts[1] || "") &&
+      ID_RE.test(parts[2] || "")
+    ) {
+      return { name: "report", tab: "icerik", date: parts[1], id: parts[2] };
     }
-    return { name: "dashboard" };
+    if (TABS.indexOf(parts[0]) !== -1) return { name: "tab", tab: parts[0] };
+    return { name: "tab", tab: DEFAULT_TAB };
   }
 
-  function showDocError(message) {
-    text($("doc-emoji"), "⚠️");
-    text($("doc-title"), "Rapor bulunamadı");
-    text($("doc-meta"), "");
-    $("doc-lead").hidden = true;
-    $("doc-body").textContent = message;
-    $("doc-back-day").href = "#/raporlar";
+  function selectTab(name) {
+    state.tab = name;
+    TABS.forEach(function (tab) {
+      var button = $("tab-" + tab);
+      var panel = $("panel-" + tab);
+      var active = tab === name;
+      if (button) {
+        button.setAttribute("aria-selected", active ? "true" : "false");
+        button.tabIndex = active ? 0 : -1;
+      }
+      if (panel) panel.hidden = !active;
+    });
+  }
+
+  /** Inside the İçerik tab, choose between list / doc / archive / day. */
+  function showContentView(view) {
+    ["list", "doc", "archive", "day"].forEach(function (name) {
+      show($("icerik-" + name), name === view);
+    });
   }
 
   function routeToReport(route) {
-    showView("view-report");
-    var cacheKey = route.date + "/" + route.id;
-    if (state.docs[cacheKey]) {
-      renderDocument(state.docs[cacheKey]);
+    showContentView("doc");
+    var key = route.date + "/" + route.id;
+    if (state.docs[key]) {
+      renderDocument(state.docs[key]);
       return;
     }
     text($("doc-title"), "Yükleniyor…");
     $("doc-body").textContent = "";
     fetchJson("./reports/" + route.date + "/" + route.id + ".json")
       .then(function (doc) {
-        state.docs[cacheKey] = doc;
+        state.docs[key] = doc;
         renderDocument(doc);
       })
       .catch(function (error) {
-        showDocError(
+        text($("doc-emoji"), "⚠️");
+        text($("doc-title"), "Rapor bulunamadı");
+        text($("doc-meta"), "");
+        $("doc-lead").hidden = true;
+        $("doc-body").textContent =
           "Bu rapor okunamadı (" +
-            (error && error.message ? error.message : "bilinmeyen hata") +
-            "). Arşivden başka bir gün deneyebilirsin."
-        );
+          (error && error.message ? error.message : "bilinmeyen hata") +
+          "). Arşivden başka bir gün deneyebilirsin.";
+        $("doc-back-day").href = "#/raporlar";
       });
   }
 
   function routeToDay(route) {
-    showView("view-day");
+    showContentView("day");
     text($("day-title"), prettyDate(route.date));
     var host = $("day-grid");
     host.innerHTML = "";
@@ -727,64 +1148,51 @@
 
   function applyRoute() {
     var route = parseRoute();
+    var changed = state.route.name !== route.name || state.route.tab !== route.tab;
     state.route = route;
-    if (route.name === "report") return routeToReport(route);
-    if (route.name === "day") return routeToDay(route);
-    if (route.name === "archive") {
-      showView("view-archive");
+    selectTab(route.tab);
+
+    if (route.name === "report") routeToReport(route);
+    else if (route.name === "day") routeToDay(route);
+    else if (route.name === "archive") {
+      showContentView("archive");
       loadArchive().then(renderArchive);
-      return;
+    } else {
+      showContentView("list");
     }
-    showView("view-dashboard");
+
+    if (changed && route.name !== "tab") window.scrollTo(0, 0);
   }
 
-  /* --- freshness ---------------------------------------------------------- */
-
-  function dataAgeMs() {
-    if (!state.data || !state.data.generated_at) return NaN;
-    return Date.now() - Date.parse(state.data.generated_at);
-  }
+  /* ====================================================================== */
+  /* freshness                                                              */
+  /* ====================================================================== */
 
   function updateFreshness() {
-    var parts = [];
-    if (state.data && state.data.generated_at) {
-      parts.push("veri " + relativeTime(state.data.generated_at));
+    var data = state.status;
+    var banner = $("stale-banner");
+    if (!data || !data.generated_at) {
+      banner.hidden = true;
+      return;
     }
-    if (state.lastFetch) {
-      parts.push("son güncelleme " + relativeTime(state.lastFetch));
-    }
-    text($("freshness"), parts.join(" · "));
 
-    // The timestamp, spelled out, where nobody can miss it.
-    var stampValue = state.data
-      ? (state.data.generated_at_istanbul || state.data.generated_at || "–")
-      : "–";
-    text($("stamp-value"), stampValue);
-    text(
-      $("stamp-relative"),
-      state.data && state.data.generated_at
-        ? relativeTime(state.data.generated_at)
-        : ""
-    );
-
-    var age = dataAgeMs();
+    var age = Date.now() - Date.parse(data.generated_at);
     var stale = !isNaN(age) && age > STALE_HOURS * 3600 * 1000;
     var veryStale = !isNaN(age) && age > 26 * 3600 * 1000;
 
-    var banner = $("stale-banner");
     banner.hidden = !stale;
+    banner.className = "banner" + (veryStale ? " banner--critical" : "");
     if (stale) {
       text(
         $("stale-text"),
         "⚠️ Veri eski görünüyor — son çalıştırma " +
-          relativeTime(state.data.generated_at) +
-          " (" + stampValue + ", İstanbul). " +
+          relativeTime(data.generated_at) + " (" +
+          (data.generated_at_istanbul || data.generated_at) + ", İstanbul). " +
           (veryStale
             ? "Planlı çalıştırma bir günden uzun süredir gelmedi."
             : "Yayın gecikmiş ya da çalıştırma atlanmış olabilir.")
       );
     }
-    $("stamp").classList.toggle("stamp--stale", stale);
 
     $("live-dot").classList.toggle("live--stale", stale);
     $("live-dot").title = stale
@@ -792,80 +1200,167 @@
       : "Her 60 saniyede bir otomatik yenilenir";
   }
 
-  /* --- tooltip ----------------------------------------------------------- */
+  /* ====================================================================== */
+  /* tooltip                                                                */
+  /* ====================================================================== */
 
   function initTooltip() {
     var tip = $("tooltip");
 
-    function show(event) {
-      var target = event.target.closest ? event.target.closest(".bar") : null;
-      if (!target || !target.dataset.tip) return;
+    function place(target) {
       tip.hidden = false;
       tip.textContent = target.dataset.tip;
       var rect = target.getBoundingClientRect();
       var top = rect.top - tip.offsetHeight - 8;
       tip.style.top = (top < 8 ? rect.bottom + 8 : top) + "px";
       var left = rect.left + rect.width / 2 - tip.offsetWidth / 2;
-      left = Math.max(8, Math.min(left, window.innerWidth - tip.offsetWidth - 8));
-      tip.style.left = left + "px";
+      tip.style.left =
+        Math.max(8, Math.min(left, window.innerWidth - tip.offsetWidth - 8)) + "px";
+    }
+
+    function onShow(event) {
+      var target = event.target.closest ? event.target.closest("[data-tip]") : null;
+      if (!target || !target.dataset.tip) return;
+      place(target);
     }
 
     function hide() {
       tip.hidden = true;
     }
 
-    document.addEventListener("mouseover", show);
+    document.addEventListener("mouseover", onShow);
     document.addEventListener("mouseout", hide);
-    document.addEventListener("focusin", show);
+    document.addEventListener("focusin", onShow);
     document.addEventListener("focusout", hide);
     window.addEventListener("scroll", hide, { passive: true });
   }
 
-  /* --- loading ----------------------------------------------------------- */
+  /* ====================================================================== */
+  /* loading                                                                */
+  /* ====================================================================== */
+
+  function renderCharts() {
+    // Called on load and whenever the theme changes (the charts read their
+    // colours from CSS custom properties).
+    if (state.status) renderHistory(Array.isArray(state.status.history) ? state.status.history : []);
+    if (state.metrics) renderPerformans();
+  }
+
+  function renderAll() {
+    state.loaded = true;
+    renderSistem();
+    renderPerformans();
+    renderIsler();
+    updateFreshness();
+  }
+
+  function showStatusError(error) {
+    show($("sistem-state"), false);
+    show($("sistem-body"), false);
+    show($("sistem-error"), true);
+    var missing = error && (error.message === "HTTP 404" || error.message === "empty");
+    text(
+      $("sistem-error-title"),
+      missing ? "Henüz veri yok" : "Durum dosyası okunamadı"
+    );
+    text(
+      $("sistem-error-text"),
+      missing
+        ? "status.json henüz oluşturulmamış. Brifing bir kez çalıştığında " +
+            "(İstanbul saatiyle 10:00 / 14:00 / 18:00 / 22:00) bu pano dolacak."
+        : "status.json alınamadı: " +
+            (error && error.message ? error.message : "bilinmeyen hata")
+    );
+  }
 
   function load(manual) {
     var button = $("refresh");
     if (manual) button.dataset.busy = "true";
 
-    fetchJson(STATUS_URL)
-      .then(function (data) {
+    Promise.all([
+      fetchJson(STATUS_URL).catch(function (error) {
+        return { __error: error };
+      }),
+      fetchOptional(METRICS_URL),
+      fetchOptional(HEALTH_URL)
+    ])
+      .then(function (results) {
         state.lastFetch = new Date().toISOString();
-        render(data);
-      })
-      .catch(function (error) {
-        state.lastFetch = new Date().toISOString();
-        if (state.data) {
-          // Keep showing the last good data; only the freshness line changes.
-          updateFreshness();
-          return;
+        state.metrics = results[1];
+        state.health = results[2];
+
+        if (results[0] && results[0].__error) {
+          // Keep showing the last good data; only freshness changes.
+          if (!state.status) showStatusError(results[0].__error);
+          else updateFreshness();
+        } else {
+          state.status = results[0];
         }
-        var missing =
-          error && (error.message === "HTTP 404" || error.message === "empty");
-        showState(
-          missing ? "🕰️" : "⚠️",
-          missing ? "Henüz veri yok" : "Durum dosyası okunamadı",
-          missing
-            ? "status.json henüz oluşturulmamış. Brifing bir kez " +
-              "çalıştığında (İstanbul saatiyle 10:00 / 14:00 / 18:00 / 22:00) " +
-              "bu pano dolacak."
-            : "status.json alınamadı: " + (error && error.message ? error.message : "bilinmeyen hata")
-        );
+        if (state.status) renderAll();
+        else {
+          renderPerformans();
+          renderIsler();
+        }
       })
       .then(function () {
         button.dataset.busy = "false";
-        refreshReports();
+        return refreshReports();
+      })
+      .catch(function () {
+        button.dataset.busy = "false";
       });
   }
 
+  /* ====================================================================== */
+  /* init                                                                   */
+  /* ====================================================================== */
+
+  function initTabs() {
+    var list = $("tablist");
+    list.addEventListener("click", function (event) {
+      var button = event.target.closest ? event.target.closest(".tab") : null;
+      if (!button) return;
+      window.location.hash = "#/" + button.dataset.tab;
+    });
+
+    // Left/right arrows move between tabs, Home/End jump to the ends.
+    list.addEventListener("keydown", function (event) {
+      var index = TABS.indexOf(state.tab);
+      var next = null;
+      if (event.key === "ArrowRight") next = (index + 1) % TABS.length;
+      else if (event.key === "ArrowLeft") next = (index - 1 + TABS.length) % TABS.length;
+      else if (event.key === "Home") next = 0;
+      else if (event.key === "End") next = TABS.length - 1;
+      if (next === null) return;
+      event.preventDefault();
+      window.location.hash = "#/" + TABS[next];
+      var button = $("tab-" + TABS[next]);
+      if (button) button.focus();
+    });
+  }
+
   function init() {
-    showState("⏳", "Yükleniyor…", "Durum dosyası okunuyor.");
+    applyTheme(currentTheme());
     initTooltip();
+    initTabs();
+
+    $("theme-toggle").addEventListener("click", function () {
+      applyTheme(currentTheme() === "light" ? "dark" : "light");
+    });
+
     $("refresh").addEventListener("click", function () {
       load(true);
     });
+
+    $("report-search").addEventListener("input", function (event) {
+      state.search = event.target.value || "";
+      renderReportsList();
+    });
+
     window.addEventListener("hashchange", applyRoute);
     applyRoute();
     load(false);
+
     setInterval(function () {
       load(false);
     }, REFRESH_MS);

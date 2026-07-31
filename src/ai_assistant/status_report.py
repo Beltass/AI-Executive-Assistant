@@ -198,13 +198,55 @@ def _previous_history(existing: Dict[str, Any]) -> List[dict]:
     return [entry for entry in history if isinstance(entry, dict)]
 
 
-def _accountability_snapshot() -> Dict[str, Any]:
-    """Streak + today's task count from the coach's state file, if present."""
+#: Longest task text published to the dashboard. The coach already truncates,
+#: this is the belt-and-braces cap.
+MAX_TASK_CHARS = 400
+
+
+def _private_titles(briefings: Any) -> set:
+    """Titles of the advisors whose content must never be published.
+
+    The accountability coach collects every advisor's ``✅ Bugünün görevi``,
+    INCLUDING the private Gmail/Calendar briefing's. Its tasks are prefixed
+    ``*Advisor Title* — …``, so the titles are what the filter below needs.
+    """
+    from .reports import is_private
+
+    titles = set()
+    for briefing in briefings or []:
+        if is_private(briefing):
+            titles.add(str(getattr(briefing, "title", "") or ""))
+    return {title for title in titles if title}
+
+
+def _publishable_tasks(tasks: Any, private_titles: set) -> List[str]:
+    """The task list minus anything a PRIVATE advisor contributed.
+
+    The dashboard is public. A task lifted out of the Gmail/Calendar briefing
+    can name a person or a meeting, so it is dropped here rather than trusted to
+    stay short. Everything else already lives in ``frontend/reports/``, so
+    publishing it reveals nothing new.
+    """
+    out: List[str] = []
+    for task in tasks or []:
+        text = sanitize(str(task or ""), limit=MAX_TASK_CHARS)
+        if not text:
+            continue
+        if any(title and title in text[:120] for title in private_titles):
+            continue
+        out.append(text)
+    return out
+
+
+def _accountability_snapshot(briefings: Any = None) -> Dict[str, Any]:
+    """Streak + today's tasks from the coach's state file, if present."""
     snapshot: Dict[str, Any] = {
         "available": False,
         "streak": 0,
         "today_task_count": 0,
         "last_date": "",
+        "tasks": [],
+        "history_days": 0,
     }
     try:
         from .advisors.accountability_coach import DEFAULT_STATE_FILE
@@ -214,10 +256,15 @@ def _accountability_snapshot() -> Dict[str, Any]:
             data = json.load(fh)
         if not isinstance(data, dict):
             return snapshot
+        private_titles = _private_titles(briefings)
+        tasks = _publishable_tasks(data.get("last_tasks"), private_titles)
+        history = data.get("history")
         snapshot["available"] = True
         snapshot["streak"] = int(data.get("streak") or 0)
         snapshot["last_date"] = str(data.get("last_date") or "")
-        snapshot["today_task_count"] = len(data.get("last_tasks") or [])
+        snapshot["today_task_count"] = len(tasks)
+        snapshot["tasks"] = tasks
+        snapshot["history_days"] = len(history) if isinstance(history, dict) else 0
     except Exception:
         # No state yet is the normal day-one case, not an error.
         return snapshot
@@ -401,7 +448,7 @@ def build_status(
         },
         "slack": slack,
         "advisors": advisors,
-        "accountability": _accountability_snapshot(),
+        "accountability": _accountability_snapshot(briefings),
         "history": history,
     }
 

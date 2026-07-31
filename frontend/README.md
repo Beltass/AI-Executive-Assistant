@@ -6,17 +6,33 @@ CDN yok — dosyaları herhangi bir statik sunucuya koymak yeterli.
 
 ```
 frontend/
-├── index.html    # sayfa iskeleti (pano + okuma görünümü + arşiv)
-├── styles.css    # koyu/açık tema, mobil öncelikli düzen, okuma tipografisi
+├── index.html    # 5 sekmelik iskelet + okuma görünümü + arşiv
+├── styles.css    # tasarım sistemi: tokenlar, koyu/açık tema, bileşenler
+├── charts.js     # bağımlılıksız satır içi SVG grafikler
 ├── markdown.js   # küçük ve GÜVENLİ markdown → HTML dönüştürücü
-├── app.js        # veriyi çeker, çizer, hash router'ı yönetir
+├── app.js        # veriyi çeker, sekmeleri çizer, hash router'ı yönetir
 ├── status.json   # çalıştırma durumu — her brifingde yeniden üretilir
+├── metrics.json  # token/gecikme geçmişi (son 60 çalıştırma)
+├── health.json   # teknik nöbetçinin sağlık raporu (saat başı)
 └── reports/      # ajan başına rapor belgeleri
     ├── index.json                  # arşiv (son 30 gün)
     └── 2026-07-31/
         ├── index.json              # o günün kart listesi
         └── leadership_coach.json   # tek bir ajanın tam raporu
 ```
+
+## Sekmeler
+
+| Sekme | Ne gösterir |
+| ----- | ----------- |
+| 🖥️ **Sistem & Ajanlar** | Genel sağlık başlığı (son çalıştırma, süre, mod, Slack teslimi, başarı oranı, sonraki saatler), teknik nöbetçinin bulguları, ajan kartları + kategori filtresi, çalıştırma geçmişi grafiği |
+| 📄 **İçerik & Raporlar** | Bugünün rapor kartları (özet + okuma süresi), okuma görünümü, tarih arşivi ve istemci tarafı metin araması |
+| 📊 **Performans & Token** | Çalıştırma başına token, girdi/çıktı/düşünme dağılımı, ajan başına **tahmini token payı ↔ çıktı payı** karşılaştırması, gecikme trendi ve **💡 Optimizasyon Önerileri** |
+| ✅ **İşler & Takip** | Hesap Sorucu Koç'un gün serisi ve bugünün görev listesi |
+| 💡 **Öneriler & Fikirler** | İnovasyon & Proje Geliştirme Ajanı'nın proje önerileri |
+
+Aktif sekme **URL hash'inde** tutulur (`#/sistem`, `#/performans`, …), yani her
+sekme paylaşılabilir, yer imlenebilir ve geri tuşu çalışır.
 
 ## 📄 Raporlar (okuma görünümü)
 
@@ -28,7 +44,11 @@ yatay kaydırma yok.
 Adresler (hash router, tek sayfa):
 
 ```
-#/                            pano
+#/sistem                      🖥️ sistem & ajanlar (varsayılan)
+#/icerik                      📄 içerik & raporlar
+#/performans                  📊 performans & token
+#/isler                       ✅ işler & takip
+#/fikirler                    💡 öneriler & fikirler
 #/raporlar                    arşiv (son 30 gün)
 #/raporlar/2026-07-31         o günün raporları
 #/rapor/2026-07-31/ajan_id    tek rapor
@@ -50,22 +70,25 @@ Böylece model üretimi bir metin sayfaya HTML enjekte edemez. CDN'den kütüpha
 çekilmez — DOM'a dokunmadığı için `node` altında test edilir
 (`tests/test_frontend_markdown.py`).
 
-## Ne gösterir? (pano)
+## Tasarım ve erişilebilirlik
 
-- **Özet şeridi:** toplam ajan sayısı, ✅ çalıştı / ⚠️ hata / ⏭️ atlandı sayıları,
-  çalıştırma süresi ve Slack teslim rozeti.
-- **Danışman kartları:** her ajan için Türkçe ad, durum rozeti, hata/atlanma
-  nedeni, üretilen bölümün karakter sayısı ve kategori etiketi (kariyer, aile,
-  sektör, kişisel gelişim, operasyon). Kategoriye göre filtrelenebilir.
-- **Geçmiş:** son ~30 çalıştırmanın yığılmış çubuk grafiği ve son 10
-  çalıştırmanın tablosu (zaman, sonuç, sayılar, süre, Slack).
-- **Hesap sorucu koç paneli:** 🔥 güncel seri ve bugünün görev sayısı.
-- **Çalıştırma motoru:** tek toplu model çağrısının kullanılıp kullanılmadığı,
-  kaç bölüm ürettiği ve hangi modelin yanıtladığı.
+- **Mobil öncelikli.** Her düzen tek sütun başlar, kırılma noktalarında genişler.
+- **Koyu tema varsayılan**, açık temaya geçiş `localStorage`'da saklanır ve ilk
+  boyamadan önce uygulanır (tema titremesi yok).
+- **Renk asla tek başına anlam taşımaz:** her durum bir ikon **ve** Türkçe
+  etiketle gelir; iki ve üzeri serili her grafikte gösterge (legend) vardır ve
+  her grafiğin bir **tablo görünümü** bulunur.
+- **Klavye:** sekmeler ok tuşlarıyla gezilir, her etkileşimli öğede görünür
+  odak halkası vardır, `prefers-reduced-motion` tüm geçişleri kapatır.
+- **Grafik kuralları:** ince işaretler, yığılmış dilimler arasında 2px yüzey
+  boşluğu (çerçeve değil), 1px düz ızgara çizgileri, tek eksen — asla çift eksen.
 
-Renk asla tek başına anlam taşımaz: her durum rengi bir ikon ve Türkçe etiketle
-birlikte gelir, grafikteki "hata" dilimleri ayrıca çapraz dokuyla ayrışır ve
-aynı veriler tablo olarak da bulunur.
+## Grafikler neden kendi dosyasında?
+
+`charts.js` satır içi SVG üretir; hiçbir grafik kütüphanesi yoktur. DOM'a
+`createElementNS` ile dokunduğu için `node` altında küçük bir DOM taklidiyle
+test edilebilir (`tests/test_frontend_dashboard.py`) — geometri gözle değil
+gerçekten çalıştırılarak doğrulanır.
 
 ## Veri nereden geliyor?
 
@@ -132,6 +155,9 @@ https://beltass.github.io/AI-Executive-Assistant/
 ```bash
 # depo kökünde: örnek rapor belgeleri üret (ağ/model gerektirmez)
 python scripts/seed_dashboard.py
+
+# örnek token geçmişi (pano ilk yayında boş görünmesin diye; "örnek" damgalı)
+python scripts/seed_metrics.py
 
 # ya da gerçek bir çalıştırma (boş .env ile ajanlar "skipped" olur)
 python -m ai_assistant.notifiers.slack_notifier
