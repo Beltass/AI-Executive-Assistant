@@ -168,7 +168,7 @@ jobs:
           OPS_BRIEFING_EMAIL_WINDOW: ${{ secrets.OPS_BRIEFING_EMAIL_WINDOW }}
         run: python -m ai_assistant.notifiers.slack_notifier
 
-      # The runner filesystem is thrown away, so four artefacts are persisted
+      # The runner filesystem is thrown away, so five artefacts are persisted
       # by committing them back to `main`:
       #   * the coach's streak/task memory, which is what makes its memory
       #     survive the ephemeral runner;
@@ -176,6 +176,8 @@ jobs:
       #     from repeating what the morning briefing already said;
       #   * the dashboard's status.json, which is what the static site in
       #     `frontend/` renders (and what makes the run visible to the user);
+      #   * frontend/metrics.json, the rolling token/latency history the
+      #     performance tab charts — counts only, never a prompt or a key;
       #   * frontend/reports/, this run's per-advisor report documents — the
       #     readable pages Slack links to (see ai_assistant.reports).
       #
@@ -196,7 +198,7 @@ jobs:
         if: always()
         continue-on-error: true
         env:
-          STATE_PATHS: ".assistant_state/accountability.json .assistant_state/findings.json frontend/status.json frontend/reports"
+          STATE_PATHS: ".assistant_state/accountability.json .assistant_state/findings.json frontend/status.json frontend/metrics.json frontend/reports"
         run: |
           set -u
           PRESENT=""

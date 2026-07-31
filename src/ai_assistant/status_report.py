@@ -247,6 +247,46 @@ def _batch_snapshot() -> Dict[str, Any]:
     return info
 
 
+def _tokens_snapshot() -> Dict[str, Any]:
+    """What the batched call cost, in tokens — counters only, never a secret.
+
+    The full history lives in ``metrics.json`` (see :mod:`ai_assistant.metrics`);
+    this is the one-line version the dashboard's health header shows without
+    having to load the whole history.
+    """
+    info: Dict[str, Any] = {
+        "called": False,
+        "prompt": 0,
+        "output": 0,
+        "thoughts": 0,
+        "total": 0,
+        "latency_seconds": 0.0,
+        "retries": 0,
+        "fallback_used": False,
+    }
+    try:
+        from .integrations import llm
+
+        stats = llm.last_call_stats()
+        if stats is None:
+            return info
+        info.update(
+            {
+                "called": True,
+                "prompt": int(stats.prompt_tokens),
+                "output": int(stats.output_tokens),
+                "thoughts": int(stats.thoughts_tokens),
+                "total": int(stats.total_tokens),
+                "latency_seconds": round(float(stats.latency_seconds), 2),
+                "retries": int(stats.retries),
+                "fallback_used": bool(stats.fallback_used),
+            }
+        )
+    except Exception as exc:  # pragma: no cover - defensive only
+        logger.warning("token bilgisi okunamadı: %s", exc)
+    return info
+
+
 def _advisor_entry(briefing: Any) -> Dict[str, Any]:
     key = str(getattr(briefing, "key", "") or "unknown")
     status = str(getattr(briefing, "status", "") or STATUS_SKIPPED)
@@ -303,6 +343,7 @@ def build_status(
     conclusion = _conclusion(counts)
     duration = round(float(duration_seconds), 1) if duration_seconds is not None else None
     batch = _batch_snapshot()
+    tokens = _tokens_snapshot()
 
     # How this run was asked to work, and how much of it was actually new.
     mode = str(getattr(supervision, "mode", MODE_FULL) or MODE_FULL)
@@ -331,6 +372,7 @@ def build_status(
         "slack": slack["status"],
         "mode": mode,
         "new_findings": new_findings,
+        "total_tokens": tokens["total"],
     }
 
     history = list(previous_history or [])
@@ -349,6 +391,7 @@ def build_status(
             "skipped": counts[STATUS_SKIPPED],
             "duration_seconds": duration,
             "batch": batch,
+            "tokens": tokens,
             # Run mode + how much of it was genuinely new, so the dashboard can
             # tell the flagship 10:00 briefing apart from a quiet top-up run.
             "mode": mode,

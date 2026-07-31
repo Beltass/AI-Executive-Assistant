@@ -464,6 +464,38 @@ def _write_status_report(digest: Digest, result: CheckResult, started: float) ->
         print(f"Durum raporu yazılamadı: {exc}")
 
 
+def _record_metrics(digest: Digest, started: float) -> None:
+    """Record what this run COST for the performance tab.
+
+    Best-effort, exactly like the status file: token accounting is worth
+    strictly less than the briefing it accounts for, so every failure is a
+    printed line and nothing more. Writes counts only — never a prompt, never a
+    response, never a key.
+    """
+    try:
+        from .. import metrics
+        from ..advisors import _batch
+        from ..integrations import llm
+
+        path = metrics.record_run(
+            digest.supervision,
+            call_stats=llm.last_call_stats(),
+            batch=_batch.last_outcome(),
+            duration_seconds=time.monotonic() - started,
+        )
+        stats = llm.last_call_stats()
+        if stats is not None:
+            print(
+                f"Token kullanımı: girdi {stats.prompt_tokens} · "
+                f"çıktı {stats.output_tokens} · düşünme {stats.thoughts_tokens} · "
+                f"toplam {stats.total_tokens}"
+            )
+        if path:
+            print(f"Metrik dosyası: {path}")
+    except Exception as exc:  # pragma: no cover - record_run already guards itself
+        print(f"Metrikler yazılamadı: {exc}")
+
+
 def _publish_reports(digest: Digest) -> Publication:
     """Write this run's per-advisor documents for the dashboard.
 
@@ -514,6 +546,7 @@ def main() -> int:
     _remember_delivered(result)
 
     _write_status_report(digest, result, started)
+    _record_metrics(digest, started)
     return 1 if result.status == STATUS_FAILED else 0
 
 

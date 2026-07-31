@@ -64,6 +64,37 @@ RICH_BRIEFING_GUIDE = (
     "Tümü akıcı, sıcak ve anlaşılır Türkçe olsun; yapay kurumsal dilden kaçın."
 )
 
+# The SHORT version of the same contract, used on ``incremental`` runs.
+#
+# WHY: an incremental top-up reports only what is NEW since the morning. Two or
+# three sections of a few hundred words each do not need the full 2.4 KB essay
+# above — sending it anyway costs roughly 700 input tokens per section for
+# instructions the model barely gets to apply. This keeps the parts that the
+# rest of the pipeline actually DEPENDS on (the ``Öne çıkan:`` headline the
+# Slack index lifts out, real links only, the daily task) and drops the depth
+# coaching that only matters for the flagship briefing.
+COMPACT_BRIEFING_GUIDE = (
+    "YAZIM KURALLARI (kısa mod):\n"
+    "- İLK satır tam olarak: `**Öne çıkan:** <tek cümlelik ana bulgu>` "
+    "(en fazla 200 karakter).\n"
+    "- Sonra 120-200 kelime: yalnızca YENİ olan gelişme, neden önemli olduğu "
+    "ve somut çıkarım. Sabah anlatılanları tekrarlama.\n"
+    "- Kaynak verirsen SADECE gerçek ve kalıcı bağlantı ver; emin değilsen "
+    "platformun ana adresini ve bir arama terimi yaz.\n"
+    "- Kapanışta `✅ Bugünün görevi`: 15-30 dakikalık tek somut eylem.\n"
+    "- Akıcı, sade Türkçe; klişe ve dolgu cümle yok."
+)
+
+#: What replaces the guide inside each section once it has been lifted out and
+#: stated ONCE for the whole batch (see
+#: :func:`ai_assistant.advisors._batch.split_shared_guide`).
+SHARED_GUIDE_POINTER = "(Yukarıdaki ORTAK YAZIM KURALLARI bu bölüm için de geçerli.)"
+
+
+def briefing_guide(incremental: bool = False) -> str:
+    """The writing contract for this run: full for ``full``, short otherwise."""
+    return COMPACT_BRIEFING_GUIDE if incremental else RICH_BRIEFING_GUIDE
+
 
 class LLMAdvisor(Advisor):
     """Base persona that turns a system/user prompt pair into a briefing."""
