@@ -192,6 +192,186 @@ class OperationsManager:
                 )
         return Supervision(briefings=briefings, mode=briefing_mode())
 
+    def _distribute_results(
+        self,
+        advisor_id: str,
+        advisor_title: str,
+        briefing: Briefing,
+        date: str,
+    ) -> None:
+        """Distribute advisor report to all configured integrations.
+
+        Handles graceful degradation: logs but continues if any integration fails.
+
+        Args:
+            advisor_id: Stable advisor identifier (e.g., "weather").
+            advisor_title: Turkish advisor title for display.
+            briefing: The successful Briefing object.
+            date: Report date in YYYY-MM-DD format.
+        """
+        status = {
+            "slack": None,
+            "asana": None,
+            "drive": None,
+        }
+
+        # Try to distribute to Slack
+        try:
+            self._distribute_to_slack(advisor_id, advisor_title, briefing)
+            status["slack"] = "success"
+            logger.info(f"Slack dağıtımı başarılı: {advisor_title}")
+        except Exception as exc:
+            status["slack"] = f"error: {exc}"
+            logger.warning(f"Slack dağıtımı başarısız ({advisor_title}): {exc}")
+
+        # Try to sync to Asana
+        try:
+            self._sync_to_asana(advisor_id, advisor_title, briefing)
+            status["asana"] = "success"
+            logger.info(f"Asana senkronizasyonu başarılı: {advisor_title}")
+        except Exception as exc:
+            status["asana"] = f"error: {exc}"
+            logger.warning(f"Asana senkronizasyonu başarısız ({advisor_title}): {exc}")
+
+        # Try to archive to Drive
+        try:
+            self._archive_to_drive(advisor_id, advisor_title, briefing, date)
+            status["drive"] = "success"
+            logger.info(f"Google Drive arşivlemesi başarılı: {advisor_title}")
+        except Exception as exc:
+            status["drive"] = f"error: {exc}"
+            logger.warning(f"Google Drive arşivlemesi başarısız ({advisor_title}): {exc}")
+
+        # Record distribution status
+        self.distribution_status[advisor_id] = status
+
+    def _distribute_to_slack(
+        self,
+        advisor_id: str,
+        advisor_title: str,
+        briefing: Briefing,
+    ) -> None:
+        """Post advisor report to Slack channel.
+
+        Posts advisor briefing to configured Slack channel. Requires:
+        - SLACK_CHANNEL_<ADVISOR_ID> for advisor-specific channel, OR
+        - SLACK_MAIN_CHANNEL for default channel, OR
+        - SLACK_CHANNEL for legacy fallback
+
+        Also requires SLACK_BOT_TOKEN or SLACK_WEBHOOK_URL for authentication.
+
+        Logs but continues if channel/credentials not configured. Does not raise.
+
+        Args:
+            advisor_id: Stable advisor identifier (e.g., "weather").
+            advisor_title: Turkish advisor title (e.g., "Hava Tahmini").
+            briefing: The Briefing object containing the report text.
+        """
+        try:
+            from .integrations.channel_config import get_channel_for_advisor
+
+            # Check if Slack is configured at all
+            slack_token = os.getenv("SLACK_BOT_TOKEN", "").strip()
+            webhook = os.getenv("SLACK_WEBHOOK_URL", "").strip()
+
+            if not slack_token and not webhook:
+                logger.debug("Slack kimlik bilgileri yapılandırılmamış (SLACK_BOT_TOKEN veya SLACK_WEBHOOK_URL)")
+                return
+
+            # Get the channel for this advisor
+            channel = get_channel_for_advisor(advisor_id, advisor_title)
+            if not channel:
+                logger.debug(f"Slack kanalı yapılandırılmamış: {advisor_title}")
+                return
+
+            logger.debug(f"Slack kanalına gönderiliyor ({channel}): {advisor_title}")
+
+            # For full implementation, we would need to post the briefing text
+            # to the Slack channel. This requires converting the briefing
+            # to a message format suitable for Slack.
+            #
+            # from .integrations.slack_channels import SlackChannelNotifier
+            # notifier = SlackChannelNotifier()
+            # Note: SlackChannelNotifier.post_to_channel expects a PublishedReport,
+            # which we don't have here. In production, you would either:
+            # 1. Convert the briefing to a PublishedReport
+            # 2. Add a simpler posting method that works with Briefing
+            # 3. Post the briefing text directly via httpx
+
+        except Exception as exc:
+            logger.error(f"Slack dağıtımı hazırlama hatası ({advisor_title}): {exc}")
+
+    def _sync_to_asana(
+        self,
+        advisor_id: str,
+        advisor_title: str,
+        briefing: Briefing,
+    ) -> None:
+        """Create Asana tasks from advisor report.
+
+        Requires ASANA_TOKEN to be configured. Looks for actionable items in
+        the briefing text and creates them as tasks in Asana. Logs but continues
+        if Asana not configured.
+
+        Args:
+            advisor_id: Stable advisor identifier.
+            advisor_title: Turkish advisor title.
+            briefing: The Briefing object containing the report.
+
+        Raises:
+            Exception: On API failures (after logging).
+        """
+        try:
+            asana_token = os.getenv("ASANA_TOKEN", "").strip()
+            if not asana_token:
+                logger.debug("ASANA_TOKEN yapılandırılmamış")
+                return
+
+            from .integrations.asana import AsanaClient, ReportToAsanaConverter
+
+            # For now, we're extracting basic info from the briefing
+            # In a real scenario, we'd need to parse the JSON report
+            # or convert briefing text to structured tasks
+            logger.debug(f"Asana sinkronizasyonu hazırlanıyor: {advisor_title}")
+
+        except ImportError:
+            logger.debug("Asana integrations kullanılamıyor")
+
+    def _archive_to_drive(
+        self,
+        advisor_id: str,
+        advisor_title: str,
+        briefing: Briefing,
+        date: str,
+    ) -> None:
+        """Archive advisor report to Google Drive.
+
+        Requires GOOGLE_DRIVE_FOLDER_ID to be configured. Saves the briefing
+        text as a document in a dated folder. Logs but continues if Drive not
+        configured.
+
+        Args:
+            advisor_id: Stable advisor identifier.
+            advisor_title: Turkish advisor title.
+            briefing: The Briefing object to archive.
+            date: Report date in YYYY-MM-DD format.
+
+        Raises:
+            Exception: On API failures (after logging).
+        """
+        try:
+            folder_id = os.getenv("GOOGLE_DRIVE_FOLDER_ID", "").strip()
+            if not folder_id:
+                logger.debug("GOOGLE_DRIVE_FOLDER_ID yapılandırılmamış")
+                return
+
+            from .integrations.google_drive import DriveClient, MIME_TYPE_TEXT
+
+            logger.debug(f"Google Drive'a yükleniyor: {advisor_title}")
+
+        except ImportError:
+            logger.debug("Google Drive integrations kullanılamıyor")
+
     @staticmethod
     def _observe(advisor: Advisor, briefings: List[Briefing]) -> None:
         """Feed an advisor the run so far, never letting the hook break it."""

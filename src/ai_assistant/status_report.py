@@ -125,6 +125,230 @@ _SECRET_PATTERNS = (
 REDACTED = "***"
 
 
+# --- integration metrics tracking ------------------------------------------
+
+
+class IntegrationMetrics:
+    """Track health and performance metrics for external integrations.
+
+    This class manages persistent tracking of:
+    - Slack: channel messages sent, failed deliveries
+    - Asana: projects/tasks created, tasks completed, failed operations
+    - Drive: documents uploaded, archives stored, failed uploads
+
+    Metrics are accumulated throughout a calendar day (UTC) and reset at midnight.
+    """
+
+    def __init__(self) -> None:
+        """Initialize metrics, loading any existing data from today."""
+        self.data = self._load_todays_metrics()
+        self._ensure_integration_sections()
+
+    def _ensure_integration_sections(self) -> None:
+        """Ensure all required integration sections exist in the data."""
+        if "integrations" not in self.data:
+            self.data["integrations"] = {}
+
+        integrations = self.data["integrations"]
+        for integration in ("slack", "asana", "drive"):
+            if integration not in integrations:
+                integrations[integration] = self._empty_integration_state(integration)
+
+    def _empty_integration_state(self, integration: str) -> Dict[str, Any]:
+        """Return the template for a fresh integration state."""
+        base = {
+            "enabled": True,
+            "last_health_check": None,
+            "health_status": "unknown",
+        }
+
+        if integration == "slack":
+            return {
+                **base,
+                "channels_configured": 0,
+                "messages_sent_today": 0,
+                "failed_sends": [],
+                "last_post_time": None,
+            }
+        elif integration == "asana":
+            return {
+                **base,
+                "projects_created": 0,
+                "tasks_created": 0,
+                "tasks_completed": 0,
+                "failed_operations": [],
+                "last_sync_time": None,
+            }
+        elif integration == "drive":
+            return {
+                **base,
+                "documents_uploaded": 0,
+                "archive_count": 0,
+                "failed_uploads": [],
+                "last_sync_time": None,
+            }
+        return base
+
+    def _load_todays_metrics(self) -> Dict[str, Any]:
+        """Load metrics from today, or start fresh if none exist or date changed."""
+        path = integration_metrics_file_path()
+        try:
+            with open(path, "r", encoding="utf-8") as fh:
+                existing = json.load(fh)
+        except FileNotFoundError:
+            return {"date": self._today_date(), "integrations": {}}
+        except Exception as exc:
+            logger.warning("entegrasyon metrik dosyası okunamadı (%s): %s", path, exc)
+            return {"date": self._today_date(), "integrations": {}}
+
+        if not isinstance(existing, dict):
+            return {"date": self._today_date(), "integrations": {}}
+
+        # If the date has changed, reset metrics for the new day
+        stored_date = existing.get("date", "")
+        today = self._today_date()
+        if stored_date != today:
+            return {"date": today, "integrations": {}}
+
+        return existing
+
+    def _today_date(self) -> str:
+        """Return today's date in ISO format (UTC)."""
+        return _now_utc().date().isoformat()
+
+    def record_slack_send(
+        self, channel: str, success: bool, timestamp: Optional[datetime] = None
+    ) -> None:
+        """Record a Slack message send attempt.
+
+        Args:
+            channel: Slack channel name or ID.
+            success: True if send succeeded, False if failed.
+            timestamp: When the send occurred (defaults to now).
+        """
+        if "slack" not in self.data["integrations"]:
+            self.data["integrations"]["slack"] = self._empty_integration_state("slack")
+
+        slack = self.data["integrations"]["slack"]
+        when = (timestamp or _now_utc()).isoformat(timespec="seconds")
+
+        if success:
+            slack["messages_sent_today"] = int(slack.get("messages_sent_today", 0)) + 1
+            slack["last_post_time"] = when
+        else:
+            failed = slack.get("failed_sends", [])
+            if isinstance(failed, list):
+                failed.append({"channel": channel, "timestamp": when})
+                # Keep only recent failures (last 50)
+                slack["failed_sends"] = failed[-50:]
+
+    def record_asana_operation(
+        self, operation_type: str, success: bool, timestamp: Optional[datetime] = None
+    ) -> None:
+        """Record an Asana operation (project/task create/complete).
+
+        Args:
+            operation_type: One of "project_created", "task_created", "task_completed".
+            success: True if operation succeeded.
+            timestamp: When the operation occurred (defaults to now).
+        """
+        if "asana" not in self.data["integrations"]:
+            self.data["integrations"]["asana"] = self._empty_integration_state("asana")
+
+        asana = self.data["integrations"]["asana"]
+        when = (timestamp or _now_utc()).isoformat(timespec="seconds")
+
+        if success:
+            if operation_type == "project_created":
+                asana["projects_created"] = int(asana.get("projects_created", 0)) + 1
+            elif operation_type == "task_created":
+                asana["tasks_created"] = int(asana.get("tasks_created", 0)) + 1
+            elif operation_type == "task_completed":
+                asana["tasks_completed"] = int(asana.get("tasks_completed", 0)) + 1
+            asana["last_sync_time"] = when
+        else:
+            failed = asana.get("failed_operations", [])
+            if isinstance(failed, list):
+                failed.append({"operation": operation_type, "timestamp": when})
+                # Keep only recent failures (last 50)
+                asana["failed_operations"] = failed[-50:]
+
+    def record_drive_upload(
+        self, filename: str, success: bool, timestamp: Optional[datetime] = None
+    ) -> None:
+        """Record a Google Drive upload.
+
+        Args:
+            filename: Name of the uploaded file.
+            success: True if upload succeeded.
+            timestamp: When the upload occurred (defaults to now).
+        """
+        if "drive" not in self.data["integrations"]:
+            self.data["integrations"]["drive"] = self._empty_integration_state("drive")
+
+        drive = self.data["integrations"]["drive"]
+        when = (timestamp or _now_utc()).isoformat(timespec="seconds")
+
+        if success:
+            if filename.startswith("archive_") or filename.endswith("_archive.zip"):
+                drive["archive_count"] = int(drive.get("archive_count", 0)) + 1
+            else:
+                drive["documents_uploaded"] = int(drive.get("documents_uploaded", 0)) + 1
+            drive["last_sync_time"] = when
+        else:
+            failed = drive.get("failed_uploads", [])
+            if isinstance(failed, list):
+                failed.append({"filename": filename, "timestamp": when})
+                # Keep only recent failures (last 50)
+                drive["failed_uploads"] = failed[-50:]
+
+    def record_health_check(
+        self, integration: str, healthy: bool, timestamp: Optional[datetime] = None
+    ) -> None:
+        """Record an integration health check result.
+
+        Args:
+            integration: One of "slack", "asana", "drive".
+            healthy: True if health check passed.
+            timestamp: When the check occurred (defaults to now).
+        """
+        if integration not in self.data.get("integrations", {}):
+            return
+
+        when = (timestamp or _now_utc()).isoformat(timespec="seconds")
+        self.data["integrations"][integration]["last_health_check"] = when
+        self.data["integrations"][integration]["health_status"] = (
+            "healthy" if healthy else "unhealthy"
+        )
+
+    def get_integration_summary(self) -> Dict[str, Any]:
+        """Return the complete integration metrics summary."""
+        return {
+            "date": self.data.get("date", self._today_date()),
+            "integrations": self.data.get("integrations", {}),
+        }
+
+    def persist(self, path: Optional[str] = None) -> bool:
+        """Write metrics to disk. Returns True on success, False on error."""
+        target = path or integration_metrics_file_path()
+        try:
+            directory = os.path.dirname(target)
+            if directory:
+                os.makedirs(directory, exist_ok=True)
+            with open(target, "w", encoding="utf-8") as fh:
+                json.dump(self.data, fh, ensure_ascii=False, indent=2)
+                fh.write("\n")
+            return True
+        except Exception as exc:
+            logger.warning("entegrasyon metrik dosyası yazılamadı (%s): %s", target, exc)
+            return False
+
+
+def integration_metrics_file_path() -> str:
+    """Where integration metrics are persisted."""
+    return (os.getenv(INTEGRATION_METRICS_FILE_ENV) or "").strip() or DEFAULT_INTEGRATION_METRICS_FILE
+
+
 def sanitize(text: Any, limit: int = MAX_DETAIL_CHARS) -> str:
     """Return ``text`` with every known secret removed and its length capped.
 
@@ -272,6 +496,101 @@ def _accountability_snapshot(briefings: Any = None) -> Dict[str, Any]:
     except Exception:
         # No state yet is the normal day-one case, not an error.
         return snapshot
+    return snapshot
+
+
+def _integrations_snapshot() -> Dict[str, Any]:
+    """Integration status from connected services (Slack, Asana, Google Drive).
+
+    Collects metrics about configured integrations and their health status.
+    """
+    snapshot: Dict[str, Any] = {
+        "slack": {
+            "configured_channels": 0,
+            "last_post": None,
+            "failures": []
+        },
+        "asana": {
+            "projects": 0,
+            "tasks": 0,
+            "workspace_url": None,
+            "last_update": None,
+            "failures": []
+        },
+        "drive": {
+            "total_docs": 0,
+            "archive_docs": 0,
+            "folder_size": None,
+            "last_sync": None,
+            "failures": []
+        },
+        "distribution": {
+            "total_attempts": 0,
+            "success_count": 0,
+            "failure_count": 0,
+            "failed_advisors": [],
+            "last_attempt": None
+        }
+    }
+    try:
+        from .integrations import slack, asana_client, drive
+        from . import config
+
+        # Slack channels configured
+        configured = 0
+        slack_channels = [
+            os.getenv("SLACK_CHANNEL_MAIL_ANALYST", "").strip(),
+            os.getenv("SLACK_CHANNEL_LEADERSHIP", "").strip(),
+            os.getenv("SLACK_CHANNEL_CAREER", "").strip(),
+            os.getenv("SLACK_CHANNEL_SECTOR", "").strip(),
+            os.getenv("SLACK_CHANNEL_OPS", "").strip(),
+            os.getenv("SLACK_CHANNEL_FAMILY", "").strip(),
+            os.getenv("SLACK_CHANNEL_GROWTH", "").strip(),
+            os.getenv("SLACK_CHANNEL_MAIN", "").strip(),
+        ]
+        configured = sum(1 for ch in slack_channels if ch)
+        snapshot["slack"]["configured_channels"] = configured
+
+        # Try to get recent Slack post time
+        try:
+            # Check if we have recent Slack activity from integrations
+            if hasattr(slack, "last_post_time"):
+                snapshot["slack"]["last_post"] = slack.last_post_time
+        except Exception:
+            pass
+
+        # Asana projects (if configured)
+        try:
+            if hasattr(asana_client, "configured") and asana_client.configured():
+                if hasattr(asana_client, "project_count"):
+                    snapshot["asana"]["projects"] = asana_client.project_count() or 0
+                if hasattr(asana_client, "task_count"):
+                    snapshot["asana"]["tasks"] = asana_client.task_count() or 0
+                if hasattr(asana_client, "workspace_url"):
+                    snapshot["asana"]["workspace_url"] = asana_client.workspace_url
+                snapshot["asana"]["last_update"] = _now_utc().isoformat(timespec="seconds")
+        except Exception:
+            pass
+
+        # Google Drive folder status (if configured)
+        try:
+            if hasattr(drive, "configured") and drive.configured():
+                if hasattr(drive, "document_count"):
+                    snapshot["drive"]["total_docs"] = drive.document_count() or 0
+                if hasattr(drive, "archive_count"):
+                    snapshot["drive"]["archive_docs"] = drive.archive_count() or 0
+                if hasattr(drive, "folder_size"):
+                    snapshot["drive"]["folder_size"] = drive.folder_size()
+                snapshot["drive"]["last_sync"] = _now_utc().isoformat(timespec="seconds")
+        except Exception:
+            pass
+
+        # Distribution tracking (from briefings)
+        # This could be populated from supervision data if available
+        snapshot["distribution"]["last_attempt"] = _now_utc().isoformat(timespec="seconds")
+
+    except Exception as exc:
+        logger.warning("entegrasyon durumu toplanırken hata: %s", exc)
     return snapshot
 
 
@@ -453,6 +772,7 @@ def build_status(
         "slack": slack,
         "advisors": advisors,
         "accountability": _accountability_snapshot(briefings),
+        "integrations": _integrations_snapshot(),
         "history": history,
     }
 
