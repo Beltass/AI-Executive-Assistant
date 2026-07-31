@@ -135,6 +135,18 @@
         >
           <span class="tab__icon" aria-hidden="true">💡</span> Öneriler &amp; Fikirler
         </button>
+        <button
+          class="tab"
+          id="tab-entegrasyonlar"
+          role="tab"
+          type="button"
+          data-tab="entegrasyonlar"
+          aria-controls="panel-entegrasyonlar"
+          aria-selected="false"
+          tabindex="-1"
+        >
+          <span class="tab__icon" aria-hidden="true">🔗</span> İntegrasyonlar &amp; Bağlantılar
+        </button>
       </div>
     </nav>
 
@@ -593,6 +605,41 @@
           <article class="idea">
             <div class="idea__body doc__body" id="fikirler-body-text"></div>
           </article>
+        </div>
+      </section>
+
+      <!-- =================================================================
+           TAB 6 — 🔗 İNTEGRASYONLAR & BAĞLANTILAR
+           ================================================================= -->
+      <section
+        id="panel-entegrasyonlar"
+        role="tabpanel"
+        aria-labelledby="tab-entegrasyonlar"
+        tabindex="0"
+        class="stack"
+        hidden
+      >
+        <div id="entegrasyonlar-empty" class="state" hidden>
+          <div class="state__icon" aria-hidden="true">🔗</div>
+          <h2>Henüz entegrasyon verisi yok</h2>
+          <p>
+            Slack, Asana, Google Drive ve dağıtım durumu hakkında bilgi
+            her brifing çalıştırmasında toplanır. İlk çalıştırmadan sonra
+            bu sekme dolacak.
+          </p>
+        </div>
+
+        <div id="entegrasyonlar-body" hidden class="stack">
+          <section aria-labelledby="integrations-title">
+            <div class="section-head">
+              <h2 id="integrations-title"><span aria-hidden="true">🔗</span> Entegrasyon Durumu</h2>
+            </div>
+            <p class="section-note">
+              Slack kanalları, Asana projeleri, Google Drive klasörü ve mesaj dağıtımının
+              gerçek zamanlı durumu.
+            </p>
+            <div class="integrations-grid" id="integrations-grid" style="margin-top: var(--s3)"></div>
+          </section>
         </div>
       </section>
     </main>

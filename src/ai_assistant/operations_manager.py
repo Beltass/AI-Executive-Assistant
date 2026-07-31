@@ -135,6 +135,13 @@ class OperationsManager:
         (``LLM_TIME_BUDGET_SECONDS``), so an exhausted provider quota can never
         stretch the run past it: once spent, the remaining sections fail fast
         and the digest is still delivered on time.
+
+        After each successful advisor run, automatically distributes the report to:
+        - Slack channels (if configured)
+        - Asana tasks (if configured)
+        - Google Drive (if configured)
+
+        All integrations are optional and degrade gracefully on failure.
         """
         # One shared wall-clock budget for the whole team. Without it, a spent
         # quota makes every advisor repeat the same doomed retry-and-fallback
@@ -144,6 +151,7 @@ class OperationsManager:
 
         briefings: List[Briefing] = []
         batched = run_batch(self.advisors)
+        today = datetime.now().strftime("%Y-%m-%d")
 
         for advisor in self.advisors:
             try:
@@ -162,6 +170,17 @@ class OperationsManager:
                     briefings.append(advisor.briefing_from_batch(text))
                 else:
                     briefings.append(advisor.generate_briefing())
+
+                # After successful advisor run, distribute to integrations
+                briefing = briefings[-1]
+                if briefing.status == STATUS_OK:
+                    self._distribute_results(
+                        advisor.key,
+                        advisor.title,
+                        briefing,
+                        today,
+                    )
+
             except Exception as exc:  # extra guard beyond the advisor's own
                 briefings.append(
                     Briefing(

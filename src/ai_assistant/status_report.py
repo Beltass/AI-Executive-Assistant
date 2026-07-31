@@ -40,6 +40,10 @@ from .integrations import STATUS_FAILED, STATUS_OK, STATUS_SKIPPED
 
 logger = logging.getLogger(__name__)
 
+# Integration metrics constants
+INTEGRATION_METRICS_FILE_ENV = "INTEGRATION_METRICS_FILE"
+DEFAULT_INTEGRATION_METRICS_FILE = "frontend/integration_metrics.json"
+
 STATUS_FILE_ENV = "STATUS_REPORT_FILE"
 DEFAULT_STATUS_FILE = "frontend/status.json"
 

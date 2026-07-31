@@ -5,6 +5,11 @@ then formats every advisor's briefing into a single dated Turkish report with a
 short supervision line from the manager. It returns the formatted text plus the
 underlying supervision object (statuses/counts).
 
+Multi-channel distribution is handled by ``distribute_digest_by_channel()``, which:
+- Posts the briefing summary to SLACK_MAIN_CHANNEL
+- Posts each advisor's report to their specific SLACK_CHANNEL_<ADVISOR>
+- Logs all distribution attempts and gracefully handles missing channels
+
 Run with::
 
     python -m ai_assistant.daily_digest
@@ -12,14 +17,20 @@ Run with::
 
 from __future__ import annotations
 
+import json
+import logging
+import os
 import sys
 from dataclasses import dataclass
 from datetime import date
+from typing import Optional
 
 from .advisors import NOTHING_NEW_NOTE
 from .config import MODE_INCREMENTAL
 from .integrations import STATUS_FAILED, STATUS_OK, STATUS_SKIPPED
 from .operations_manager import OperationsManager, Supervision
+
+logger = logging.getLogger(__name__)
 
 _STATUS_LABEL = {
     STATUS_OK: "OK",
