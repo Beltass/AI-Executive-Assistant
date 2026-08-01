@@ -21,10 +21,24 @@ MOTORUN TEK KURALI: hiçbir adım kullanıcıya traceback göstermez. Okunamayan
 dosya, boş sayfa, tek sütunluk veri, eksik Google kimliği — hepsi
 :class:`ai_assistant.analysis.dataset.DatasetError` üzerinden net bir Türkçe
 cümleye dönüşür.
+
+TİPİK AKIŞ — beş modülün de giriş noktası bu paketten doğrudan alınır::
+
+    from ai_assistant.analysis import AnalysisRequest, analyze, build_workbook, load_any
+
+    dataset = load_any("cagri_kayitlari.xlsx")
+    result = analyze(dataset, AnalysisRequest(dimensions=["Takım"]))
+    build_workbook(result, "rapor.xlsx")
+
+Aşağıdaki ``__all__`` her modülün GERÇEK kamusal yüzeyidir, tamamı değil: ara
+hesap yardımcıları (``pearson``, ``pivot_table_spec``, sayfa adı sabitleri…)
+kasıtlı olarak dışarıda bırakıldı — onlara ihtiyaç duyan kod ilgili modülü tam
+yoluyla içe aktarır.
 """
 
 from __future__ import annotations
 
+# 1. adım — veri alma ve profilleme.
 from .dataset import (
     Dataset,
     DatasetError,
@@ -36,7 +50,42 @@ from .dataset import (
     load_text,
 )
 
+# 2. adım — analiz. `analyze` motorun kalbi; yanındaki tipler onun girdisi
+# (istek/filtre) ve çıktısıdır (sonuç ve içindeki bulgu/ölçü/kırılım/seri
+# kayıtları), yani raporu üreten kodun gerçekten elleyeceği şeyler.
+from .analyzer import (
+    AnalysisRequest,
+    AnalysisResult,
+    Filter,
+    Finding,
+    Measure,
+    PivotTable,
+    TimeSeries,
+    analyze,
+)
+
+# 3. adım — Excel çıktısı. Modül openpyxl'i İÇE AKTARMA anında değil, yalnızca
+# `build_workbook` çağrıldığında yükler; bu yüzden kütüphane eksik olsa bile bu
+# paketi içe aktarmak güvenlidir ve hata kullanıcıya Türkçe DatasetError olarak
+# ancak rapor istendiğinde ulaşır.
+from .excel_report import build_workbook
+
+# 4. adım — tarayıcı raporu.
+from .web_report import build_and_publish, build_document, publish_document
+
+# Canlı senkron — e-tabloyu izle, değiştiyse yeniden analiz et, geçmişi tut.
+from .live_sync import (
+    SyncResult,
+    TrackedSource,
+    Version,
+    check_source,
+    history,
+    history_table_tr,
+    sync_source,
+)
+
 __all__ = [
+    # 1. dataset
     "ColumnProfile",
     "Dataset",
     "DatasetError",
@@ -45,4 +94,27 @@ __all__ = [
     "load_excel",
     "load_google_sheet",
     "load_text",
+    # 2. analyzer
+    "AnalysisRequest",
+    "AnalysisResult",
+    "Filter",
+    "Finding",
+    "Measure",
+    "PivotTable",
+    "TimeSeries",
+    "analyze",
+    # 3. excel_report
+    "build_workbook",
+    # 4. web_report
+    "build_and_publish",
+    "build_document",
+    "publish_document",
+    # live_sync
+    "SyncResult",
+    "TrackedSource",
+    "Version",
+    "check_source",
+    "history",
+    "history_table_tr",
+    "sync_source",
 ]

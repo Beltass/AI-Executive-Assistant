@@ -16,6 +16,13 @@ dependencies = [
     "google-auth>=2.0.0",
     "google-auth-oauthlib>=1.0.0",
     "google-api-python-client>=2.0.0",
+    # `.xlsx` raporu bir ek özellik değil, motorun iki çıktısından biri
+    # (ai_assistant.analysis.excel_report) — ve Excel dosyalarını OKUMAK da
+    # buna bağlı (ai_assistant.analysis.dataset.load_excel). Kod eksik kurulumu
+    # yakalayıp Türkçe bir DatasetError'a çeviriyor; o ağ hâlâ yerinde duruyor
+    # ama artık son çare, varsayılan değil. Bağımlılık burada olmadığı sürece
+    # temiz bir kurulumda Excel yolu sessizce ölüydü ve testler bunu görmüyordu.
+    "openpyxl>=3.1.0",
 ]
 
 [project.optional-dependencies]
