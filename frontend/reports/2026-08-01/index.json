@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "date": "2026-08-01",
-  "generated_at": "2026-08-01T19:03:19+03:00",
-  "generated_at_istanbul": "01.08.2026 19:03",
+  "generated_at": "2026-08-01T23:11:22+03:00",
+  "generated_at_istanbul": "01.08.2026 23:11",
   "mode": "incremental",
   "mode_label": "artımlı",
   "count": 15,
@@ -195,13 +195,13 @@
       "name": "Pazar İstihbaratı (Sektör · YZ · CX · Bankacılık)",
       "emoji": "📊",
       "category": "sektör",
-      "headline": "Bankacılık çağrı merkezleri, artan dolandırıcılık vakaları ve yapay zeka entegrasyonu riskleriyle mücadele ederken, şikayet yönetiminde adalet algısını güçlendirerek müşteri sadakatini yeniden kazanma fırsatına sahip.",
-      "excerpt": "(a) Sektördeki teknoloji ve yapay zeka gelişmeleri: Bankacılık çağrı merkezlerinde yapay zeka, özellikle konuşma analitiği ve akıllı yönlendirme alanlarında olgunlaşıyor. Sesli botlar ve sanal…",
-      "words": 1691,
-      "read_minutes": 8,
+      "headline": "Üretken yapay zekâ, banka çağrı merkezlerinde verimlilik potansiyeli sunarken, model sızmaları ve veri eğitimi yasakları gibi ciddi uyum ve güvenlik risklerini beraberinde getiriyor; müşteri sadakati ise şikâyet sonrası telafinin maddi…",
+      "excerpt": "Bankacılık sektöründe dijital dönüşümün ve yapay zekânın hızla ilerlediği bir dönemde, çağrı merkezlerimiz hem verimlilik hem de müşteri memnuniyeti açısından kritik bir rol oynamaya devam ediyor.…",
+      "words": 873,
+      "read_minutes": 4,
       "action_count": 0,
-      "generated_at": "2026-08-01T19:03:19+03:00",
-      "generated_at_istanbul": "01.08.2026 19:03",
+      "generated_at": "2026-08-01T23:11:22+03:00",
+      "generated_at_istanbul": "01.08.2026 23:11",
       "path": "market_intelligence.json"
     }
   ]
