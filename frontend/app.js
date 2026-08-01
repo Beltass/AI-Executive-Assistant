@@ -76,6 +76,175 @@
   var DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
   var ID_RE = /^[A-Za-z0-9_-]+$/;
 
+  /* Dashboard Report Organization — Topic and Expertise Mapping */
+  var TOPICS = {
+    "business-analytics": {
+      id: "business-analytics",
+      name_tr: "İş Analitikleri",
+      name_en: "Business Analytics",
+      emoji: "📊",
+      color: "#4A90E2",
+      description_tr: "İş performansı, veri analizi ve stratejik içgörüler",
+      categories: ["sector", "operasyon", "iş-analizi", "veri"]
+    },
+    "human-resources": {
+      id: "human-resources",
+      name_tr: "İnsan Kaynakları",
+      name_en: "Human Resources",
+      emoji: "👥",
+      color: "#7ED321",
+      description_tr: "Takım performansı, kariyer gelişimi ve insan kaynakları",
+      categories: ["kariyer", "kişisel-gelişim", "aile", "liderlik"]
+    },
+    "marketing-sales": {
+      id: "marketing-sales",
+      name_tr: "Pazarlama & Satış",
+      name_en: "Marketing & Sales",
+      emoji: "💼",
+      color: "#F5A623",
+      description_tr: "Müşteri içgörüleri, pazar fırsatları ve satış analizi",
+      categories: ["müşteri", "pazarlama", "satış"]
+    },
+    "innovation-tech": {
+      id: "innovation-tech",
+      name_tr: "İnovasyon",
+      name_en: "Innovation & Technology",
+      emoji: "🚀",
+      color: "#9B59B6",
+      description_tr: "İyilik fikirleri, teknoloji trendleri ve araştırma",
+      categories: ["teknoloji", "yapay-zeka", "araştırma", "yenilik"]
+    },
+    "communications": {
+      id: "communications",
+      name_tr: "İletişim",
+      name_en: "Communications",
+      emoji: "📧",
+      color: "#E74C3C",
+      description_tr: "E-posta analizi, toplantı yönetimi ve işbirliği",
+      categories: ["iletişim", "e-posta", "takvim", "sosyal"]
+    },
+    "learning-development": {
+      id: "learning-development",
+      name_tr: "Gelişim",
+      name_en: "Learning & Development",
+      emoji: "📚",
+      color: "#1ABC9C",
+      description_tr: "Kariyer yolları, öğrenme kaynakları ve beceri gelişimi",
+      categories: ["eğitim", "bilgi", "kişisel-gelişim", "kariyer"]
+    },
+    "personal-family": {
+      id: "personal-family",
+      name_tr: "Kişisel & Aile",
+      name_en: "Personal & Family",
+      emoji: "🏠",
+      color: "#34495E",
+      description_tr: "Kişisel sağlık, aile konuları ve yaşam tarzı",
+      categories: ["kişisel", "aile", "sağlık", "çevre"]
+    }
+  };
+
+  var EXPERTISE_AREAS = {
+    "data-analyst": {
+      id: "data-analyst",
+      name_tr: "Veri Analisti",
+      name_en: "Data Analyst",
+      emoji: "📊",
+      advisor_id: "data_analyst",
+      color: "#4A90E2",
+      category: "business-analytics"
+    },
+    "operations-director": {
+      id: "operations-director",
+      name_tr: "Operasyon Müdürü",
+      name_en: "Operations Director",
+      emoji: "👔",
+      advisor_id: "morning_operations",
+      color: "#34495E",
+      category: "business-analytics"
+    },
+    "email-analyst": {
+      id: "email-analyst",
+      name_tr: "E-Posta Analisti",
+      name_en: "Email Analyst",
+      emoji: "📧",
+      advisor_id: "email_analyst",
+      color: "#E74C3C",
+      category: "communications"
+    },
+    "work-analyst": {
+      id: "work-analyst",
+      name_tr: "İş Analisti",
+      name_en: "Work Analyst",
+      emoji: "📋",
+      advisor_id: "work_analyst",
+      color: "#9B59B6",
+      category: "business-analytics"
+    },
+    "sector-intelligence": {
+      id: "sector-intelligence",
+      name_tr: "Sektör & Rekabet",
+      name_en: "Sector Intelligence",
+      emoji: "🌐",
+      advisor_id: "sector_intel",
+      color: "#1ABC9C",
+      category: "business-analytics"
+    },
+    "customer-experience": {
+      id: "customer-experience",
+      name_tr: "Müşteri Deneyimi",
+      name_en: "Customer Experience",
+      emoji: "🎯",
+      advisor_id: "cx_research",
+      color: "#F5A623",
+      category: "marketing-sales"
+    },
+    "ai-innovation": {
+      id: "ai-innovation",
+      name_tr: "Yapay Zeka İnovasyon",
+      name_en: "AI Innovation",
+      emoji: "💡",
+      advisor_id: "ai_innovation",
+      color: "#7ED321",
+      category: "innovation-tech"
+    },
+    "career-hr": {
+      id: "career-hr",
+      name_tr: "Kariyer & İK",
+      name_en: "Career & HR",
+      emoji: "🎓",
+      advisor_id: "career_hr",
+      color: "#F1C40F",
+      category: "human-resources"
+    },
+    "communications": {
+      id: "communications-expert",
+      name_tr: "İletişim",
+      name_en: "Communications",
+      emoji: "🎤",
+      advisor_id: "communications",
+      color: "#E91E63",
+      category: "communications"
+    },
+    "learning-resources": {
+      id: "learning-resources",
+      name_tr: "Öğrenme Kaynakları",
+      name_en: "Learning Resources",
+      emoji: "📚",
+      advisor_id: "free_certs",
+      color: "#00BCD4",
+      category: "learning-development"
+    },
+    "personal-development": {
+      id: "personal-development",
+      name_tr: "Kişisel Gelişim",
+      name_en: "Personal Development",
+      emoji: "🏋️",
+      advisor_id: "language_coach",
+      color: "#9B59B6",
+      category: "human-resources"
+    }
+  };
+
   var state = {
     status: null,
     metrics: null,
@@ -92,6 +261,62 @@
   };
 
   var charts = window.AIACharts || {};
+
+  /* ====================================================================== */
+  /* report organization helpers                                           */
+  /* ====================================================================== */
+
+  /** Find topic for a report based on its category. */
+  function getReportTopic(report) {
+    if (!report || !report.category) return "business-analytics"; // default
+    for (var topicKey in TOPICS) {
+      var topic = TOPICS[topicKey];
+      if (topic.categories.indexOf(report.category) !== -1) {
+        return topicKey;
+      }
+    }
+    return "business-analytics"; // fallback
+  }
+
+  /** Find expertise area for a report based on its advisor id. */
+  function getReportExpertise(report) {
+    if (!report || !report.id) return null;
+    for (var expertiseKey in EXPERTISE_AREAS) {
+      var expertise = EXPERTISE_AREAS[expertiseKey];
+      if (expertise.advisor_id === report.id) {
+        return expertiseKey;
+      }
+    }
+    return null;
+  }
+
+  /** Group reports by topic. */
+  function groupByTopic(entries) {
+    var groups = {};
+    Object.keys(TOPICS).forEach(function (key) {
+      groups[key] = [];
+    });
+    entries.forEach(function (entry) {
+      var topic = getReportTopic(entry);
+      if (groups[topic]) groups[topic].push(entry);
+    });
+    return groups;
+  }
+
+  /** Group reports by expertise. */
+  function groupByExpertise(entries) {
+    var groups = {};
+    Object.keys(EXPERTISE_AREAS).forEach(function (key) {
+      groups[key] = [];
+    });
+    entries.forEach(function (entry) {
+      var expertise = getReportExpertise(entry);
+      if (expertise && groups[expertise]) {
+        groups[expertise].push(entry);
+      }
+    });
+    return groups;
+  }
 
   /* ====================================================================== */
   /* helpers                                                                */
@@ -820,50 +1045,135 @@
   }
 
   function renderReportsList() {
-    var host = $("report-grid");
-    host.innerHTML = "";
+    var host = $(“report-grid”);
+    host.innerHTML = “”;
     var day = state.days[latestDay()];
     var entries = day && Array.isArray(day.reports) ? day.reports : [];
-    var query = state.search.trim().toLocaleLowerCase("tr");
+    var query = state.search.trim().toLocaleLowerCase(“tr”);
     var visible = entries.filter(function (entry) {
       return matchesSearch(entry, query);
     });
 
     if (!entries.length) {
       text(
-        $("reports-note"),
-        "Bu çalıştırmada yayınlanmış rapor yok. Tam brifing İstanbul saatiyle " +
-          "10:00'da hazırlanır."
+        $(“reports-note”),
+        “Bu çalıştırmada yayınlanmış rapor yok. Tam brifing İstanbul saatiyle “ +
+          “10:00'da hazırlanır.”
       );
-      show($("reports-empty"), true);
-      $("reports-empty").textContent = "Henüz yayınlanmış rapor yok.";
+      show($(“reports-empty”), true);
+      $(“reports-empty”).textContent = “Henüz yayınlanmış rapor yok.”;
       return;
     }
 
     var isToday = day.date === todayIso();
     text(
-      $("reports-note"),
-      (isToday ? "Bugünün brifingi" : prettyDate(day.date) + " brifingi") +
-        " · " + entries.length + " rapor" +
-        (day.generated_at_istanbul ? " · " + day.generated_at_istanbul + " (İstanbul)" : "")
+      $(“reports-note”),
+      (isToday ? “Bugünün brifingi” : prettyDate(day.date) + “ brifingi”) +
+        “ · “ + entries.length + “ rapor” +
+        (day.generated_at_istanbul ? “ · “ + day.generated_at_istanbul + “ (İstanbul)” : “”)
     );
 
     if (!visible.length) {
-      show($("reports-empty"), true);
-      $("reports-empty").textContent =
-        "“" + state.search + "” için rapor bulunamadı.";
+      show($(“reports-empty”), true);
+      $(“reports-empty”).textContent =
+        “”” + state.search + “” için rapor bulunamadı.”;
       return;
     }
-    show($("reports-empty"), false);
+    show($(“reports-empty”), false);
 
+    // Default list view — no topic/expertise grouping, just cards
     visible.forEach(function (entry) {
       host.appendChild(reportCard(entry, day.date));
     });
 
-    var badge = $("badge-icerik");
+    var badge = $(“badge-icerik”);
     badge.hidden = false;
-    badge.className = "tab__badge";
+    badge.className = “tab__badge”;
     badge.textContent = String(entries.length);
+  }
+
+  /** Render reports organized by topic. */
+  function renderReportsByTopic() {
+    var host = $(“report-grid”);
+    host.innerHTML = “”;
+    var day = state.days[latestDay()];
+    var entries = day && Array.isArray(day.reports) ? day.reports : [];
+    var query = state.search.trim().toLocaleLowerCase(“tr”);
+    var visible = entries.filter(function (entry) {
+      return matchesSearch(entry, query);
+    });
+
+    if (!visible.length) {
+      show($(“reports-empty”), true);
+      $(“reports-empty”).textContent =
+        “”” + state.search + “” için rapor bulunamadı.”;
+      return;
+    }
+    show($(“reports-empty”), false);
+
+    var groups = groupByTopic(visible);
+    Object.keys(TOPICS).forEach(function (topicKey) {
+      var topic = TOPICS[topicKey];
+      var reports = groups[topicKey];
+      if (!reports.length) return;
+
+      var section = make(“div”, “report-section”);
+      var heading = make(“h2”, “report-section__heading”);
+      heading.appendChild(make(“span”, “report-section__emoji”, topic.emoji));
+      heading.appendChild(make(“span”, null, topic.name_tr));
+      section.appendChild(heading);
+
+      if (topic.description_tr) {
+        section.appendChild(make(“p”, “report-section__description”, topic.description_tr));
+      }
+
+      var grid = make(“div”, “report-subsection-grid”);
+      reports.forEach(function (entry) {
+        grid.appendChild(reportCard(entry, day.date));
+      });
+      section.appendChild(grid);
+      host.appendChild(section);
+    });
+  }
+
+  /** Render reports organized by expertise. */
+  function renderReportsByExpertise() {
+    var host = $(“report-grid”);
+    host.innerHTML = “”;
+    var day = state.days[latestDay()];
+    var entries = day && Array.isArray(day.reports) ? day.reports : [];
+    var query = state.search.trim().toLocaleLowerCase(“tr”);
+    var visible = entries.filter(function (entry) {
+      return matchesSearch(entry, query);
+    });
+
+    if (!visible.length) {
+      show($(“reports-empty”), true);
+      $(“reports-empty”).textContent =
+        “”” + state.search + “” için rapor bulunamadı.”;
+      return;
+    }
+    show($(“reports-empty”), false);
+
+    var groups = groupByExpertise(visible);
+    Object.keys(EXPERTISE_AREAS).forEach(function (expertiseKey) {
+      var expertise = EXPERTISE_AREAS[expertiseKey];
+      var reports = groups[expertiseKey];
+      if (!reports.length) return;
+
+      var section = make(“div”, “report-section”);
+      var heading = make(“h2”, “report-section__heading”);
+      heading.appendChild(make(“span”, “report-section__emoji”, expertise.emoji));
+      heading.appendChild(make(“span”, null, expertise.name_tr));
+      section.appendChild(heading);
+
+      var grid = make(“div”, “report-subsection-grid”);
+      reports.forEach(function (entry) {
+        grid.appendChild(reportCard(entry, day.date));
+      });
+      section.appendChild(grid);
+      host.appendChild(section);
+    });
   }
 
   function renderArchive() {
