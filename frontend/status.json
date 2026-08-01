@@ -1,27 +1,39 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-08-01T13:04:17+00:00",
-  "generated_at_istanbul": "01.08.2026 16:04",
+  "generated_at": "2026-08-01T16:03:19+00:00",
+  "generated_at_istanbul": "01.08.2026 19:03",
   "run": {
     "conclusion": "ok",
-    "total": 15,
-    "ok": 13,
+    "total": 13,
+    "ok": 3,
     "failed": 0,
-    "skipped": 2,
-    "duration_seconds": 126.3,
+    "skipped": 10,
+    "duration_seconds": 92.1,
     "batch": {
       "enabled": true,
       "attempted": true,
       "used": true,
-      "sections_requested": 11,
-      "sections_produced": 11,
+      "sections_requested": 3,
+      "sections_produced": 3,
       "model": "gemini-2.5-flash",
-      "provider": "gemini"
+      "provider": "gemini",
+      "prompt_chars_total": 43022,
+      "guide_saved_chars": 5879
     },
-    "mode": "full",
-    "mode_label": "tam brifing",
-    "new_findings": 2,
-    "nothing_new_count": 0
+    "tokens": {
+      "called": true,
+      "prompt": 18865,
+      "output": 10803,
+      "thoughts": 4152,
+      "total": 33820,
+      "latency_seconds": 88.5,
+      "retries": 0,
+      "fallback_used": false
+    },
+    "mode": "incremental",
+    "mode_label": "artımlı",
+    "new_findings": 46,
+    "nothing_new_count": 10
   },
   "slack": {
     "status": "ok",
@@ -31,202 +43,266 @@
     {
       "id": "weather",
       "name": "Hava Durumu Meteoroloğu",
-      "status": "ok",
-      "content_length": 284,
-      "detail": "",
+      "status": "skipped",
+      "content_length": 0,
+      "detail": "yeni bulgu yok",
       "emoji": "🌤️",
       "category": "operasyon",
-      "new_findings": null,
+      "new_findings": 0,
+      "nothing_new": true
+    },
+    {
+      "id": "morning_operations",
+      "name": "Sabah İşletme Brifingi",
+      "status": "skipped",
+      "content_length": 0,
+      "detail": "yeni bulgu yok",
+      "emoji": "📋",
+      "category": "operasyon",
+      "new_findings": 0,
+      "nothing_new": true
+    },
+    {
+      "id": "communications_calendar",
+      "name": "İletişim & Takvim Danışmanı",
+      "status": "skipped",
+      "content_length": 0,
+      "detail": "yeni bulgu yok",
+      "emoji": "📬",
+      "category": "operasyon",
+      "new_findings": 0,
+      "nothing_new": true
+    },
+    {
+      "id": "career_development",
+      "name": "Kariyer Gelişimi (İK · İlanlar · İngilizce · Sertifika)",
+      "status": "ok",
+      "content_length": 14760,
+      "detail": "",
+      "emoji": "💼",
+      "category": "kariyer",
+      "new_findings": 6,
       "nothing_new": false
     },
     {
-      "id": "leadership_coach",
-      "name": "Liderlik Koçu",
+      "id": "market_intelligence",
+      "name": "Pazar İstihbaratı (Sektör · YZ · CX · Bankacılık)",
       "status": "ok",
-      "content_length": 4703,
+      "content_length": 14115,
       "detail": "",
-      "emoji": "🧭",
+      "emoji": "📊",
+      "category": "sektör",
+      "new_findings": 32,
+      "nothing_new": false
+    },
+    {
+      "id": "data_analyst",
+      "name": "Veri Analisti (Çağrı Merkezi Operasyonu)",
+      "status": "skipped",
+      "content_length": 0,
+      "detail": "yeni bulgu yok",
+      "emoji": "🔬",
+      "category": "operasyon",
+      "new_findings": 0,
+      "nothing_new": true
+    },
+    {
+      "id": "ai_innovation",
+      "name": "Yapay Zeka & İnovasyon (Ustalaşma · Fikirler)",
+      "status": "ok",
+      "content_length": 10205,
+      "detail": "",
+      "emoji": "🧠",
       "category": "kişisel gelişim",
-      "new_findings": null,
+      "new_findings": 8,
       "nothing_new": false
     },
     {
       "id": "kids_development",
       "name": "Çocuk Gelişimi Danışmanı",
-      "status": "ok",
-      "content_length": 4490,
-      "detail": "",
-      "emoji": "👨‍👩‍👧",
-      "category": "aile",
-      "new_findings": null,
-      "nothing_new": false
-    },
-    {
-      "id": "career_hr",
-      "name": "Kariyer & İK Danışmanı",
-      "status": "ok",
-      "content_length": 4301,
-      "detail": "",
-      "emoji": "💼",
-      "category": "kariyer",
-      "new_findings": null,
-      "nothing_new": false
-    },
-    {
-      "id": "job_scout",
-      "name": "İş Avcısı & Başvuru Hazırlayıcı",
-      "status": "ok",
-      "content_length": 6769,
-      "detail": "",
-      "emoji": "🔎",
-      "category": "kariyer",
-      "new_findings": null,
-      "nothing_new": false
-    },
-    {
-      "id": "sector_intel",
-      "name": "Sektör & Rakip İstihbaratı",
-      "status": "ok",
-      "content_length": 6625,
-      "detail": "",
-      "emoji": "📊",
-      "category": "sektör",
-      "new_findings": 0,
-      "nothing_new": false
-    },
-    {
-      "id": "ai_news",
-      "name": "Yapay Zeka Haberleri",
-      "status": "ok",
-      "content_length": 4867,
-      "detail": "",
-      "emoji": "🤖",
-      "category": "sektör",
-      "new_findings": 2,
-      "nothing_new": false
-    },
-    {
-      "id": "free_certs",
-      "name": "Ücretsiz Sertifika & Eğitim Araştırmacısı",
-      "status": "ok",
-      "content_length": 5907,
-      "detail": "",
-      "emoji": "🎓",
-      "category": "kişisel gelişim",
-      "new_findings": 0,
-      "nothing_new": false
-    },
-    {
-      "id": "banking_cc_projects",
-      "name": "Banka & Çağrı Merkezi Proje Uzmanı",
-      "status": "ok",
-      "content_length": 9512,
-      "detail": "",
-      "emoji": "🏦",
-      "category": "sektör",
-      "new_findings": 0,
-      "nothing_new": false
-    },
-    {
-      "id": "ai_mastery",
-      "name": "Yapay Zeka Ustalığı Koçu",
-      "status": "ok",
-      "content_length": 5920,
-      "detail": "",
-      "emoji": "🧠",
-      "category": "kişisel gelişim",
-      "new_findings": 0,
-      "nothing_new": false
-    },
-    {
-      "id": "cx_research",
-      "name": "Çağrı Merkezi & Müşteri Deneyimi Araştırmacısı",
-      "status": "ok",
-      "content_length": 5796,
-      "detail": "",
-      "emoji": "🎧",
-      "category": "sektör",
-      "new_findings": 0,
-      "nothing_new": false
-    },
-    {
-      "id": "daily_ops_briefing",
-      "name": "Gün Başı Operasyon Brifingi",
       "status": "skipped",
       "content_length": 0,
-      "detail": "no Google credentials/token configured (run: python -m ai_assistant.integrations.google_auth, then set GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / GOOGLE_REFRESH_TOKEN to run in the cloud)",
-      "emoji": "📋",
-      "category": "operasyon",
-      "new_findings": null,
-      "nothing_new": false
-    },
-    {
-      "id": "language_coach",
-      "name": "İngilizce & Yönetici İletişimi Koçu",
-      "status": "ok",
-      "content_length": 7071,
-      "detail": "",
-      "emoji": "🗣️",
-      "category": "kişisel gelişim",
-      "new_findings": null,
-      "nothing_new": false
+      "detail": "yeni bulgu yok",
+      "emoji": "👨‍👩‍👧",
+      "category": "aile",
+      "new_findings": 0,
+      "nothing_new": true
     },
     {
       "id": "anka_bridge",
       "name": "Anka Köprüsü",
       "status": "skipped",
       "content_length": 0,
-      "detail": "Anka endpoint not configured (ANKA_WEBHOOK_URL/ANKA_API_URL)",
+      "detail": "yeni bulgu yok",
       "emoji": "🕊️",
       "category": "operasyon",
-      "new_findings": null,
-      "nothing_new": false
+      "new_findings": 0,
+      "nothing_new": true
     },
     {
-      "id": "accountability_coach",
-      "name": "Hesap Sorucu Koç",
-      "status": "ok",
-      "content_length": 8838,
-      "detail": "",
-      "emoji": "🔥",
+      "id": "executive_coaching",
+      "name": "Yönetici Koçu (Gelişim + Hesap Verebilirlik)",
+      "status": "skipped",
+      "content_length": 0,
+      "detail": "yeni bulgu yok",
+      "emoji": "🧭",
       "category": "kişisel gelişim",
-      "new_findings": null,
-      "nothing_new": false
+      "new_findings": 0,
+      "nothing_new": true
+    },
+    {
+      "id": "work_analyst",
+      "name": "İş Analisti Danışmanı",
+      "status": "skipped",
+      "content_length": 0,
+      "detail": "yeni bulgu yok",
+      "emoji": "📈",
+      "category": "operasyon",
+      "new_findings": 0,
+      "nothing_new": true
+    },
+    {
+      "id": "operations_director",
+      "name": "Operasyon Direktörü",
+      "status": "skipped",
+      "content_length": 0,
+      "detail": "yeni bulgu yok",
+      "emoji": "🚦",
+      "category": "operasyon",
+      "new_findings": 0,
+      "nothing_new": true
+    },
+    {
+      "id": "sre_watchdog",
+      "name": "Teknik Gözetim (7/24 SRE)",
+      "status": "skipped",
+      "content_length": 0,
+      "detail": "yeni bulgu yok",
+      "emoji": "🛡️",
+      "category": "operasyon",
+      "new_findings": 0,
+      "nothing_new": true
     }
   ],
   "accountability": {
     "available": true,
     "streak": 3,
     "today_task_count": 11,
-    "last_date": "2026-08-01"
+    "last_date": "2026-08-01",
+    "tasks": [
+      "*Liderlik Koçu* — Bugün için, ekibinizdeki bir üyeye delege edebileceğiniz, sizi 15-30 dakika kadar meşgul eden bir görevi belirleyin. Bu görevin sorumluluk ve yetki seviyesini Durumsal Liderlik II modeline göre o kişi için uygun şekilde tanımlayın. Gün içinde bu delegasyon konuşmasını yapın ve kişinin görevi nasıl üstlendiğini gözlemle…",
+      "*Çocuk Gelişimi Danışmanı* — Bugün, 10 yaşındaki kızınız için bir konuda (örneğin, akşam yemeği menüsü, boş zaman etkinliği, bir ev işinin nasıl yapılacağı) iki veya üç seçenek sunun ve onun kendi kararını vermesine izin verin. 4 yaşındaki kızınız için ise giyim, oyuncak seçimi veya atıştırmalık gibi basit bir konuda iki seçenek sunarak karar verm…",
+      "*Kariyer & İK Danışmanı* — Mevcut CV'nizdeki en az iki maddeyi seçin. Bu maddeleri STAR yöntemini kullanarak, ölçülebilir sonuçlar ve eylem fiilleriyle yeniden yazın. Yeni hallerini mevcut halleriyle karşılaştırın ve aradaki farkı net bir şekilde görün. Başarı ölçütü: Her iki maddenin de somut bir sayısal veya nitel sonuç içermesi.",
+      "*İş Avcısı & Başvuru Hazırlayıcı* — Bugün hedeflediğiniz bir pozisyonun iş ilanını açın. İlandaki anahtar kelimeleri belirleyin ve mevcut CV'nizden bu ilana en uygun 2-3 maddeyi seçerek, STAR formatında yeniden yazın. Bu maddelerin ilandaki beklentilerle birebir örtüştüğünden emin olun. Başarı ölçütü: Seçilen maddelerin her birinin ilandaki en az bir ana…",
+      "*Sektör & Rakip İstihbaratı* — Bankanızın mevcut çağrı merkezi dış kaynak sağlayıcıları ile olan sözleşmelerini gözden geçirmek üzere bir toplantı planı yapın. Bu toplantıda, tedarikçilerin mevcut veya gelecekte kullanmayı planladıkları yapay zeka araçları ve bunların müşteri verisi işleme politikaları hakkında bilgi talep etme gündemini oluşturun.…",
+      "*Yapay Zeka Haberleri* — Şirketinizin mevcut yapay zeka kullanım alanlarını (varsa) veya planlanan projeleri gözden geçirin. Özellikle \"Claude AI testi\" örneğinden yola çıkarak, bu projelerde veri gizliliği ve güvenlik risklerinin nasıl ele alındığını, hangi önlemlerin alındığını 15-30 dakika boyunca düşünün ve not alın. Başarı ölçütü: Riskler…",
+      "*Ücretsiz Sertifika & Eğitim Araştırmacısı* — Yukarıdaki \"Müşteri Hizmetleri Temelleri\" veya \"Veri Analizi Giriş\" kurslarından birini Coursera veya edX üzerinden inceleyin. Kaydolma sürecini başlatın ve ilk modülünü tamamlamak için 15-30 dakika ayırın. Başarı ölçütü: Kursa kaydolmuş olmak ve ilk ders videosunu izlemiş veya ilk okuma materyalini bitirmiş olmak. (Üc…",
+      "*Banka & Çağrı Merkezi Proje Uzmanı* — Bankanızın dış kaynak çağrı merkezi tedarikçisiyle olan mevcut sözleşmesini açın. Sözleşmede \"yapay zeka\", \"veri işleme\", \"model eğitimi\" gibi anahtar kelimelerin geçip geçmediğini ve özellikle müşteri verilerinin YZ modellerinde kullanımına dair kısıtlamaların olup olmadığını 15-30 dakika boyunca kontrol edin. Başarı…",
+      "*Yapay Zeka Ustalığı Koçu* — Bugün bir otomasyon aracı (örn. Zapier'ın ücretsiz sürümü) kullanarak basit bir \"e-posta özetleme\" otomasyonu kurmayı deneyin. Adım 1:** Kendi e-posta adresinize bir \"Deneme Raporu\" başlıklı e-posta gönderin. İçine birkaç paragraf rastgele metin yazın. Adım 2:** Zapier'da yeni bir Zap oluşturun. Tetikleyici olarak \"Gma…",
+      "*Çağrı Merkezi & Müşteri Deneyimi Araştırmacısı* — Çağrı merkezinizdeki son 5-10 müşteri şikayetinin çözüm süreçlerini (kayıtlı çağrılar, yazışmalar) 15-30 dakika boyunca gözden geçirin. Her bir şikayet için, müşterinin dağıtımsal, prosedürel ve etkileşimsel adalet algısının ne kadar karşılandığını kendi iç değerlendirmenizle not alın. Başarı ölçütü: Her şikayet için b…",
+      "*İngilizce & Yönetici İletişimi Koçu* — Bugün katılacağınız bir toplantıda, toplantı kapanışına doğru aktif rol alın. Toplantının sonunda, alınan kararları ve belirlenen aksiyon maddelerini \"Next Steps & Owners\" çerçevesini kullanarak toparlamaya çalışın. En az bir aksiyon maddesi için sorumlu ve bitiş tarihi atamasını İngilizce olarak ifade edin. Başarı ölç…"
+    ],
+    "history_days": 3
+  },
+  "gmail": {
+    "enabled": true,
+    "unread_count": 0,
+    "total_emails_24h": 0,
+    "urgent_count": 0,
+    "action_items": 0,
+    "vip_emails": 0,
+    "last_update": "2026-08-01T16:03:19+00:00",
+    "last_fetch_error": null
+  },
+  "calendar": {
+    "enabled": true,
+    "today_meetings": 0,
+    "total_meeting_time_hours": 0.0,
+    "focus_blocks_available": 0,
+    "next_meeting": {
+      "summary": null,
+      "time": null,
+      "duration_minutes": null
+    },
+    "available_slots": [],
+    "last_update": "2026-08-01T16:03:19+00:00",
+    "last_fetch_error": null
   },
   "integrations": {
     "slack": {
-      "configured_channels": 16,
-      "last_post": "2026-07-31T10:30:00Z",
-      "failures": []
+      "enabled": true,
+      "last_health_check": null,
+      "health_status": "unknown",
+      "channels_configured": 0,
+      "messages_sent_today": 0,
+      "failed_sends": [],
+      "last_post_time": null
     },
     "asana": {
-      "projects": 3,
-      "tasks": 45,
-      "workspace_url": "https://app.asana.com/0/workspace-id/list",
-      "last_update": "2026-07-31T10:30:00Z",
-      "failures": []
+      "enabled": true,
+      "last_health_check": null,
+      "health_status": "unknown",
+      "projects_created": 0,
+      "tasks_created": 0,
+      "tasks_completed": 0,
+      "failed_operations": [],
+      "last_sync_time": null
     },
     "drive": {
-      "total_docs": 234,
-      "archive_docs": 56,
-      "folder_size": "1.2 GB",
-      "last_sync": "2026-07-31T10:30:00Z",
-      "failures": []
-    },
-    "distribution": {
-      "total_attempts": 18,
-      "success_count": 17,
-      "failure_count": 1,
-      "failed_advisors": ["ai_mastery"],
-      "last_attempt": "2026-07-31T10:30:00Z"
+      "enabled": true,
+      "last_health_check": null,
+      "health_status": "unknown",
+      "documents_uploaded": 0,
+      "archive_count": 0,
+      "failed_uploads": [],
+      "last_sync_time": null
     }
+  },
+  "performance": {
+    "daily_metrics": {
+      "completion_rate": 23.1,
+      "deadline_adherence": 23.1,
+      "success_rate": 100.0,
+      "token_efficiency": 3601.0,
+      "last_update": "2026-08-01T16:03:19+00:00"
+    },
+    "work_status": {
+      "meeting_hours": 0.0,
+      "focus_time_hours": 0.0,
+      "email_response_time_hours": 0.0,
+      "critical_alerts": 0
+    },
+    "trends": {
+      "completion_7d": [
+        100.0,
+        100.0,
+        100.0,
+        100.0,
+        100.0,
+        100.0,
+        23.1
+      ],
+      "deadline_7d": [
+        20.0,
+        13.3,
+        6.7,
+        86.7,
+        13.3,
+        86.7,
+        23.1
+      ],
+      "success_7d": [
+        100.0,
+        100.0,
+        100.0,
+        100.0,
+        100.0,
+        100.0,
+        100.0
+      ]
+    },
+    "alerts": [],
+    "feedback": ""
   },
   "history": [
     {
@@ -391,6 +467,20 @@
       "slack": "ok",
       "mode": "full",
       "new_findings": 2
+    },
+    {
+      "at": "2026-08-01T16:03:19+00:00",
+      "at_istanbul": "01.08.2026 19:03",
+      "conclusion": "ok",
+      "ok": 3,
+      "failed": 0,
+      "skipped": 10,
+      "total": 13,
+      "duration_seconds": 92.1,
+      "slack": "ok",
+      "mode": "incremental",
+      "new_findings": 46,
+      "total_tokens": 33820
     }
   ]
 }

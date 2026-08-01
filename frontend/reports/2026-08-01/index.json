@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
   "date": "2026-08-01",
-  "generated_at": "2026-08-01T16:04:16+03:00",
-  "generated_at_istanbul": "01.08.2026 16:04",
-  "mode": "full",
-  "mode_label": "tam brifing",
-  "count": 13,
+  "generated_at": "2026-08-01T19:03:19+03:00",
+  "generated_at_istanbul": "01.08.2026 19:03",
+  "mode": "incremental",
+  "mode_label": "artımlı",
+  "count": 15,
   "reports": [
     {
       "id": "weather",
@@ -175,6 +175,34 @@
       "generated_at": "2026-08-01T16:04:16+03:00",
       "generated_at_istanbul": "01.08.2026 16:04",
       "path": "accountability_coach.json"
+    },
+    {
+      "id": "career_development",
+      "name": "Kariyer Gelişimi (İK · İlanlar · İngilizce · Sertifika)",
+      "emoji": "💼",
+      "category": "kariyer",
+      "headline": "Banka çağrı merkezleri yöneticileri için stratejik kariyer gelişimi, müşteri deneyimi ve yapay zeka entegrasyonu yetkinlikleriyle şekilleniyor; bugünün odağı toplantı yönetiminde İngilizce iletişim becerilerini pekiştirmek.",
+      "excerpt": "Banka çağrı merkezleri üst düzey yöneticileri için önümüzdeki dönemde değer kazanacak yetkinlikler arasında Veri Odaklı Karar Alma, Yapay Zeka Destekli Operasyon Yönetimi ve Adaptif Liderlik öne…",
+      "words": 1799,
+      "read_minutes": 9,
+      "action_count": 0,
+      "generated_at": "2026-08-01T19:03:19+03:00",
+      "generated_at_istanbul": "01.08.2026 19:03",
+      "path": "career_development.json"
+    },
+    {
+      "id": "market_intelligence",
+      "name": "Pazar İstihbaratı (Sektör · YZ · CX · Bankacılık)",
+      "emoji": "📊",
+      "category": "sektör",
+      "headline": "Bankacılık çağrı merkezleri, artan dolandırıcılık vakaları ve yapay zeka entegrasyonu riskleriyle mücadele ederken, şikayet yönetiminde adalet algısını güçlendirerek müşteri sadakatini yeniden kazanma fırsatına sahip.",
+      "excerpt": "(a) Sektördeki teknoloji ve yapay zeka gelişmeleri: Bankacılık çağrı merkezlerinde yapay zeka, özellikle konuşma analitiği ve akıllı yönlendirme alanlarında olgunlaşıyor. Sesli botlar ve sanal…",
+      "words": 1691,
+      "read_minutes": 8,
+      "action_count": 0,
+      "generated_at": "2026-08-01T19:03:19+03:00",
+      "generated_at_istanbul": "01.08.2026 19:03",
+      "path": "market_intelligence.json"
     }
   ]
 }
