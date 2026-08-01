@@ -26,6 +26,7 @@ Google kimliği yoksa, dosya silinmişse ya da sayfa boşsa hiçbir şey patlama
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import os
@@ -242,7 +243,11 @@ def source_key(source: str) -> str:
         return f"drive:{file_id}"
     if os.path.exists(text):
         return f"file:{os.path.abspath(text)}"
-    return f"raw:{abs(hash(text)) % (10 ** 12)}"
+    # Yerleşik ``hash()`` her SÜREÇTE farklı sonuç verir (PYTHONHASHSEED
+    # rastgeledir), yani yapıştırılmış bir veri kaynağının anahtarı her koşuda
+    # değişir ve sürüm geçmişi her seferinde sıfırdan başlardı. Kararlı kimlik
+    # kararlı bir özet ister.
+    return "raw:" + hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
 
 
 def remote_state(source: str, service: Any = None) -> RemoteState:

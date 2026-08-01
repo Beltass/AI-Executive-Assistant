@@ -85,9 +85,22 @@ class DatasetError(RuntimeError):
 # --- küçük ayrıştırıcılar ----------------------------------------------------
 
 _CURRENCY = "₺$€£"
-_NUM_STRIP = re.compile(r"[\s " + _CURRENCY + r"]|(?:^|(?<=\d))\s*(?:tl|try|usd|eur)\b", re.IGNORECASE)
+#: Para birimi SÖZCÜĞÜ önce denenir: aksi halde "1.250,75 TL" yazımındaki
+#: boşluk, boşluk kuralına takılır, "TL" yalnız kalır ve sayı hiç
+#: ayrıştırılamazdı — oysa Türkçe bir dışa aktarımda tutar tam olarak
+#: böyle yazılır.
+_NUM_STRIP = re.compile(
+    r"(?:^|(?<=\d))\s*(?:tl|try|usd|eur)\b|[\s " + _CURRENCY + r"]",
+    re.IGNORECASE,
+)
 _DURATION_RE = re.compile(r"^(\d{1,3}):([0-5]?\d)(?::([0-5]?\d))?$")
 _PERCENT_RE = re.compile(r"^\s*%\s*|\s*%\s*$")
+
+#: Baştaki sıfır bir SAYININ değil bir KODUN parçasıdır: ``0012`` personel
+#: kodu, ``05321234567`` telefon, ``0045`` sipariş numarası. Bunları sayıya
+#: çevirmek baştaki sıfırı — yani kodun kendisini — siler, üstelik ortaya
+#: toplanabilir görünen anlamsız bir "ölçüt" çıkarır.
+_LEADING_ZERO_CODE = re.compile(r"^0\d+$")
 
 _TRUE_WORDS = {"evet", "var", "true", "yes", "doğru", "dogru", "e", "y", "1", "aktif", "açık", "acik"}
 _FALSE_WORDS = {"hayır", "hayir", "yok", "false", "no", "yanlış", "yanlis", "h", "n", "0", "pasif", "kapalı", "kapali"}
@@ -213,12 +226,23 @@ def parse_datetime(value: Any) -> Optional[datetime]:
         return None
 
 
+def _tr_casefold(text: str) -> str:
+    """Türkçe kurallı küçültme.
+
+    Python'un ``casefold()``ı ASCII kuralıyla çalışır: ``"AÇIK"`` → ``"açik"``
+    (noktalı i) ve ``"PASİF"`` → ``"pasi̇f"`` (i + birleşen nokta). İkisi de
+    Türkçe sözlükte yok, yani büyük harf yazılmış bir "AÇIK/KAPALI" sütunu
+    sessizce tanınmaz hale gelirdi. Önce ``I → ı`` ve ``İ → i`` eşlenir.
+    """
+    return str(text).replace("İ", "i").replace("I", "ı").casefold()
+
+
 def parse_bool(value: Any) -> Optional[bool]:
     if isinstance(value, bool):
         return value
     if value is None:
         return None
-    text = str(value).strip().casefold()
+    text = _tr_casefold(str(value).strip())
     if text in _TRUE_WORDS:
         return True
     if text in _FALSE_WORDS:
@@ -254,7 +278,7 @@ class MetricHint:
 #: "çağrı" sayısına takılır.
 METRIC_PATTERNS: Tuple[Tuple[str, MetricHint], ...] = (
     (r"\baht\b|ortalama\s*(g[oö]r[uü][sş]me|[cç]a[gğ]r[ıi]|i[sş]lem)|handle\s*time|talk\s*time|"
-     r"g[oö]r[uü][sş]me\s*s[uü]re|konu[sş]ma\s*s[uü]re",
+     r"g[oö]r[uü][sş]me\s*s[uü]re|konu[sş]ma\s*s[uü]re|[cç]a[gğ]r[ıi]\s*s[uü]re",
      MetricHint("aht", "Ortalama Görüşme Süresi (AHT)", "down", "sn")),
     (r"\basa\b|beklet?me\s*s[uü]re|bekleme|answer\s*speed|queue\s*time|kuyruk\s*s[uü]re|wait",
      MetricHint("asa", "Ortalama Cevaplama Süresi (ASA)", "down", "sn")),
@@ -280,6 +304,11 @@ METRIC_PATTERNS: Tuple[Tuple[str, MetricHint], ...] = (
      MetricHint("transfer", "Aktarım", "down")),
     (r"cevap(lanan|lama)|kar[sş][ıi]lanan|answered|handled|ba[gğ]lanan",
      MetricHint("answered", "Cevaplanan Çağrı", "up")),
+    # "Çağrı Sebebi" / "Çağrı Konusu" bir SAYI değil bir KIRILIMDIR; genel
+    # "çağrı" kalıbından ÖNCE gelmezse rapor bu sütunu "Çağrı Adedi" diye
+    # etiketler ve tabloya bakan kişiye anlamsız bir başlık gösterir.
+    (r"sebe[pb]|neden|reason|konu|topic|kategori|category|t[uü]r|type|sonu[cç]|disposition",
+     MetricHint("reason", "Konu / Sebep", "", dimension=True)),
     (r"[cç]a[gğ]r[ıi]|\bcall\b|\bcalls\b|arama|contact|etkile[sş]im|i[sş]lem\s*adedi|hacim|volume|adet",
      MetricHint("calls", "Çağrı Adedi", "")),
     # Kırılımlar (ölçüt değil, eksen).
@@ -297,8 +326,6 @@ METRIC_PATTERNS: Tuple[Tuple[str, MetricHint], ...] = (
      MetricHint("team", "Takım", "", dimension=True)),
     (r"tarih|\bdate\b|\bg[uü]n\b|\bday\b|hafta|week|\bay\b|month",
      MetricHint("date", "Tarih", "", dimension=True)),
-    (r"sebep|neden|reason|konu|topic|kategori|category|t[uü]r|type|sonu[cç]|disposition",
-     MetricHint("reason", "Konu / Sebep", "", dimension=True)),
 )
 
 #: Yüzde biriminde olduğu ad ından anlaşılan sütunlar.
@@ -634,6 +661,21 @@ def _granularity(moments: Sequence[datetime]) -> str:
     return "uzun dönem"
 
 
+def _looks_like_code(sample: Sequence[Any]) -> bool:
+    """Sütun sayı DEĞİL kod mu taşıyor? (``0012``, ``05321234567``)
+
+    Baştaki sıfırı olan bir dizi sayıya çevrilirse geri dönüşü olmayan biçimde
+    bozulur. Yarıdan fazlası bu kalıba uyuyorsa sütun kategorik/metin sayılır ve
+    değerler METİN olarak korunur.
+    """
+    if not sample:
+        return False
+    codes = sum(
+        1 for v in sample if isinstance(v, str) and _LEADING_ZERO_CODE.match(v.strip())
+    )
+    return codes / len(sample) >= 0.5
+
+
 def _pick_kind(raw: Sequence[Any], name: str) -> Tuple[str, str]:
     """Ham değerlerden sütun tipini ve birimini seçer."""
     sample = [v for v in raw[:TYPE_SAMPLE] if not is_blank(v)]
@@ -649,7 +691,7 @@ def _pick_kind(raw: Sequence[Any], name: str) -> Tuple[str, str]:
         return KIND_DATE, ""
 
     numbers = sum(1 for v in sample if parse_number(v) is not None)
-    if numbers / len(sample) >= TYPE_THRESHOLD:
+    if numbers / len(sample) >= TYPE_THRESHOLD and not _looks_like_code(sample):
         unit = ""
         if any(isinstance(v, str) and "%" in v for v in sample) or _PERCENT_NAME.search(str(name or "")):
             unit = "%"

@@ -458,13 +458,35 @@ def _summary_body(result: AnalysisResult) -> str:
     return "\n".join(lines)
 
 
-def build_sections(result: AnalysisResult) -> List[reports.Section]:
-    """Belgenin gövdesi: özet, göstergeler, kırılımlar, trend, aykırılar, profil."""
+def changes_section(change_notes: Sequence[str]) -> Optional[reports.Section]:
+    """Canlı senkronun "SON SÜRÜMDEN BU YANA" bölümü.
+
+    :func:`ai_assistant.analysis.live_sync.sync_source` her yeni sürümde neyin
+    değiştiğini (kaç satır eklendi, hangi gösterge nereye gitti) hesaplar; rapor
+    bunu KENDİ İÇİNDE, en başta söylemezse kullanıcı iki dosyayı yan yana
+    koyup karşılaştırmak zorunda kalır.
+    """
+    lines = [str(note).strip() for note in (change_notes or []) if str(note).strip()]
+    if not lines:
+        return None
+    return reports.Section(
+        title="Son sürümden bu yana",
+        body="\n".join(f"- {line}" for line in lines),
+    )
+
+
+def build_sections(
+    result: AnalysisResult,
+    change_notes: Optional[Sequence[str]] = None,
+) -> List[reports.Section]:
+    """Belgenin gövdesi: değişiklikler, özet, göstergeler, kırılımlar, trend, aykırılar, profil."""
     request = result.request
     chart_type = (request.chart_type if request else "") or ""
-    sections: List[reports.Section] = [
-        reports.Section(title="Yönetici özeti", body=_summary_body(result))
-    ]
+    sections: List[reports.Section] = []
+    changes = changes_section(change_notes or [])
+    if changes is not None:
+        sections.append(changes)
+    sections.append(reports.Section(title="Yönetici özeti", body=_summary_body(result)))
 
     if result.findings:
         sections.append(
@@ -599,14 +621,19 @@ def build_document(
     moment: Optional[datetime] = None,
     sources: Optional[Sequence[reports.Source]] = None,
     xlsx_path: str = "",
+    change_notes: Optional[Sequence[str]] = None,
     extra_meta: Optional[Dict[str, Any]] = None,
 ) -> reports.PublishedReport:
-    """Analiz sonucunu yayımlanabilir bir :class:`reports.PublishedReport` yapar."""
+    """Analiz sonucunu yayımlanabilir bir :class:`reports.PublishedReport` yapar.
+
+    ``change_notes`` verilirse (canlı senkron bunu verir) belge "Son sürümden bu
+    yana" bölümüyle AÇILIR.
+    """
     when = moment or datetime.now(ISTANBUL)
     when_local = when.astimezone(ISTANBUL) if when.tzinfo else when
     date = day or when_local.strftime("%Y-%m-%d")
 
-    sections = build_sections(result)
+    sections = build_sections(result, change_notes=change_notes)
     metrics = _key_metrics(result)
     actions = _action_items(result)
 
@@ -628,6 +655,8 @@ def build_document(
         "tokens": 0,
         "tokens_estimated": True,
     }
+    if change_notes:
+        meta["change_notes"] = [str(note) for note in change_notes]
     if result.request is not None:
         meta["request"] = result.request.as_dict()
     if xlsx_path:
@@ -748,6 +777,7 @@ __all__ = [
     "build_and_publish",
     "build_document",
     "build_sections",
+    "changes_section",
     "document_json",
     "findings_table_spec",
     "pivot_chart_spec",
