@@ -1,0 +1,84 @@
+name: Chat Poller
+
+# Slack sohbet kanalını yoklar ve rapor siparişlerini işler.
+#
+# Her 5 dakikada bir çalışır. Her çalıştırma YENİ BİR SÜREÇTİR; kaldığı yeri
+# depo içindeki imleç dosyasından öğrenir. Yapılandırma yoksa hiçbir şey yapmaz.
+#
+# İMLEÇ, HATA OLSA DA İLERLER. Bir mesajın işlenmesi çökerse kullanıcıya hata
+# yazılır ve imleç yine de o mesajı geçer: aksi hâlde aynı bozuk mesaj her beş
+# dakikada bir yeniden denenir ve kanal aynı hatayla dolar.
+on:
+  schedule:
+    # GitHub Actions cron her zaman UTC'dir. Zamanları burada ayarlayın:
+    # Her 5 dakikada bir çalış
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: "Yoklanacak kanal kimliği (SLACK_ANALYST_CHANNEL değeri yoksa kullanılır)"
+        required: false
+        type: string
+
+# Ardışık poller çalışması başarılı olmalı. Birden fazla çalışma çakışırsa
+# sonuncusu eski imleçleri atlar — bu sorun değil, bu tasarım. Ama kısa süreli
+# bir kapanış ortasında oturumsallık çok önemli, öyleyse içeri almanın yerine
+# kuyruğa al.
+concurrency:
+  group: chat-poller
+  cancel-in-progress: false
+
+jobs:
+  poller:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Depo çıkışı
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Python kurulumu
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Paket kurulumu
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+
+      - name: Sohbet kanalı yoklaması
+        env:
+          # Slack kimlik bilgileri
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          # Sohbetin dinleneceği kanal (yoksa SLACK_CHANNEL_WORK_ANALYST vb. kullanılır)
+          SLACK_ANALYST_CHANNEL: ${{ secrets.SLACK_ANALYST_CHANNEL }}
+          # Yoklamada en çok bu kadar mesaj işle (varsayılan: 20)
+          CHAT_POLL_MAX_MESSAGES: ${{ secrets.CHAT_POLL_MAX_MESSAGES }}
+          # İş analisti kanalı ve diğer kanal tanımları
+          SLACK_CHANNEL_WORK_ANALYST: ${{ secrets.SLACK_CHANNEL_WORK_ANALYST }}
+          SLACK_MAIN_CHANNEL: ${{ secrets.SLACK_MAIN_CHANNEL }}
+          SLACK_CHANNEL: ${{ secrets.SLACK_CHANNEL }}
+          # Rapor üretimi için gereken kimlik bilgileri
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANKA_WEBHOOK_URL: ${{ secrets.ANKA_WEBHOOK_URL }}
+          ANKA_API_KEY: ${{ secrets.ANKA_API_KEY }}
+        run: |
+          set -e
+          echo "Sohbet kanalı yoklaması başlanıyor..."
+          python -m ai_assistant.chat.poller
+          echo "Sohbet kanalı yoklaması tamamlandı."
+        continue-on-error: true
+
+      - name: Hata günlüğü
+        if: failure()
+        run: |
+          echo "Uyarı: Sohbet kanalı yoklaması başarısız oldu."
+          echo "Sonraki tur aynı yerden devam edecektir."
+          exit 0
