@@ -47,6 +47,11 @@ _ENV_VARS = [
     "GOOGLE_CLIENT_SECRET",
     "GOOGLE_CREDENTIALS_FILE",
     "GOOGLE_TOKEN_FILE",
+    "DATA_ANALYST_SOURCE",
+    "DATA_ANALYST_DRIVE_FOLDER_ID",
+    "DATA_ANALYST_SHEET",
+    "OPERATIONS_DIRECTOR_BUSINESS",
+    "OPERATIONS_DIRECTOR_FORECAST",
 ]
 
 
@@ -65,30 +70,44 @@ def no_config(monkeypatch):
     yield
 
 
-#: The roster after the 20 -> 10 consolidation, in registration order.
+#: The roster after the 20 -> 10 consolidation, plus the two analysis-engine
+#: personas (data analyst, operations director), in registration order.
 EXPECTED_ADVISOR_KEYS = [
     "weather",
     "morning_operations",
     "communications_calendar",
     "career_development",
     "market_intelligence",
+    "data_analyst",
     "ai_innovation",
     "kids_development",
     "anka_bridge",
     "executive_coaching",
     "work_analyst",
+    "operations_director",
 ]
 
 
 def test_all_advisors_discovered():
     advisors = all_advisors()
-    assert len(advisors) == 10
+    assert len(advisors) == 12
     assert [a.key for a in advisors] == EXPECTED_ADVISOR_KEYS
 
 
-def test_work_analyst_runs_last():
-    """It consolidates the OTHER advisors' output, so it must see them first."""
-    assert all_advisors()[-1].key == "work_analyst"
+def test_work_analyst_runs_after_everyone_it_monitors():
+    """It consolidates the OTHER advisors' output, so it must see them first.
+
+    Only the operations director comes after it, because that persona
+    synthesises the work analyst's section too.
+    """
+    keys = [a.key for a in all_advisors()]
+    assert keys[-2] == "work_analyst"
+    assert keys.index("work_analyst") == len(keys) - 2
+
+
+def test_operations_director_runs_last():
+    """It synthesises EVERY section, the work analyst's included."""
+    assert all_advisors()[-1].key == "operations_director"
 
 
 def test_weather_skipped_without_city(no_config):

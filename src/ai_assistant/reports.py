@@ -72,9 +72,11 @@ DEFAULT_RETENTION_DAYS = 30
 _PRIVATE_ADVISOR_KEYS_CURRENT = frozenset(
     {
         "communications_calendar",  # real names, subjects and meetings
+        "data_analyst",             # the operation's own performance data
         "ai_innovation",            # reasons about the user's own backlog
         "executive_coaching",       # personal development + accountability
         "work_analyst",             # consolidates everyone else's private work
+        "operations_director",      # synthesises every private section above
     }
 )
 

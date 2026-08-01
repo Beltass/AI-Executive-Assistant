@@ -110,6 +110,11 @@ ADVISOR_META: Dict[str, Dict[str, str]] = {
         "emoji": "📊",
         "category": CATEGORY_SECTOR,
     },
+    "data_analyst": {
+        "title": "Veri Analisti (Çağrı Merkezi Operasyonu)",
+        "emoji": "🔬",
+        "category": CATEGORY_OPS,
+    },
     "ai_innovation": {
         "title": "Yapay Zeka & İnovasyon (Ustalaşma · Fikirler)",
         "emoji": "🧠",
@@ -133,6 +138,11 @@ ADVISOR_META: Dict[str, Dict[str, str]] = {
     "work_analyst": {
         "title": "İş Analisti Danışmanı",
         "emoji": "📈",
+        "category": CATEGORY_OPS,
+    },
+    "operations_director": {
+        "title": "Operasyon Direktörü (Günün Kararları)",
+        "emoji": "🚦",
         "category": CATEGORY_OPS,
     },
 }

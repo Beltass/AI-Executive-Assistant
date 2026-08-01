@@ -7,8 +7,8 @@ per advisor:
   its headline and the links;
 * ``SLACK_CHANNEL_<ADVISOR_KEY>`` receives that advisor's own section in full.
 
-Creating eleven channels by hand, copying eleven channel ids out of the Slack
-UI and pasting them into ``.env`` without a typo is exactly the kind of task
+Creating thirteen channels by hand, copying thirteen channel ids out of the
+Slack UI and pasting them into ``.env`` without a typo is exactly the kind of task
 that should not be done by hand. This module does it::
 
     # 1. See what WOULD happen (default — nothing is created):
@@ -36,8 +36,8 @@ Scopes*:
 * ``channels:join``  — add the bot itself to a channel it did not create
 * ``chat:write``     — post the daily messages (used by the notifier, not here)
 * ``groups:read`` + ``groups:write`` — ONLY if you keep the private channels
-  (the four advisors that handle personal data default to private; pass
-  ``--all-public`` to opt out)
+  (the six advisors that handle personal or operational data default to
+  private; pass ``--all-public`` to opt out)
 
 After adding scopes you must REINSTALL the app to the workspace, or the token
 keeps its old permissions. When a call fails for a missing scope this script
@@ -88,11 +88,12 @@ class ChannelSpec:
     advisor_key: str = ""
 
 
-#: The eleven channels: one main room plus one per advisor of the roster.
+#: The thirteen channels: one main room plus one per advisor of the roster.
 #:
-#: The four advisors that read the user's own mail, calendar, backlog and
-#: coaching notes default to PRIVATE channels — the same content the dashboard
-#: refuses to publish (see ``ai_assistant.reports.PRIVATE_ADVISOR_KEYS``).
+#: The six advisors that read the user's own mail, calendar, backlog, operation
+#: data and coaching notes default to PRIVATE channels — the same content the
+#: dashboard refuses to publish (see
+#: ``ai_assistant.reports.PRIVATE_ADVISOR_KEYS``).
 MAIN_CHANNEL = ChannelSpec(
     env_key=MAIN_CHANNEL_ENV,
     name="ai-asistan-genel",
@@ -164,6 +165,19 @@ ADVISOR_CHANNELS: Tuple[ChannelSpec, ...] = (
         advisor_key="market_intelligence",
     ),
     ChannelSpec(
+        env_key=advisor_channel_env("data_analyst"),
+        name="ai-veri-analisti",
+        label="Veri Analisti",
+        purpose=(
+            "Veri Analisti ajanının kanalı. Operasyon verisini okur, "
+            "göstergeleri etkiye göre sıralar ve ne anlama geldiğini yorumlar. "
+            "KURUM VERİSİ içerir; panoya yazılmaz."
+        ),
+        topic="🔬 Operasyon verisi · göstergeler ve yorum · 🔒 kişisel",
+        private=True,
+        advisor_key="data_analyst",
+    ),
+    ChannelSpec(
         env_key=advisor_channel_env("ai_innovation"),
         name="ai-yapayzeka-inovasyon",
         label="Yapay Zeka & İnovasyon",
@@ -223,6 +237,20 @@ ADVISOR_CHANNELS: Tuple[ChannelSpec, ...] = (
         topic="📈 İş yükü ve odak analizi · 🔒 kişisel",
         private=True,
         advisor_key="work_analyst",
+    ),
+    ChannelSpec(
+        env_key=advisor_channel_env("operations_director"),
+        name="ai-operasyon-direktoru",
+        label="Operasyon Direktörü",
+        purpose=(
+            "Operasyon Direktörü ajanının kanalı. Günün tüm bulgularını "
+            "sentezleyip öncelik sırasına dizilmiş karar listesi çıkarır: "
+            "kadro, SLA riski, bekleyen iş ve bugün karar bekleyenler. "
+            "KİŞİSEL VERİ içerir; panoya yazılmaz."
+        ),
+        topic="🚦 Günün kararları · sahip, son tarih, sonuç · 🔒 kişisel",
+        private=True,
+        advisor_key="operations_director",
     ),
 )
 

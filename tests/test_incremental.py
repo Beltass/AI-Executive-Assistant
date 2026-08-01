@@ -308,8 +308,10 @@ def test_new_advisors_are_registered_last_but_one(blank_env):
     # ai_mastery + cx_research were folded into these two by the 20 -> 10
     # consolidation; both consolidated advisors must still be registered.
     assert "ai_innovation" in keys and "market_intelligence" in keys
-    # The work analyst must still see everyone else first.
-    assert keys[-1] == "work_analyst"
+    # The work analyst must still see everyone it monitors first; only the
+    # operations director — which synthesises the analyst too — comes after it.
+    assert keys[-2] == "work_analyst"
+    assert keys[-1] == "operations_director"
 
 
 @pytest.mark.parametrize(

@@ -234,9 +234,11 @@ def test_private_key_list_matches_the_rosters_private_flags():
 
     assert private == {
         "communications_calendar",
+        "data_analyst",
         "ai_innovation",
         "executive_coaching",
         "work_analyst",
+        "operations_director",
     }
     # Every private advisor is covered…
     assert private <= reports.PRIVATE_ADVISOR_KEYS

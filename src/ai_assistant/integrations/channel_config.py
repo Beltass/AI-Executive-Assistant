@@ -33,11 +33,13 @@ ADVISOR_KEYS = (
     "communications_calendar",
     "career_development",
     "market_intelligence",
+    "data_analyst",
     "ai_innovation",
     "kids_development",
     "anka_bridge",
     "executive_coaching",
     "work_analyst",
+    "operations_director",
 )
 
 

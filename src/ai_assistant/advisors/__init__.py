@@ -295,6 +295,12 @@ def all_advisors() -> List[Advisor]:
     # PHASE 1B: Superseded by MorningOperationsAdvisor (PHASE 1A)
     # from .daily_ops_briefing import DailyOpsBriefingAdvisor
 
+    # ANALYSIS ENGINE PERSONAS: the data analyst reads the operation's own
+    # numbers (see :mod:`ai_assistant.analysis`), the operations director turns
+    # the whole run into a decision list.
+    from .data_analyst import DataAnalystAdvisor
+    from .operations_director import OperationsDirectorAdvisor
+
     from .anka_bridge import AnkaBridgeAdvisor
     # PHASE 1A: Consolidated into ExecutiveCoachingAdvisor
     # from .accountability_coach import AccountabilityCoachAdvisor
@@ -311,15 +317,23 @@ def all_advisors() -> List[Advisor]:
         CareerDevelopmentAdvisor(),
         # Position 5: Market intelligence (PHASE 1B consolidation)
         MarketIntelligenceAdvisor(),
-        # Position 6: AI mastery + innovation ideas (PHASE 1B consolidation)
+        # Position 6: The operation's OWN numbers, read by the analysis engine.
+        # Registered right after the market view: outside-in first, then
+        # inside-out, which is the order a director reads a morning pack in.
+        DataAnalystAdvisor(),
+        # Position 7: AI mastery + innovation ideas (PHASE 1B consolidation)
         AiInnovationAdvisor(),
         # Other advisors (unchanged)
         KidsDevelopmentAdvisor(),
         AnkaBridgeAdvisor(),
         # Executive coaching (PHASE 1A consolidation of Leadership + Accountability)
         ExecutiveCoachingAdvisor(),
-        # Work Analyst LAST: consolidates all daily data after all advisors run.
+        # Work Analyst: consolidates the SYSTEM's health after everyone ran.
         WorkAnalystAdvisor(),
+        # Operations Director ABSOLUTELY LAST: it synthesises every section
+        # above — including the work analyst's — into the day's decision list,
+        # so it must be the only advisor with the complete picture.
+        OperationsDirectorAdvisor(),
     ]
 
 

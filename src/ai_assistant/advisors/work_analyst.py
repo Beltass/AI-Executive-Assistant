@@ -22,8 +22,16 @@ Features:
     - Comprehensive daily analysis with actionable suggestions
     - Gracefully handles missing data or monitoring gaps
 
-Ordering: This advisor MUST run after all others via the ``observe`` hook.
-It is registered LAST in :func:`~ai_assistant.advisors.all_advisors`.
+Ordering: This advisor MUST run after every advisor it monitors, via the
+``observe`` hook. It is registered second-to-last in
+:func:`~ai_assistant.advisors.all_advisors` — only the Operations Director
+comes after it, because that persona synthesises this section too.
+
+SCOPE BOUNDARY: this advisor owns the SYSTEM's technical health (which advisor
+ran, success rate, timeouts, token pressure, integration failures). The
+BUSINESS operation — staffing, SLA risk, backlog, today's decisions — belongs
+to :mod:`ai_assistant.advisors.operations_director`, which deliberately leaves
+this section out of its decision list so the two never repeat each other.
 
 Configuration (via environment):
     WORK_ANALYST_STATE_FILE    Where to store daily analysis state.
