@@ -1,0 +1,15 @@
+{
+  "id": "weather",
+  "name": "Hava Durumu Meteoroloğu",
+  "emoji": "🌤️",
+  "category": "operasyon",
+  "headline": "İstanbul, İstanbul, Türkiye Cumhuriyeti için bugünkü hava durumu: gökyüzü parçalı bulutlu.",
+  "excerpt": "İstanbul, İstanbul, Türkiye Cumhuriyeti için bugünkü hava durumu: gökyüzü parçalı bulutlu.",
+  "words": 40,
+  "read_minutes": 1,
+  "generated_at": "2026-08-01T12:06:43+03:00",
+  "generated_at_istanbul": "01.08.2026 12:06",
+  "schema_version": 1,
+  "date": "2026-08-01",
+  "markdown": "İstanbul, İstanbul, Türkiye Cumhuriyeti için bugünkü hava durumu: gökyüzü parçalı bulutlu. Şu an hava 27°C civarında. Gün içinde sıcaklık 22°C ile 28°C arasında seyredecek. En yüksek rüzgar hızı yaklaşık 28 km/s. Bugün için dikkat gerektiren olağandışı bir hava olayı görünmüyor."
+}
