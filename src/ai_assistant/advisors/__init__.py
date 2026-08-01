@@ -306,6 +306,9 @@ def all_advisors() -> List[Advisor]:
     # from .accountability_coach import AccountabilityCoachAdvisor
     from .work_analyst import WorkAnalystAdvisor
 
+    # 7/24 teknik nöbetçi (ai_assistant.watchdog) — brifinge bağlayan sarmalayıcı.
+    from .sre_watchdog import SreWatchdogAdvisor
+
     return [
         # Position 1: Weather briefing
         WeatherAdvisor(),
@@ -330,10 +333,14 @@ def all_advisors() -> List[Advisor]:
         ExecutiveCoachingAdvisor(),
         # Work Analyst: consolidates the SYSTEM's health after everyone ran.
         WorkAnalystAdvisor(),
-        # Operations Director ABSOLUTELY LAST: it synthesises every section
-        # above — including the work analyst's — into the day's decision list,
-        # so it must be the only advisor with the complete picture.
+        # Operations Director LAST of the content advisors: it synthesises
+        # every section above — including the work analyst's — into the day's
+        # decision list, so it must be the only one with the complete picture.
         OperationsDirectorAdvisor(),
+        # SRE watchdog closes the run: it reports on the MACHINE (cron
+        # freshness, quota, delivery, feeds, state commit) rather than on this
+        # run's content, so it is registered after every content advisor.
+        SreWatchdogAdvisor(),
     ]
 
 

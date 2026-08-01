@@ -78,6 +78,7 @@ def test_manager_runs_all_advisors_offline(no_config):
         "executive_coaching",
         "work_analyst",
         "operations_director",
+        "sre_watchdog",
     ]
     for b in supervision.briefings:
         assert b.status in {STATUS_OK, STATUS_FAILED, STATUS_SKIPPED}
