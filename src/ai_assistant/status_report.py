@@ -145,6 +145,11 @@ ADVISOR_META: Dict[str, Dict[str, str]] = {
         "emoji": "🚦",
         "category": CATEGORY_OPS,
     },
+    "sre_watchdog": {
+        "title": "Teknik Gözetim (7/24 SRE)",
+        "emoji": "🛡️",
+        "category": CATEGORY_OPS,
+    },
 }
 
 DEFAULT_META = {"title": "", "emoji": "🧩", "category": CATEGORY_OPS}

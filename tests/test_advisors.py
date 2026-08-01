@@ -71,7 +71,8 @@ def no_config(monkeypatch):
 
 
 #: The roster after the 20 -> 10 consolidation, plus the two analysis-engine
-#: personas (data analyst, operations director), in registration order.
+#: personas (data analyst, operations director) and the SRE watchdog, in
+#: registration order.
 EXPECTED_ADVISOR_KEYS = [
     "weather",
     "morning_operations",
@@ -85,29 +86,36 @@ EXPECTED_ADVISOR_KEYS = [
     "executive_coaching",
     "work_analyst",
     "operations_director",
+    "sre_watchdog",
 ]
 
 
 def test_all_advisors_discovered():
     advisors = all_advisors()
-    assert len(advisors) == 12
+    assert len(advisors) == 13
     assert [a.key for a in advisors] == EXPECTED_ADVISOR_KEYS
 
 
 def test_work_analyst_runs_after_everyone_it_monitors():
     """It consolidates the OTHER advisors' output, so it must see them first.
 
-    Only the operations director comes after it, because that persona
-    synthesises the work analyst's section too.
+    Only the operations director — which synthesises the work analyst's
+    section too — and the SRE watchdog come after it.
     """
     keys = [a.key for a in all_advisors()]
-    assert keys[-2] == "work_analyst"
-    assert keys.index("work_analyst") == len(keys) - 2
+    assert keys[-3] == "work_analyst"
+    assert keys.index("work_analyst") == len(keys) - 3
 
 
-def test_operations_director_runs_last():
-    """It synthesises EVERY section, the work analyst's included."""
-    assert all_advisors()[-1].key == "operations_director"
+def test_operations_director_runs_last_of_the_content_advisors():
+    """It synthesises EVERY content section, the work analyst's included."""
+    keys = [a.key for a in all_advisors()]
+    assert keys[-2] == "operations_director"
+
+
+def test_sre_watchdog_closes_the_roster():
+    """It reports on the MACHINE, so it runs after every content advisor."""
+    assert all_advisors()[-1].key == "sre_watchdog"
 
 
 def test_weather_skipped_without_city(no_config):

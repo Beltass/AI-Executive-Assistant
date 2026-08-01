@@ -295,7 +295,10 @@ def test_newest_drive_spreadsheet_explains_an_empty_folder(blank_env):
 
 
 def test_operations_director_runs_last_in_the_roster():
-    assert all_advisors()[-1].key == "operations_director"
+    """Last of the CONTENT advisors; only the SRE watchdog follows it."""
+    keys = [advisor.key for advisor in all_advisors()]
+    assert keys[-2] == "operations_director"
+    assert keys[-1] == "sre_watchdog"
 
 
 def test_operations_director_never_joins_the_batch(blank_env, monkeypatch):

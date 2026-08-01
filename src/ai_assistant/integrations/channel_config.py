@@ -40,6 +40,7 @@ ADVISOR_KEYS = (
     "executive_coaching",
     "work_analyst",
     "operations_director",
+    "sre_watchdog",
 )
 
 

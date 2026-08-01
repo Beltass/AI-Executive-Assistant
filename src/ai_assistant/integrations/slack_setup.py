@@ -88,10 +88,11 @@ class ChannelSpec:
     advisor_key: str = ""
 
 
-#: The thirteen channels: one main room plus one per advisor of the roster.
+#: The fourteen channels: one main room plus one per advisor of the roster.
 #:
-#: The six advisors that read the user's own mail, calendar, backlog, operation
-#: data and coaching notes default to PRIVATE channels — the same content the
+#: The seven advisors that read the user's own mail, calendar, backlog,
+#: operation data, coaching notes and the system's own internals default to
+#: PRIVATE channels — the same content the
 #: dashboard refuses to publish (see
 #: ``ai_assistant.reports.PRIVATE_ADVISOR_KEYS``).
 MAIN_CHANNEL = ChannelSpec(
@@ -251,6 +252,19 @@ ADVISOR_CHANNELS: Tuple[ChannelSpec, ...] = (
         topic="🚦 Günün kararları · sahip, son tarih, sonuç · 🔒 kişisel",
         private=True,
         advisor_key="operations_director",
+    ),
+    ChannelSpec(
+        env_key=advisor_channel_env("sre_watchdog"),
+        name="ai-teknik-gozetim",
+        label="Teknik Gözetim (7/24 SRE)",
+        purpose=(
+            "7/24 teknik nöbetçinin kanalı. Çalıştırma tazeliği, model kotası, "
+            "Slack teslimi, besleme erişimi ve durum kaydı kontrol edilir. "
+            "SİSTEM İÇ BİLGİSİ içerir; panoya yazılmaz."
+        ),
+        topic="🛡️ Sistem sağlığı · bulgu + çözüm · 🔒 kişisel",
+        private=True,
+        advisor_key="sre_watchdog",
     ),
 )
 

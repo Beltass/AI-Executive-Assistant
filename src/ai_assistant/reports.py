@@ -77,6 +77,7 @@ _PRIVATE_ADVISOR_KEYS_CURRENT = frozenset(
         "executive_coaching",       # personal development + accountability
         "work_analyst",             # consolidates everyone else's private work
         "operations_director",      # synthesises every private section above
+        "sre_watchdog",             # the system's own technical internals
     }
 )
 
