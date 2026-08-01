@@ -27,10 +27,11 @@ from __future__ import annotations
 import logging
 import os
 import re
-from dataclasses import dataclass
-from typing import Dict, List, Sequence
+from dataclasses import dataclass, field, replace
+from typing import Dict, List, Sequence, Tuple
 
 from . import Advisor, BatchSection, is_quiet
+from ..config import is_incremental
 from ..integrations import llm
 
 logger = logging.getLogger(__name__)
@@ -44,12 +45,25 @@ class BatchOutcome:
     :mod:`ai_assistant.status_report` so the monitoring dashboard can show
     whether the single shared Gemini call worked and how much of the team it
     covered. Contains counts and a public model name only, never a key.
+
+    ``prompt_chars`` additionally records how LONG each advisor's slice of the
+    prompt was. That is what lets :mod:`ai_assistant.metrics` split ONE batched
+    call's input tokens back out per advisor and answer "which agent is
+    expensive?" — see that module for why the split is an estimate.
     """
 
     enabled: bool = True
     attempted: bool = False
     sections_requested: int = 0
     sections_produced: int = 0
+    #: ``{advisor_key: characters}`` — the size of each section's own prompt,
+    #: shared boilerplate excluded.
+    prompt_chars: Dict[str, int] = field(default_factory=dict)
+    #: Size of the whole prompt actually sent, boilerplate included.
+    prompt_chars_total: int = 0
+    #: Characters saved by stating the shared writing guide ONCE instead of
+    #: once per section (see :func:`split_shared_guide`).
+    guide_saved_chars: int = 0
 
     @property
     def used(self) -> bool:
@@ -63,6 +77,8 @@ class BatchOutcome:
             "used": self.used,
             "sections_requested": self.sections_requested,
             "sections_produced": self.sections_produced,
+            "prompt_chars_total": self.prompt_chars_total,
+            "guide_saved_chars": self.guide_saved_chars,
         }
 
 
@@ -159,13 +175,69 @@ def collect_sections(advisors: Sequence[Advisor]) -> List[BatchSection]:
     return sections
 
 
-def build_batch_prompt(sections: Sequence[BatchSection]) -> str:
-    """Compose the single user prompt covering every advisor section."""
+def split_shared_guide(
+    sections: Sequence[BatchSection], incremental: bool = False
+) -> Tuple[List[BatchSection], str, int]:
+    """Lift the writing guide out of every section and state it ONCE.
+
+    THE PROBLEM IT SOLVES. Twelve of the personas append the very same ~2.4 KB
+    ``RICH_BRIEFING_GUIDE`` to their user prompt. That was harmless when each
+    advisor made its own call, but the whole team now rides on ONE batched
+    request — so the identical essay was being transmitted a dozen times in a
+    single prompt, costing roughly 8-9 thousand input tokens per run to repeat
+    instructions the model had already read.
+
+    This hoists the guide into the shared header and leaves a one-line pointer
+    behind in each section. The instructions the model receives are unchanged;
+    only the repetition is gone.
+
+    On an ``incremental`` run the SHORT variant is hoisted instead: a top-up
+    reporting two or three genuinely new items does not need the depth coaching
+    written for the flagship briefing.
+
+    Returns ``(trimmed_sections, shared_guide_text, characters_saved)``.
+    ``shared_guide_text`` is empty when fewer than two sections carried the
+    guide, in which case nothing is changed at all.
+    """
+    from ._llm_base import RICH_BRIEFING_GUIDE, SHARED_GUIDE_POINTER, briefing_guide
+
+    carriers = [s for s in sections if RICH_BRIEFING_GUIDE in (s.user_prompt or "")]
+    if len(carriers) < 2:
+        return list(sections), "", 0
+
+    shared = briefing_guide(incremental)
+    trimmed: List[BatchSection] = []
+    removed = 0
+    for section in sections:
+        prompt = section.user_prompt or ""
+        if RICH_BRIEFING_GUIDE in prompt:
+            removed += len(RICH_BRIEFING_GUIDE) * prompt.count(RICH_BRIEFING_GUIDE)
+            prompt = prompt.replace(RICH_BRIEFING_GUIDE, SHARED_GUIDE_POINTER)
+            trimmed.append(replace(section, user_prompt=prompt.strip()))
+        else:
+            trimmed.append(section)
+
+    pointer_cost = len(SHARED_GUIDE_POINTER) * len(carriers)
+    saved = removed - pointer_cost - len(shared)
+    return trimmed, shared, max(0, saved)
+
+
+def _output_contract(sections: Sequence[BatchSection], incremental: bool) -> str:
+    """The response-format rules, kept identical in substance for both modes.
+
+    The incremental wording is deliberately terser: the same five rules, fewer
+    words, because they are re-sent on every one of the day's three top-up runs.
+    """
     keys = ", ".join(section.key for section in sections)
-    parts: List[str] = [
-        "Bugünün günlük brifingini TEK bir yanıtta hazırla. Aşağıda "
+    header = (
+        f"Bu, günün ARA çalıştırması: yalnızca YENİ gelişmeler var. {len(sections)} "
+        "bölümü TEK yanıtta, kısa ve öz yaz.\n\n"
+        if incremental
+        else "Bugünün günlük brifingini TEK bir yanıtta hazırla. Aşağıda "
         f"{len(sections)} ayrı bölüm var; HER BİRİNİ eksiksiz yaz.\n\n"
-        "ÇIKTI SÖZLEŞMESİ (kesinlikle uy):\n"
+    )
+    return (
+        header + "ÇIKTI SÖZLEŞMESİ (kesinlikle uy):\n"
         f"- Her bölüme tam olarak şu satırla başla: `{SECTION_MARKER} <bölüm_kimliği>`\n"
         "- Bölüm kimliğini aynen kopyala, çevirme, değiştirme.\n"
         "- Marker satırından sonra o bölümün İLK satırı şu olmalı: "
@@ -176,12 +248,33 @@ def build_batch_prompt(sections: Sequence[BatchSection]) -> str:
         f"- Bölümleri şu sırayla ve yalnızca şu kimliklerle ver: {keys}\n"
         "- Marker satırlarının dışında başka bir '### SECTION:' ifadesi kullanma.\n"
         "- Bölümler arasında özet, giriş veya kapanış metni ekleme.\n"
-    ]
+    )
 
-    for index, section in enumerate(sections, start=1):
+
+def build_batch_prompt(
+    sections: Sequence[BatchSection], incremental: bool = False
+) -> str:
+    """Compose the single user prompt covering every advisor section.
+
+    The shared writing guide is stated once for the whole batch rather than
+    repeated inside every section (:func:`split_shared_guide`), which is the
+    single biggest input-token saving available here.
+    """
+    trimmed, shared_guide, _saved = split_shared_guide(sections, incremental)
+    parts: List[str] = [_output_contract(trimmed, incremental)]
+
+    if shared_guide:
         parts.append(
             f"\n{'=' * 60}\n"
-            f"BÖLÜM {index}/{len(sections)} — kimlik: {section.key} — "
+            "ORTAK YAZIM KURALLARI — aşağıdaki TÜM bölümler için geçerlidir, "
+            "bir kez yazıldı:\n"
+            f"{'=' * 60}\n{shared_guide}\n"
+        )
+
+    for index, section in enumerate(trimmed, start=1):
+        parts.append(
+            f"\n{'=' * 60}\n"
+            f"BÖLÜM {index}/{len(trimmed)} — kimlik: {section.key} — "
             f"başlık: {section.title}\n"
             f"{'=' * 60}\n"
             f"Bu bölümde şu uzman kimliğine bürün:\n{section.system_prompt}\n\n"
@@ -190,7 +283,7 @@ def build_batch_prompt(sections: Sequence[BatchSection]) -> str:
 
     parts.append(
         f"\n{'=' * 60}\n"
-        f"Hatırlatma: yanıtın `{SECTION_MARKER} {sections[0].key}` satırıyla "
+        f"Hatırlatma: yanıtın `{SECTION_MARKER} {trimmed[0].key}` satırıyla "
         "başlamalı ve her bölüm kendi marker satırıyla ayrılmalı."
     )
     return "".join(parts)
@@ -240,7 +333,24 @@ def run_batch(advisors: Sequence[Advisor]) -> Dict[str, str]:
         return {}
 
     _last_outcome.attempted = True
-    user_prompt = build_batch_prompt(sections)
+    incremental = is_incremental()
+
+    # Build once, and record the SIZES on the way through so the metrics layer
+    # can attribute one batched call's input tokens back to the advisors.
+    trimmed, _shared_guide, saved = split_shared_guide(sections, incremental)
+    _last_outcome.guide_saved_chars = saved
+    _last_outcome.prompt_chars = {
+        section.key: len(section.system_prompt or "") + len(section.user_prompt or "")
+        for section in trimmed
+    }
+
+    user_prompt = build_batch_prompt(sections, incremental)
+    _last_outcome.prompt_chars_total = len(user_prompt)
+    if saved:
+        logger.info(
+            "ortak yazım kuralları tek sefer gönderildi: ~%s karakter tasarruf",
+            saved,
+        )
     try:
         text = llm.generate_text(
             BATCH_SYSTEM_PROMPT,

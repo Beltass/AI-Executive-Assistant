@@ -67,6 +67,7 @@ from ..status_report import ISTANBUL
 WEBHOOK_ENV = "SLACK_WEBHOOK_URL"
 BOT_TOKEN_ENV = "SLACK_BOT_TOKEN"
 CHANNEL_ENV = "SLACK_CHANNEL"
+MAIN_CHANNEL_ENV = "SLACK_MAIN_CHANNEL"
 POST_MESSAGE_URL = "https://slack.com/api/chat.postMessage"
 
 #: Where the published dashboard lives, so the Slack index can link into it.
@@ -123,6 +124,17 @@ def _post_bot(
     return failed(NAME, f"chat.postMessage error: {data.get('error', 'unknown')}")
 
 
+def main_channel() -> Optional[str]:
+    """The channel the SUMMARY goes to: ``SLACK_MAIN_CHANNEL`` then ``SLACK_CHANNEL``.
+
+    The per-advisor sub-channels are resolved separately, by
+    :mod:`ai_assistant.integrations.channel_config`.
+    """
+    from ..integrations.channel_config import get_channel_config
+
+    return get_channel_config().resolve_main_channel()
+
+
 def send_message(text: str, blocks: Optional[list] = None) -> CheckResult:
     """Send a message to Slack using whichever mode is configured.
 
@@ -134,13 +146,14 @@ def send_message(text: str, blocks: Optional[list] = None) -> CheckResult:
         return _post_webhook(webhook, text, blocks)
 
     token = os.getenv(BOT_TOKEN_ENV)
-    channel = os.getenv(CHANNEL_ENV)
+    channel = main_channel()
     if token and channel:
         return _post_bot(token, channel, text, blocks)
 
     return skipped_reason(
         NAME,
-        f"missing env var(s): {WEBHOOK_ENV} or ({BOT_TOKEN_ENV} + {CHANNEL_ENV})",
+        f"missing env var(s): {WEBHOOK_ENV} or ({BOT_TOKEN_ENV} + "
+        f"{MAIN_CHANNEL_ENV}/{CHANNEL_ENV})",
     )
 
 
@@ -219,14 +232,46 @@ def _chunks(text: str, size: int = MAX_SECTION_CHARS) -> List[str]:
     return parts
 
 
-def _report_line(report: PublishedReport, base: str) -> dict:
-    """One advisor = one section block: emoji, name, headline, link."""
+def _links_line(parts: List[str]) -> str:
+    return " · ".join(p for p in parts if p)
+
+
+def _report_line(report: PublishedReport, base: str, channel_link: str = "") -> dict:
+    """One advisor = one section block: emoji, name, headline, links.
+
+    ``channel_link`` points into the advisor's OWN Slack channel — at the exact
+    message when Slack gave us a permalink, at the channel otherwise. It is
+    omitted when that advisor has no sub-channel of its own.
+    """
     headline = to_mrkdwn(report.headline) or "_(özet çıkarılamadı)_"
-    return _section(
-        f"{report.emoji} *{report.name}*\n"
-        f"{headline}\n"
-        f"<{report_url(report, base)}|📄 Tam rapor> · ~{report.read_minutes} dk okuma"
+    links = _links_line(
+        [
+            f"<{report_url(report, base)}|📄 Tam rapor>",
+            f"<{channel_link}|💬 Kendi kanalı>" if channel_link else "",
+            f"~{report.read_minutes} dk okuma",
+        ]
     )
+    return _section(f"{report.emoji} *{report.name}*\n{headline}\n{links}")
+
+
+def _private_line(briefing: Any, channel_link: str) -> dict:
+    """One line for a PRIVATE advisor that has its own channel.
+
+    Its body lives in that channel and must not be repeated here; the summary
+    carries only the headline and the way in.
+    """
+    key = str(getattr(briefing, "key", "") or "")
+    meta = reports.ADVISOR_META.get(key, reports.DEFAULT_META)
+    title = str(getattr(briefing, "title", "") or key)
+    headline = to_mrkdwn(
+        reports.extract_headline(str(getattr(briefing, "text", "") or ""))
+    ) or "_(özet çıkarılamadı)_"
+    tail = (
+        f"<{channel_link}|💬 Kendi kanalında tam bölüm>"
+        if channel_link
+        else "_Tam bölüm kendi kanalında._"
+    )
+    return _section(f"{meta['emoji']} *{title}* 🔒\n{headline}\n{tail}")
 
 
 def _private_blocks(briefing: Any) -> List[dict]:
@@ -255,14 +300,30 @@ def build_index_message(
     publication: Publication,
     base_url: str = "",
     now: Optional[datetime] = None,
+    channel_links: Optional[dict] = None,
+    own_channel_keys: Optional[set] = None,
 ) -> Tuple[str, List[dict]]:
     """Build the compact Slack index. Returns ``(fallback_text, blocks)``.
+
+    This is what the MAIN channel receives: one line per advisor with its
+    headline, a deep link to the full report, and — when the advisor has a
+    sub-channel of its own — a link into that channel.
+
+    Args:
+        channel_links: ``advisor key -> link`` into that advisor's own channel,
+            produced by :func:`ai_assistant.integrations.slack_channels.distribute`.
+        own_channel_keys: advisors whose section was DELIVERED to a channel of
+            their own. A private advisor in this set is summarised by its
+            headline instead of being inlined in full, because its body already
+            has a home; one that is not stays inlined, or it would be lost.
 
     Never raises and never grows past Slack's limits: the per-advisor lines are
     trimmed to fit :data:`MAX_BLOCKS` and every body is chunked to fit
     :data:`MAX_SECTION_CHARS`.
     """
     base = base_url or dashboard_base_url()
+    links = dict(channel_links or {})
+    delivered_elsewhere = set(own_channel_keys or ())
     moment = now or datetime.now(ISTANBUL)
     day_label = moment.astimezone(ISTANBUL).strftime("%d.%m.%Y")
 
@@ -314,9 +375,20 @@ def build_index_message(
                 )
             )
             break
-        blocks.append(_report_line(report, base))
+        blocks.append(_report_line(report, base, links.get(report.id, "")))
 
-    for briefing in private:
+    # A private advisor that already has its own channel is summarised by one
+    # line; one that does not is still inlined in full — that body has nowhere
+    # else to go.
+    summarised = [b for b in private if str(getattr(b, "key", "")) in delivered_elsewhere]
+    inlined = [b for b in private if str(getattr(b, "key", "")) not in delivered_elsewhere]
+
+    for briefing in summarised:
+        if len(blocks) >= MAX_BLOCKS - 2:
+            break
+        blocks.append(_private_line(briefing, links.get(str(getattr(briefing, "key", "")), "")))
+
+    for briefing in inlined:
         if len(blocks) >= MAX_BLOCKS - 2:
             break
         blocks.append({"type": "divider"})
@@ -343,18 +415,50 @@ def build_index_message(
 
 
 def send_briefing_index(
-    supervision: Any, publication: Publication, base_url: str = ""
+    supervision: Any,
+    publication: Publication,
+    base_url: str = "",
+    distribution: Any = None,
 ) -> CheckResult:
-    """Post the compact index for an already-published run."""
-    text, blocks = build_index_message(supervision, publication, base_url=base_url)
+    """Post the compact index for an already-published run to the MAIN channel.
+
+    ``distribution`` is the result of the per-advisor fan-out (see
+    :func:`ai_assistant.integrations.slack_channels.distribute`); when given,
+    each line also links into that advisor's own channel.
+    """
+    text, blocks = build_index_message(
+        supervision,
+        publication,
+        base_url=base_url,
+        channel_links=getattr(distribution, "links", None),
+        own_channel_keys=getattr(distribution, "delivered_keys", None),
+    )
     return send_message(text, blocks=blocks)
 
 
+def distribute_to_advisor_channels(supervision: Any, publication: Publication) -> Any:
+    """Post every advisor's section to its OWN Slack channel.
+
+    Best effort by construction: :func:`slack_channels.distribute` catches its
+    own errors, and an import-time surprise here must not cost the summary.
+    """
+    try:
+        from ..integrations import slack_channels
+
+        return slack_channels.distribute(supervision, publication)
+    except Exception as exc:  # pragma: no cover - defensive only
+        logging.getLogger(__name__).error(f"Kanal dağıtımı başarısız: {exc}")
+        return None
+
+
 def send_daily_digest() -> CheckResult:
-    """Run the team, publish the documents and post the compact Slack index."""
+    """Run the team, publish the documents, fan out and post the Slack index."""
     digest = build_digest()
     publication = reports.publish(digest.supervision)
-    return send_briefing_index(digest.supervision, publication)
+    distribution = distribute_to_advisor_channels(digest.supervision, publication)
+    return send_briefing_index(
+        digest.supervision, publication, distribution=distribution
+    )
 
 
 NOTHING_NEW_DETAIL = "artımlı çalıştırma — yeni bulgu yok, mesaj gönderilmedi"
@@ -464,6 +568,38 @@ def _write_status_report(digest: Digest, result: CheckResult, started: float) ->
         print(f"Durum raporu yazılamadı: {exc}")
 
 
+def _record_metrics(digest: Digest, started: float) -> None:
+    """Record what this run COST for the performance tab.
+
+    Best-effort, exactly like the status file: token accounting is worth
+    strictly less than the briefing it accounts for, so every failure is a
+    printed line and nothing more. Writes counts only — never a prompt, never a
+    response, never a key.
+    """
+    try:
+        from .. import metrics
+        from ..advisors import _batch
+        from ..integrations import llm
+
+        path = metrics.record_run(
+            digest.supervision,
+            call_stats=llm.last_call_stats(),
+            batch=_batch.last_outcome(),
+            duration_seconds=time.monotonic() - started,
+        )
+        stats = llm.last_call_stats()
+        if stats is not None:
+            print(
+                f"Token kullanımı: girdi {stats.prompt_tokens} · "
+                f"çıktı {stats.output_tokens} · düşünme {stats.thoughts_tokens} · "
+                f"toplam {stats.total_tokens}"
+            )
+        if path:
+            print(f"Metrik dosyası: {path}")
+    except Exception as exc:  # pragma: no cover - record_run already guards itself
+        print(f"Metrikler yazılamadı: {exc}")
+
+
 def _publish_reports(digest: Digest) -> Publication:
     """Write this run's per-advisor documents for the dashboard.
 
@@ -502,7 +638,14 @@ def main() -> int:
     publication = _publish_reports(digest)
 
     if should_send(digest):
-        result = send_briefing_index(digest.supervision, publication)
+        # Sub-channels FIRST: the main channel's summary links into the
+        # messages this fan-out creates, so it has to know where they landed.
+        distribution = distribute_to_advisor_channels(digest.supervision, publication)
+        if distribution is not None:
+            print(f"Kanal dağıtımı: {distribution.summary_line()}")
+        result = send_briefing_index(
+            digest.supervision, publication, distribution=distribution
+        )
     else:
         # Quiet incremental run: no message, but the dashboard still learns the
         # run happened (status.json is written below either way).
@@ -514,6 +657,7 @@ def main() -> int:
     _remember_delivered(result)
 
     _write_status_report(digest, result, started)
+    _record_metrics(digest, started)
     return 1 if result.status == STATUS_FAILED else 0
 
 

@@ -22,6 +22,7 @@ from ai_assistant.advisors.banking_cc_projects import BankingCcProjectsAdvisor
 from ai_assistant.advisors.daily_ops_briefing import DailyOpsBriefingAdvisor
 from ai_assistant.advisors.language_coach import LanguageCoachAdvisor
 from ai_assistant.advisors.anka_bridge import AnkaBridgeAdvisor
+from ai_assistant.advisors.innovation_lab import InnovationLabAdvisor
 from ai_assistant.integrations import STATUS_OK, STATUS_SKIPPED
 
 _ENV_VARS = [
@@ -46,6 +47,11 @@ _ENV_VARS = [
     "GOOGLE_CLIENT_SECRET",
     "GOOGLE_CREDENTIALS_FILE",
     "GOOGLE_TOKEN_FILE",
+    "DATA_ANALYST_SOURCE",
+    "DATA_ANALYST_DRIVE_FOLDER_ID",
+    "DATA_ANALYST_SHEET",
+    "OPERATIONS_DIRECTOR_BUSINESS",
+    "OPERATIONS_DIRECTOR_FORECAST",
 ]
 
 
@@ -64,32 +70,44 @@ def no_config(monkeypatch):
     yield
 
 
+#: The roster after the 20 -> 10 consolidation, plus the two analysis-engine
+#: personas (data analyst, operations director), in registration order.
+EXPECTED_ADVISOR_KEYS = [
+    "weather",
+    "morning_operations",
+    "communications_calendar",
+    "career_development",
+    "market_intelligence",
+    "data_analyst",
+    "ai_innovation",
+    "kids_development",
+    "anka_bridge",
+    "executive_coaching",
+    "work_analyst",
+    "operations_director",
+]
+
+
 def test_all_advisors_discovered():
     advisors = all_advisors()
-    assert len(advisors) == 15
-    keys = {a.key for a in advisors}
-    assert keys == {
-        "weather",
-        "leadership_coach",
-        "kids_development",
-        "career_hr",
-        "job_scout",
-        "sector_intel",
-        "ai_news",
-        "free_certs",
-        "banking_cc_projects",
-        "ai_mastery",
-        "cx_research",
-        "daily_ops_briefing",
-        "language_coach",
-        "anka_bridge",
-        "accountability_coach",
-    }
+    assert len(advisors) == 12
+    assert [a.key for a in advisors] == EXPECTED_ADVISOR_KEYS
 
 
-def test_accountability_coach_runs_last():
-    """It consolidates the OTHER advisors' tasks, so it must see them first."""
-    assert all_advisors()[-1].key == "accountability_coach"
+def test_work_analyst_runs_after_everyone_it_monitors():
+    """It consolidates the OTHER advisors' output, so it must see them first.
+
+    Only the operations director comes after it, because that persona
+    synthesises the work analyst's section too.
+    """
+    keys = [a.key for a in all_advisors()]
+    assert keys[-2] == "work_analyst"
+    assert keys.index("work_analyst") == len(keys) - 2
+
+
+def test_operations_director_runs_last():
+    """It synthesises EVERY section, the work analyst's included."""
+    assert all_advisors()[-1].key == "operations_director"
 
 
 def test_weather_skipped_without_city(no_config):
@@ -109,10 +127,17 @@ def test_llm_personas_skipped_without_key(no_config, advisor_cls):
 
 
 def test_all_advisors_skipped_offline(no_config):
+    """Nothing configured => nothing runs, and nobody crashes.
+
+    ``work_analyst`` is the one exception by design: it consolidates the other
+    advisors' output rather than calling anything itself, so offline it still
+    returns a successful "no data yet" briefing instead of a skip.
+    """
     for advisor in all_advisors():
         briefing = advisor.generate_briefing()
         assert isinstance(briefing, Briefing)
-        assert briefing.status == STATUS_SKIPPED, f"{briefing.key}: {briefing.text}"
+        expected = STATUS_OK if advisor.key == "work_analyst" else STATUS_SKIPPED
+        assert briefing.status == expected, f"{briefing.key}: {briefing.text}"
         assert briefing.key and briefing.title
 
 
@@ -138,7 +163,7 @@ def test_job_scout_skipped_without_llm_key(no_config, monkeypatch):
 @pytest.mark.parametrize(
     "advisor_cls",
     [SectorIntelAdvisor, FreeCertsAdvisor, BankingCcProjectsAdvisor,
-     LanguageCoachAdvisor],
+     LanguageCoachAdvisor, InnovationLabAdvisor],
 )
 def test_llm_new_personas_skipped_without_key(no_config, advisor_cls):
     briefing = advisor_cls().generate_briefing()
@@ -272,7 +297,7 @@ def test_job_scout_uses_defaults_but_still_skips_without_llm_key(defaults_only):
     "advisor_cls",
     [LeadershipCoachAdvisor, KidsDevelopmentAdvisor, CareerHrAdvisor,
      SectorIntelAdvisor, FreeCertsAdvisor, BankingCcProjectsAdvisor,
-     LanguageCoachAdvisor],
+     LanguageCoachAdvisor, InnovationLabAdvisor],
 )
 def test_llm_advisors_still_skip_with_defaults_but_no_key(defaults_only, advisor_cls):
     briefing = advisor_cls().generate_briefing()

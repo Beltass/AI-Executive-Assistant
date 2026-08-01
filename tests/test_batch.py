@@ -248,3 +248,129 @@ def test_the_headline_the_prompt_asks_for_is_the_one_the_extractor_finds():
 
     section = f"**{HEADLINE_LABEL}:** Tek cümlelik bulgu.\n\nGerisi burada."
     assert extract_headline(section) == "Tek cümlelik bulgu."
+
+
+# --- prompt token efficiency ------------------------------------------------
+#
+# Twelve personas append the identical ~2.4 KB writing guide to their user
+# prompt. That was free when each advisor made its own call; in ONE batched
+# request it is the same essay transmitted a dozen times. These tests pin the
+# fix: the guide is stated once, the instructions are unchanged, and the saving
+# is measured rather than asserted by hand.
+
+from ai_assistant.advisors import BatchSection  # noqa: E402
+from ai_assistant.advisors._llm_base import (  # noqa: E402
+    COMPACT_BRIEFING_GUIDE,
+    LLMAdvisor,
+    RICH_BRIEFING_GUIDE,
+    SHARED_GUIDE_POINTER,
+)
+
+
+def _advisor(key: str, user_prompt: str) -> LLMAdvisor:
+    """A minimal LLM persona whose prompt length the test controls."""
+    advisor = LLMAdvisor()
+    advisor.key = key
+    advisor.title = key
+    advisor.system_prompt = "sen bir uzmansın"
+    advisor.user_prompt = user_prompt
+    return advisor
+
+
+def _guided_sections(count: int = 3):
+    return [
+        BatchSection(
+            key=f"advisor_{index}",
+            title=f"Danışman {index}",
+            system_prompt=f"sen {index} numaralı uzmansın",
+            user_prompt=f"bugünkü görev {index}\n\n" + RICH_BRIEFING_GUIDE,
+        )
+        for index in range(count)
+    ]
+
+
+def test_shared_guide_is_sent_once_not_once_per_section():
+    prompt = _batch.build_batch_prompt(_guided_sections(4))
+    assert prompt.count(RICH_BRIEFING_GUIDE) == 1
+    # Every section still points at it, so no persona loses its instructions.
+    assert prompt.count(SHARED_GUIDE_POINTER) == 4
+
+
+def test_deduping_the_guide_saves_the_repeated_bytes():
+    sections = _guided_sections(12)
+    trimmed, shared, saved = _batch.split_shared_guide(sections)
+    assert shared == RICH_BRIEFING_GUIDE
+    # 11 of the 12 copies are gone, minus the small pointer left behind.
+    assert saved > len(RICH_BRIEFING_GUIDE) * 10
+    assert all(RICH_BRIEFING_GUIDE not in s.user_prompt for s in trimmed)
+
+
+def test_deduping_actually_shrinks_the_prompt_that_gets_sent(monkeypatch):
+    """The saving is measured on the real prompt, not on the helper alone."""
+    sections = _guided_sections(12)
+    deduped = len(_batch.build_batch_prompt(sections))
+
+    # Rebuild with the dedup disabled to get the "before" size.
+    monkeypatch.setattr(
+        _batch, "split_shared_guide", lambda secs, inc=False: (list(secs), "", 0)
+    )
+    naive = len(_batch.build_batch_prompt(sections))
+
+    assert deduped < naive
+    # A third of the whole prompt is repeated boilerplate at this team size.
+    assert (naive - deduped) / naive > 0.3
+
+
+def test_incremental_mode_sends_the_short_guide():
+    """A top-up reporting two new items does not need the depth coaching."""
+    prompt = _batch.build_batch_prompt(_guided_sections(3), incremental=True)
+    assert COMPACT_BRIEFING_GUIDE in prompt
+    assert RICH_BRIEFING_GUIDE not in prompt
+    assert len(prompt) < len(_batch.build_batch_prompt(_guided_sections(3)))
+
+
+def test_a_single_guide_carrier_is_left_completely_alone():
+    """Nothing to dedupe: one copy is already one copy."""
+    sections = _guided_sections(1)
+    trimmed, shared, saved = _batch.split_shared_guide(sections)
+    assert (shared, saved) == ("", 0)
+    assert trimmed[0].user_prompt == sections[0].user_prompt
+
+
+def test_sections_without_the_guide_are_untouched():
+    sections = _guided_sections(2) + [
+        BatchSection(key="plain", title="Düz", system_prompt="s", user_prompt="p")
+    ]
+    trimmed, _shared, _saved = _batch.split_shared_guide(sections)
+    assert trimmed[-1].user_prompt == "p"
+
+
+def test_the_output_contract_survives_deduping():
+    """The response-format rules must be intact, or nothing parses."""
+    prompt = _batch.build_batch_prompt(_guided_sections(3))
+    assert _batch.SECTION_MARKER in prompt
+    assert _batch.HEADLINE_LABEL in prompt
+    for index in range(3):
+        assert f"advisor_{index}" in prompt
+
+
+def test_run_batch_records_per_advisor_prompt_sizes(monkeypatch, llm_env):
+    """Metrics needs these to split one call's input tokens across advisors."""
+    advisors = [
+        _advisor(f"advisor_{index}", user_prompt="x" * (100 * (index + 1)))
+        for index in range(3)
+    ]
+    monkeypatch.setattr(
+        _batch.llm,
+        "generate_text",
+        lambda *a, **k: "\n".join(
+            f"### SECTION: advisor_{index}\ngövde {index}" for index in range(3)
+        ),
+    )
+
+    _batch.run_batch(advisors)
+
+    outcome = _batch.last_outcome()
+    assert set(outcome.prompt_chars) == {"advisor_0", "advisor_1", "advisor_2"}
+    assert outcome.prompt_chars["advisor_2"] > outcome.prompt_chars["advisor_0"]
+    assert outcome.prompt_chars_total > sum(outcome.prompt_chars.values())

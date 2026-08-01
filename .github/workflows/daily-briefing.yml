@@ -117,10 +117,36 @@ jobs:
           # that advisor's report document on this site. An unset secret falls
           # back to the built-in GitHub Pages URL.
           DASHBOARD_BASE_URL: ${{ secrets.DASHBOARD_BASE_URL }}
-          # Slack delivery — webhook OR bot token + channel.
+          # Slack delivery. ONE run of this step does everything: it publishes
+          # the report documents, posts each advisor's section to that
+          # advisor's OWN channel, then posts the compact digest (one line +
+          # links per advisor) to the main channel.
+          #
+          # Per-channel fan-out needs SLACK_BOT_TOKEN: an incoming webhook is
+          # bound to a single channel and Slack ignores the `channel` field, so
+          # with a webhook alone everything lands in one room.
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          # Legacy single-channel setting; SLACK_MAIN_CHANNEL wins when set.
           SLACK_CHANNEL: ${{ secrets.SLACK_CHANNEL }}
+          # The main channel: it carries the SUMMARY only.
+          SLACK_MAIN_CHANNEL: ${{ secrets.SLACK_MAIN_CHANNEL }}
+          # One sub-channel per advisor of the CURRENT ten-advisor roster
+          # (`ai_assistant.integrations.channel_config.ADVISOR_KEYS`). Create
+          # them all with:
+          #   python -m ai_assistant.integrations.slack_setup --apply
+          # An unset secret is not an error: that advisor falls back to the
+          # main channel.
+          SLACK_CHANNEL_WEATHER: ${{ secrets.SLACK_CHANNEL_WEATHER }}
+          SLACK_CHANNEL_MORNING_OPERATIONS: ${{ secrets.SLACK_CHANNEL_MORNING_OPERATIONS }}
+          SLACK_CHANNEL_COMMUNICATIONS_CALENDAR: ${{ secrets.SLACK_CHANNEL_COMMUNICATIONS_CALENDAR }}
+          SLACK_CHANNEL_CAREER_DEVELOPMENT: ${{ secrets.SLACK_CHANNEL_CAREER_DEVELOPMENT }}
+          SLACK_CHANNEL_MARKET_INTELLIGENCE: ${{ secrets.SLACK_CHANNEL_MARKET_INTELLIGENCE }}
+          SLACK_CHANNEL_AI_INNOVATION: ${{ secrets.SLACK_CHANNEL_AI_INNOVATION }}
+          SLACK_CHANNEL_KIDS_DEVELOPMENT: ${{ secrets.SLACK_CHANNEL_KIDS_DEVELOPMENT }}
+          SLACK_CHANNEL_ANKA_BRIDGE: ${{ secrets.SLACK_CHANNEL_ANKA_BRIDGE }}
+          SLACK_CHANNEL_EXECUTIVE_COACHING: ${{ secrets.SLACK_CHANNEL_EXECUTIVE_COACHING }}
+          SLACK_CHANNEL_WORK_ANALYST: ${{ secrets.SLACK_CHANNEL_WORK_ANALYST }}
           # Phase 2 advisors — all optional; a missing secret falls back to the
           # built-in default (except ANKA_*, which has none by design).
           JOB_KEYWORDS: ${{ secrets.JOB_KEYWORDS }}
@@ -168,7 +194,19 @@ jobs:
           OPS_BRIEFING_EMAIL_WINDOW: ${{ secrets.OPS_BRIEFING_EMAIL_WINDOW }}
         run: python -m ai_assistant.notifiers.slack_notifier
 
-      # The runner filesystem is thrown away, so four artefacts are persisted
+      # NOTE: there used to be a second step here, "Distribute digest to
+      # advisor-specific channels", which called `build_digest()` AGAIN. That
+      # ran the entire advisor team a second time — a second full set of LLM
+      # calls against a free-tier quota — and then delivered a SECOND, different
+      # set of messages that did not match the reports the dashboard had just
+      # published. It also listed the pre-consolidation advisor keys, so nine of
+      # the ten current advisors resolved to no channel at all.
+      #
+      # The step above now does the whole job in one pass: publish, fan out to
+      # the sub-channels, summarise into the main channel. Do not add a second
+      # delivery step; add channels to the env block above instead.
+
+      # The runner filesystem is thrown away, so five artefacts are persisted
       # by committing them back to `main`:
       #   * the coach's streak/task memory, which is what makes its memory
       #     survive the ephemeral runner;
@@ -176,6 +214,8 @@ jobs:
       #     from repeating what the morning briefing already said;
       #   * the dashboard's status.json, which is what the static site in
       #     `frontend/` renders (and what makes the run visible to the user);
+      #   * frontend/metrics.json, the rolling token/latency history the
+      #     performance tab charts — counts only, never a prompt or a key;
       #   * frontend/reports/, this run's per-advisor report documents — the
       #     readable pages Slack links to (see ai_assistant.reports).
       #
@@ -196,7 +236,7 @@ jobs:
         if: always()
         continue-on-error: true
         env:
-          STATE_PATHS: ".assistant_state/accountability.json .assistant_state/findings.json frontend/status.json frontend/reports"
+          STATE_PATHS: ".assistant_state/accountability.json .assistant_state/findings.json frontend/status.json frontend/metrics.json frontend/reports"
         run: |
           set -u
           PRESENT=""

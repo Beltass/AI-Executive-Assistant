@@ -42,8 +42,8 @@ def _supervision() -> Supervision:
         briefings=[
             Briefing(key="weather", title="Hava Durumu", status=STATUS_OK, text="x" * 120),
             Briefing(
-                key="career_hr",
-                title="Kariyer & İK",
+                key="career_development",
+                title="Kariyer Gelişimi",
                 status=STATUS_FAILED,
                 text="gemini hatası: HTTP 429",
             ),
@@ -101,8 +101,8 @@ def test_advisor_entries_carry_name_status_category_and_size(tmp_path):
     assert weather["content_length"] == 120
     assert weather["emoji"]
 
-    assert advisors["career_hr"]["category"] == status_report.CATEGORY_CAREER
-    assert advisors["career_hr"]["detail"] == "gemini hatası: HTTP 429"
+    assert advisors["career_development"]["category"] == status_report.CATEGORY_CAREER
+    assert advisors["career_development"]["detail"] == "gemini hatası: HTTP 429"
     assert advisors["anka_bridge"]["status"] == STATUS_SKIPPED
 
 
@@ -126,6 +126,23 @@ def test_every_advisor_key_has_presentation_metadata():
 
     for advisor in all_advisors():
         assert advisor.key in status_report.ADVISOR_META, advisor.key
+        meta = status_report.ADVISOR_META[advisor.key]
+        assert meta["emoji"], advisor.key
+        assert meta["title"], advisor.key
+        assert meta["category"] in {
+            status_report.CATEGORY_CAREER,
+            status_report.CATEGORY_FAMILY,
+            status_report.CATEGORY_SECTOR,
+            status_report.CATEGORY_GROWTH,
+            status_report.CATEGORY_OPS,
+        }, advisor.key
+
+
+def test_presentation_metadata_carries_no_retired_advisors():
+    """The table must track the roster: a key nobody runs is dead weight."""
+    from ai_assistant.advisors import all_advisors
+
+    assert set(status_report.ADVISOR_META) == {a.key for a in all_advisors()}
 
 
 # --- secrets ----------------------------------------------------------------
@@ -241,7 +258,72 @@ def test_accountability_snapshot_read_from_state_file(tmp_path, monkeypatch):
         "streak": 7,
         "today_task_count": 3,
         "last_date": "2026-07-30",
+        # The task TEXT is published now, so the dashboard's İşler tab has
+        # something to render. Everything in it already lives in
+        # ``frontend/reports/`` — except a private advisor's, which is filtered
+        # out below.
+        "tasks": ["a", "b", "c"],
+        "history_days": 0,
     }
+
+
+def test_a_private_advisors_task_is_never_published(tmp_path, monkeypatch):
+    """The coach collects EVERY advisor's task, including the private one.
+
+    The Gmail/Calendar briefing can name a person or a meeting, and this file
+    is committed to a public repository, so its task must not travel with the
+    rest.
+    """
+    state = tmp_path / "accountability.json"
+    state.write_text(
+        json.dumps(
+            {
+                "streak": 2,
+                "last_date": "2026-07-30",
+                "last_tasks": [
+                    "*Liderlik Koçu* — bir görevi delege et",
+                    "*Gün Başı Operasyon Brifingi* — Ayşe ile 14:00 toplantısına hazırlan",
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("ACCOUNTABILITY_STATE_FILE", str(state))
+
+    supervision = _supervision()
+    supervision.briefings.append(
+        Briefing(
+            key="daily_ops_briefing",
+            title="Gün Başı Operasyon Brifingi",
+            status=STATUS_OK,
+            text="kişisel",
+            private=True,
+        )
+    )
+
+    target = tmp_path / "status.json"
+    status_report.write_status_report(supervision, path=str(target), now=FIXED_NOW)
+    raw = target.read_text(encoding="utf-8")
+    acc = json.loads(raw)["accountability"]
+
+    assert acc["tasks"] == ["*Liderlik Koçu* — bir görevi delege et"]
+    assert acc["today_task_count"] == 1
+    assert "Ayşe" not in raw
+
+
+def test_published_tasks_are_scrubbed_of_secrets(tmp_path, monkeypatch):
+    secret = "AIzaSyFAKEKEYFAKEKEYFAKEKEYFAKEKEY123"
+    monkeypatch.setenv("GEMINI_API_KEY", secret)
+    state = tmp_path / "accountability.json"
+    state.write_text(
+        json.dumps({"streak": 1, "last_tasks": [f"*X* — key={secret} ile dene"]}),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("ACCOUNTABILITY_STATE_FILE", str(state))
+
+    target = tmp_path / "status.json"
+    status_report.write_status_report(_supervision(), path=str(target), now=FIXED_NOW)
+    assert secret not in target.read_text(encoding="utf-8")
 
 
 def test_missing_accountability_state_is_a_fresh_start(tmp_path):

@@ -305,9 +305,13 @@ def test_new_advisors_stay_out_of_the_batch_without_a_key(blank_env, advisor_cls
 
 def test_new_advisors_are_registered_last_but_one(blank_env):
     keys = [advisor.key for advisor in all_advisors()]
-    assert "ai_mastery" in keys and "cx_research" in keys
-    # The accountability coach must still see everyone else first.
-    assert keys[-1] == "accountability_coach"
+    # ai_mastery + cx_research were folded into these two by the 20 -> 10
+    # consolidation; both consolidated advisors must still be registered.
+    assert "ai_innovation" in keys and "market_intelligence" in keys
+    # The work analyst must still see everyone it monitors first; only the
+    # operations director — which synthesises the analyst too — comes after it.
+    assert keys[-2] == "work_analyst"
+    assert keys[-1] == "operations_director"
 
 
 @pytest.mark.parametrize(
@@ -476,10 +480,11 @@ def test_new_advisors_share_the_single_batched_call(blank_env, monkeypatch):
 def test_status_report_records_mode_and_new_findings(blank_env):
     supervision = Supervision(
         briefings=[
-            Briefing(key="ai_news", title="Haberler", status=STATUS_OK, text="x" * 40,
-                     new_findings=3),
-            Briefing(key="ai_mastery", title="Ustalık", status=STATUS_SKIPPED,
-                     text="yeni bulgu yok", new_findings=0, nothing_new=True),
+            Briefing(key="market_intelligence", title="Pazar İstihbaratı",
+                     status=STATUS_OK, text="x" * 40, new_findings=3),
+            Briefing(key="ai_innovation", title="YZ & İnovasyon",
+                     status=STATUS_SKIPPED, text="yeni bulgu yok", new_findings=0,
+                     nothing_new=True),
         ],
         mode=config.MODE_INCREMENTAL,
     )
@@ -489,11 +494,11 @@ def test_status_report_records_mode_and_new_findings(blank_env):
     assert document["run"]["new_findings"] == 3
     assert document["run"]["nothing_new_count"] == 1
     entries = {entry["id"]: entry for entry in document["advisors"]}
-    assert entries["ai_news"]["new_findings"] == 3
-    assert entries["ai_news"]["nothing_new"] is False
-    assert entries["ai_mastery"]["nothing_new"] is True
-    assert entries["ai_mastery"]["emoji"] == "🧠"
-    assert entries["ai_news"]["category"]
+    assert entries["market_intelligence"]["new_findings"] == 3
+    assert entries["market_intelligence"]["nothing_new"] is False
+    assert entries["ai_innovation"]["nothing_new"] is True
+    assert entries["ai_innovation"]["emoji"] == "🧠"
+    assert entries["market_intelligence"]["category"]
     # History carries the mode too, so the dashboard can label past runs.
     assert document["history"][-1]["mode"] == "incremental"
     assert document["history"][-1]["new_findings"] == 3

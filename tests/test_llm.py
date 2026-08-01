@@ -413,3 +413,192 @@ def test_budget_still_allows_a_retry_that_fits(monkeypatch, gemini_env):
 
     assert llm.generate_text("sys", "user") == "ok"
     assert sleeps == [20.0]
+
+
+# --- per-call cost accounting ----------------------------------------------
+#
+# The whole team rides on ONE batched generation, so what that call COST is the
+# only lever the user has on a free tier. These tests pin down that the numbers
+# reported are the provider's own, never guessed, and that a failed call still
+# leaves a record behind.
+
+
+def _usage_payload(text: str = "merhaba", **usage) -> dict:
+    counters = {
+        "promptTokenCount": 1200,
+        "candidatesTokenCount": 800,
+        "thoughtsTokenCount": 300,
+        "totalTokenCount": 2300,
+    }
+    counters.update(usage)
+    return {
+        "candidates": [{"content": {"parts": [{"text": text}]}}],
+        "usageMetadata": counters,
+    }
+
+
+def test_usage_metadata_is_captured_from_the_response(monkeypatch, gemini_env):
+    monkeypatch.setattr(
+        llm, "http_post", lambda *a, **k: _resp(200)
+    )
+    monkeypatch.setattr(
+        httpx.Response, "json", lambda self: _usage_payload(), raising=False
+    )
+
+    llm.generate_text("sys", "user")
+
+    stats = llm.last_call_stats()
+    assert stats is not None
+    assert stats.prompt_tokens == 1200
+    assert stats.output_tokens == 800
+    assert stats.thoughts_tokens == 300
+    assert stats.total_tokens == 2300
+    assert stats.ok is True
+    assert stats.provider == "gemini"
+    assert stats.model == "gemini-2.5-flash"
+    assert stats.retries == 0
+    assert stats.fallback_used is False
+    assert stats.latency_seconds >= 0
+
+
+def test_missing_thoughts_token_count_degrades_to_zero(monkeypatch, gemini_env):
+    """Non-thinking models omit the field entirely; that is not an error."""
+    payload = {
+        "candidates": [{"content": {"parts": [{"text": "x"}]}}],
+        "usageMetadata": {"promptTokenCount": 10, "candidatesTokenCount": 5},
+    }
+    monkeypatch.setattr(llm, "http_post", lambda *a, **k: _resp(200))
+    monkeypatch.setattr(httpx.Response, "json", lambda self: payload, raising=False)
+
+    llm.generate_text("sys", "user")
+
+    stats = llm.last_call_stats()
+    assert stats.thoughts_tokens == 0
+    # No totalTokenCount either: it is reconstructed rather than left at zero.
+    assert stats.total_tokens == 15
+
+
+def test_absent_usage_metadata_is_zero_not_a_crash(monkeypatch, gemini_env):
+    monkeypatch.setattr(llm, "http_post", lambda *a, **k: _resp(200))
+    monkeypatch.setattr(
+        httpx.Response,
+        "json",
+        lambda self: {"candidates": [{"content": {"parts": [{"text": "x"}]}}]},
+        raising=False,
+    )
+
+    assert llm.generate_text("sys", "user") == "x"
+    assert llm.last_call_stats().total_tokens == 0
+
+
+def test_retries_are_counted_on_the_call_record(monkeypatch, gemini_env):
+    monkeypatch.setenv("GEMINI_MAX_RETRIES", "3")
+    _single_model_chain(monkeypatch)
+    monkeypatch.setattr(llm.time, "sleep", lambda s: None)
+
+    calls = {"n": 0}
+
+    def fake_post(url, headers=None, json=None, timeout=None):
+        calls["n"] += 1
+        return _resp(200 if calls["n"] > 2 else 429)
+
+    monkeypatch.setattr(llm, "http_post", fake_post)
+    monkeypatch.setattr(
+        httpx.Response, "json", lambda self: _usage_payload(), raising=False
+    )
+
+    llm.generate_text("sys", "user")
+
+    assert llm.last_call_stats().retries == 2
+
+
+def test_falling_back_to_the_second_model_is_recorded(monkeypatch, gemini_env):
+    monkeypatch.setenv("GEMINI_MAX_RETRIES", "0")
+    monkeypatch.setenv("GEMINI_FALLBACK_MODELS", "gemini-flash-latest")
+    monkeypatch.setattr(llm.time, "sleep", lambda s: None)
+
+    def fake_post(url, headers=None, json=None, timeout=None):
+        return _resp(503 if "gemini-2.5-flash" in url else 200)
+
+    monkeypatch.setattr(llm, "http_post", fake_post)
+    monkeypatch.setattr(
+        httpx.Response, "json", lambda self: _usage_payload(), raising=False
+    )
+
+    llm.generate_text("sys", "user")
+
+    stats = llm.last_call_stats()
+    assert stats.fallback_used is True
+    assert stats.model == "gemini-flash-latest"
+    assert stats.models_tried == 2
+
+
+def test_a_failed_call_still_leaves_a_cost_record(monkeypatch, gemini_env):
+    """Latency and retries spent on a doomed call are exactly what we must see."""
+    monkeypatch.setenv("GEMINI_MAX_RETRIES", "1")
+    _single_model_chain(monkeypatch)
+    monkeypatch.setattr(llm.time, "sleep", lambda s: None)
+    monkeypatch.setattr(llm, "http_post", lambda *a, **k: _resp(429))
+
+    with pytest.raises(RuntimeError):
+        llm.generate_text("sys", "user")
+
+    stats = llm.last_call_stats()
+    assert stats is not None
+    assert stats.ok is False
+    assert stats.retries == 1
+
+
+def test_no_generation_means_no_call_record():
+    assert llm.last_call_stats() is None
+
+
+def test_call_stats_dict_carries_no_secret(monkeypatch, gemini_env):
+    """The record is written to a PUBLIC file: it may only contain numbers."""
+    monkeypatch.setattr(llm, "http_post", lambda *a, **k: _resp(200))
+    monkeypatch.setattr(
+        httpx.Response, "json", lambda self: _usage_payload(), raising=False
+    )
+
+    llm.generate_text("sys", "user")
+
+    payload = llm.last_call_stats().to_dict()
+    assert FAKE_KEY not in str(payload)
+    # Only counters, a public model name and a provider name.
+    assert payload["model"] == "gemini-2.5-flash"
+    assert set(payload) == {
+        "provider",
+        "model",
+        "prompt_tokens",
+        "output_tokens",
+        "thoughts_tokens",
+        "total_tokens",
+        "latency_seconds",
+        "retries",
+        "fallback_used",
+        "models_tried",
+        "ok",
+    }
+
+
+def test_openai_usage_is_captured_too(monkeypatch):
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-fake-key-for-tests-1234567890")
+    payload = {
+        "choices": [{"message": {"content": "hello"}}],
+        "usage": {
+            "prompt_tokens": 90,
+            "completion_tokens": 40,
+            "total_tokens": 130,
+            "completion_tokens_details": {"reasoning_tokens": 12},
+        },
+    }
+    monkeypatch.setattr(llm, "http_post", lambda *a, **k: _resp(200))
+    monkeypatch.setattr(httpx.Response, "json", lambda self: payload, raising=False)
+
+    assert llm.generate_text("sys", "user") == "hello"
+
+    stats = llm.last_call_stats()
+    assert stats.provider == "openai"
+    assert (stats.prompt_tokens, stats.output_tokens, stats.total_tokens) == (90, 40, 130)
+    assert stats.thoughts_tokens == 12

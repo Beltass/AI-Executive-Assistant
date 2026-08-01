@@ -23,6 +23,8 @@ _ALL_ENV_VARS = [
     "NOTION_API_KEY",
     "GEMINI_API_KEY",
     "OPENAI_API_KEY",
+    "ASANA_TOKEN",
+    "ASANA_WORKSPACE_ID",
 ]
 
 

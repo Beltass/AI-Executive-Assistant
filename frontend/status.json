@@ -200,6 +200,34 @@
     "today_task_count": 11,
     "last_date": "2026-08-01"
   },
+  "integrations": {
+    "slack": {
+      "configured_channels": 16,
+      "last_post": "2026-07-31T10:30:00Z",
+      "failures": []
+    },
+    "asana": {
+      "projects": 3,
+      "tasks": 45,
+      "workspace_url": "https://app.asana.com/0/workspace-id/list",
+      "last_update": "2026-07-31T10:30:00Z",
+      "failures": []
+    },
+    "drive": {
+      "total_docs": 234,
+      "archive_docs": 56,
+      "folder_size": "1.2 GB",
+      "last_sync": "2026-07-31T10:30:00Z",
+      "failures": []
+    },
+    "distribution": {
+      "total_attempts": 18,
+      "success_count": 17,
+      "failure_count": 1,
+      "failed_advisors": ["ai_mastery"],
+      "last_attempt": "2026-07-31T10:30:00Z"
+    }
+  },
   "history": [
     {
       "at": "2026-07-30T15:01:11+00:00",

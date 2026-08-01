@@ -1,12 +1,15 @@
 <!DOCTYPE html>
-<html lang="tr">
+<html lang="tr" data-theme="dark">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="color-scheme" content="dark light" />
-    <meta name="description" content="AI Executive Assistant danışman ekibinin günlük raporları ve çalışma panosu." />
-    <meta name="theme-color" content="#1a1a19" />
-    <title>AI Executive Assistant — Günlük Raporlar</title>
+    <meta
+      name="description"
+      content="AI Executive Assistant — danışman ekibinin günlük raporları, sistem sağlığı, token/performans analizi ve proje önerileri."
+    />
+    <meta name="theme-color" content="#0d0d0d" />
+    <title>AI Executive Assistant — Pano</title>
     <!-- Everything is local: no CDN, no font download, no build step. The page
          must render instantly on a phone and keep working offline. -->
     <link rel="stylesheet" href="./styles.css" />
@@ -14,6 +17,20 @@
       rel="icon"
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%A4%96%3C/text%3E%3C/svg%3E"
     />
+    <script>
+      /* Applied BEFORE first paint so a light-mode user never sees a dark
+         flash. Dark is the default; the stored choice always wins. */
+      (function () {
+        try {
+          var stored = localStorage.getItem("aia-theme");
+          if (stored === "light" || stored === "dark") {
+            document.documentElement.setAttribute("data-theme", stored);
+          }
+        } catch (error) {
+          /* private mode / storage disabled: dark stays */
+        }
+      })();
+    </script>
   </head>
   <body>
     <a class="skip-link" href="#main">İçeriğe geç</a>
@@ -21,22 +38,27 @@
     <header class="topbar">
       <div class="topbar__inner">
         <div class="topbar__titles">
-          <h1>
-            <a class="topbar__home" href="#/">AI Executive Assistant</a>
-            <span aria-hidden="true">—</span> Günlük Raporlar
-          </h1>
+          <h1><a class="topbar__home" href="#/sistem">AI Executive Assistant</a></h1>
           <p class="topbar__sub">
             <span id="last-run-label">Yükleniyor…</span>
-            <span class="dot" aria-hidden="true">·</span>
-            <span id="freshness" class="freshness">son güncelleme kontrol ediliyor</span>
           </p>
         </div>
         <div class="topbar__actions">
           <span id="live-dot" class="live" title="Her 60 saniyede bir otomatik yenilenir">
-            <span class="live__pulse" aria-hidden="true"></span> canlı
+            <span class="live__pulse" aria-hidden="true"></span>
+            <span class="visually-hidden">Canlı</span>
           </span>
-          <button id="refresh" type="button" class="btn">
-            <span aria-hidden="true">⟳</span> Yenile
+          <button
+            id="theme-toggle"
+            type="button"
+            class="btn btn--icon"
+            aria-label="Açık temaya geç"
+            title="Tema değiştir"
+          >
+            <span id="theme-icon" aria-hidden="true">☀️</span>
+          </button>
+          <button id="refresh" type="button" class="btn btn--icon" aria-label="Verileri yenile" title="Yenile">
+            <span aria-hidden="true">⟳</span>
           </button>
         </div>
       </div>
@@ -48,233 +70,904 @@
       <span id="stale-text"></span>
     </div>
 
+    <!-- ============================== TABS ============================== -->
+    <nav class="tabbar" aria-label="Pano bölümleri">
+      <div class="tabbar__inner" id="tablist" role="tablist" aria-label="Pano bölümleri">
+        <button
+          class="tab"
+          id="tab-sistem"
+          role="tab"
+          type="button"
+          data-tab="sistem"
+          aria-controls="panel-sistem"
+          aria-selected="true"
+        >
+          <span class="tab__icon" aria-hidden="true">🖥️</span> Sistem &amp; Ajanlar
+          <span class="tab__badge" id="badge-sistem" hidden></span>
+        </button>
+        <button
+          class="tab"
+          id="tab-icerik"
+          role="tab"
+          type="button"
+          data-tab="icerik"
+          aria-controls="panel-icerik"
+          aria-selected="false"
+          tabindex="-1"
+        >
+          <span class="tab__icon" aria-hidden="true">📄</span> İçerik &amp; Raporlar
+          <span class="tab__badge" id="badge-icerik" hidden></span>
+        </button>
+        <button
+          class="tab"
+          id="tab-performans"
+          role="tab"
+          type="button"
+          data-tab="performans"
+          aria-controls="panel-performans"
+          aria-selected="false"
+          tabindex="-1"
+        >
+          <span class="tab__icon" aria-hidden="true">📊</span> Performans &amp; Token
+        </button>
+        <button
+          class="tab"
+          id="tab-isler"
+          role="tab"
+          type="button"
+          data-tab="isler"
+          aria-controls="panel-isler"
+          aria-selected="false"
+          tabindex="-1"
+        >
+          <span class="tab__icon" aria-hidden="true">✅</span> İşler &amp; Takip
+          <span class="tab__badge" id="badge-isler" hidden></span>
+        </button>
+        <button
+          class="tab"
+          id="tab-fikirler"
+          role="tab"
+          type="button"
+          data-tab="fikirler"
+          aria-controls="panel-fikirler"
+          aria-selected="false"
+          tabindex="-1"
+        >
+          <span class="tab__icon" aria-hidden="true">💡</span> Öneriler &amp; Fikirler
+        </button>
+        <button
+          class="tab"
+          id="tab-entegrasyonlar"
+          role="tab"
+          type="button"
+          data-tab="entegrasyonlar"
+          aria-controls="panel-entegrasyonlar"
+          aria-selected="false"
+          tabindex="-1"
+        >
+          <span class="tab__icon" aria-hidden="true">🔗</span> İntegrasyonlar &amp; Bağlantılar
+        </button>
+        <button
+          class="tab"
+          id="tab-gmail"
+          role="tab"
+          type="button"
+          data-tab="gmail"
+          aria-controls="panel-gmail"
+          aria-selected="false"
+          tabindex="-1"
+        >
+          <span class="tab__icon" aria-hidden="true">📧</span> Gmail &amp; Takvim
+        </button>
+        <button
+          class="tab"
+          id="tab-analiz"
+          role="tab"
+          type="button"
+          data-tab="analiz"
+          aria-controls="panel-analiz"
+          aria-selected="false"
+          tabindex="-1"
+        >
+          <span class="tab__icon" aria-hidden="true">📊</span> Performans &amp; Analiz
+        </button>
+      </div>
+    </nav>
+
     <main id="main" class="wrap">
-      <!-- ============================ PANO ============================ -->
-      <div id="view-dashboard">
-        <!-- When the briefing last ran, spelled out, at the top. -->
-        <p id="stamp" class="stamp">
-          <span class="stamp__label">Son brifing</span>
-          <strong id="stamp-value" class="stamp__value">–</strong>
-          <span id="stamp-relative" class="stamp__rel"></span>
-        </p>
+      <!-- =================================================================
+           TAB 1 — 🖥️ SİSTEM & AJANLAR
+           ================================================================= -->
+      <section id="panel-sistem" role="tabpanel" aria-labelledby="tab-sistem" tabindex="0" class="stack">
+        <!-- Loading / error takes over the whole tab until there is something
+             true to show. -->
+        <div id="sistem-state" class="skeletons" aria-hidden="true">
+          <div class="skeleton skeleton--chart"></div>
+          <div class="skeleton skeleton--tile"></div>
+        </div>
 
-        <!-- ---------------------- 📄 Raporlar ---------------------- -->
-        <section aria-labelledby="reports-title" class="reports">
-          <div class="section-head">
-            <h2 id="reports-title"><span aria-hidden="true">📄</span> Raporlar</h2>
-            <a class="btn btn--ghost" href="#/raporlar">🗂️ Arşiv</a>
-          </div>
-          <p class="section-note" id="reports-note">Yükleniyor…</p>
-          <div class="report-grid" id="report-grid"></div>
-          <p class="empty-filter" id="reports-empty" hidden>
-            Henüz yayınlanmış rapor yok.
-          </p>
-        </section>
+        <div id="sistem-error" class="state" hidden>
+          <div class="state__icon" aria-hidden="true">⚠️</div>
+          <h2 id="sistem-error-title">Durum dosyası okunamadı</h2>
+          <p id="sistem-error-text"></p>
+          <p class="state__hint">Sayfayı yenilemeyi deneyebilirsin.</p>
+        </div>
 
-        <!-- Loading / empty / error take over the rest of the page; the run
-             detail stays hidden until there is something true to show. -->
-        <section id="state" class="state" hidden>
-          <div class="state__icon" id="state-icon" aria-hidden="true">⏳</div>
-          <h2 id="state-title">Yükleniyor…</h2>
-          <p id="state-text"></p>
-        </section>
-
-        <div id="content" hidden>
-          <!-- Summary strip -->
-          <section class="tiles" aria-label="Çalıştırma özeti">
-            <div class="tile">
-              <span class="tile__label">Çalıştırma türü</span>
-              <span class="tile__value tile__value--sm">
-                <span id="mode-badge" class="badge">–</span>
-              </span>
-              <span class="tile__note" id="mode-note"></span>
+        <div id="sistem-body" hidden class="stack">
+          <!-- --- overall health header --- -->
+          <div class="health">
+            <div class="health__top">
+              <span class="health__dot" id="health-dot" aria-hidden="true">🟢</span>
+              <span class="health__headline" id="health-headline">—</span>
+              <span class="badge" id="health-badge">—</span>
             </div>
-            <div class="tile">
-              <span class="tile__label">Toplam ajan</span>
-              <span class="tile__value" id="stat-total">–</span>
-            </div>
-            <div class="tile">
-              <span class="tile__label"><span aria-hidden="true">🆕</span> Yeni bulgu</span>
-              <span class="tile__value" id="stat-new">–</span>
-            </div>
-            <div class="tile tile--good">
-              <span class="tile__label"><span aria-hidden="true">✅</span> Çalıştı</span>
-              <span class="tile__value" id="stat-ok">–</span>
-            </div>
-            <div class="tile tile--critical">
-              <span class="tile__label"><span aria-hidden="true">⚠️</span> Hata</span>
-              <span class="tile__value" id="stat-failed">–</span>
-            </div>
-            <div class="tile tile--muted">
-              <span class="tile__label"><span aria-hidden="true">⏭️</span> Atlandı</span>
-              <span class="tile__value" id="stat-skipped">–</span>
-            </div>
-            <div class="tile">
-              <span class="tile__label">Süre</span>
-              <span class="tile__value" id="stat-duration">–</span>
-            </div>
-            <div class="tile tile--wide">
-              <span class="tile__label">Slack teslimi</span>
-              <span class="tile__value tile__value--sm">
-                <span id="slack-badge" class="badge">–</span>
-              </span>
-              <span class="tile__note" id="slack-detail"></span>
-            </div>
-          </section>
-
-          <!-- Accountability + run engine -->
-          <section class="panels">
-            <article class="panel panel--streak" aria-label="Hesap sorucu koç">
-              <h2 class="panel__title">Hesap Sorucu Koç</h2>
-              <div class="streak">
-                <div class="streak__flame" aria-hidden="true">🔥</div>
-                <div>
-                  <div class="streak__value"><span id="streak-value">0</span> <small>gün</small></div>
-                  <div class="streak__label">üst üste görev serisi</div>
-                </div>
+            <div class="health__grid">
+              <div class="health__item">
+                <span class="health__key">Son çalıştırma</span>
+                <span class="health__val" id="hh-last">—</span>
               </div>
-              <p class="panel__row">
-                <span>Bugünün görev sayısı</span>
-                <strong id="task-count">0</strong>
-              </p>
-              <p class="panel__note" id="streak-note"></p>
-            </article>
+              <div class="health__item">
+                <span class="health__key">Süre</span>
+                <span class="health__val" id="hh-duration">—</span>
+              </div>
+              <div class="health__item">
+                <span class="health__key">Mod</span>
+                <span class="health__val" id="hh-mode">—</span>
+              </div>
+              <div class="health__item">
+                <span class="health__key">Slack teslimi</span>
+                <span class="health__val" id="hh-slack">—</span>
+              </div>
+              <div class="health__item">
+                <span class="health__key">Başarı oranı</span>
+                <span class="health__val" id="hh-uptime">—</span>
+              </div>
+              <div class="health__item">
+                <span class="health__key">Model</span>
+                <span class="health__val" id="hh-model">—</span>
+              </div>
+              <div class="health__item">
+                <span class="health__key">Bu çalıştırmanın tokenı</span>
+                <span class="health__val" id="hh-tokens">—</span>
+              </div>
+              <div class="health__item">
+                <span class="health__key">Sonraki çalıştırmalar</span>
+                <span class="health__val" id="hh-next">10:00 · 14:00 · 18:00 · 22:00</span>
+              </div>
+            </div>
+          </div>
 
-            <article class="panel" aria-label="Çalıştırma motoru">
-              <h2 class="panel__title">Çalıştırma motoru</h2>
-              <p class="panel__row">
-                <span>Toplu tek çağrı</span>
-                <strong id="batch-used">–</strong>
-              </p>
-              <p class="panel__row">
-                <span>Tek çağrıda üretilen bölüm</span>
-                <strong id="batch-sections">–</strong>
-              </p>
-              <p class="panel__row">
-                <span>Model</span>
-                <strong id="batch-model">–</strong>
-              </p>
-              <p class="panel__note">
-                Tüm danışman ekibi ücretsiz kotaya sığsın diye tek bir model
-                çağrısıyla servis edilir; kapsanmayan bölümler kendi yoluna düşer.
-              </p>
-            </article>
+          <!-- --- watchdog (health.json) --- -->
+          <section aria-labelledby="watchdog-title">
+            <div class="section-head">
+              <h2 id="watchdog-title"><span aria-hidden="true">🛠️</span> Teknik Nöbetçi</h2>
+              <span class="badge" id="watchdog-badge" hidden>—</span>
+            </div>
+            <p class="section-note" id="watchdog-note"></p>
+            <div class="checks" id="watchdog-checks"></div>
           </section>
 
-          <!-- Advisor cards -->
+          <!-- --- run summary tiles --- -->
+          <section aria-labelledby="summary-title">
+            <h2 id="summary-title" class="visually-hidden">Çalıştırma özeti</h2>
+            <div class="tiles tiles--6">
+              <div class="tile">
+                <span class="tile__label">Toplam ajan</span>
+                <span class="tile__value" id="stat-total">–</span>
+              </div>
+              <div class="tile">
+                <span class="tile__label"><span aria-hidden="true">✅</span> Çalıştı</span>
+                <span class="tile__value" id="stat-ok">–</span>
+              </div>
+              <div class="tile">
+                <span class="tile__label"><span aria-hidden="true">⚠️</span> Hata</span>
+                <span class="tile__value" id="stat-failed">–</span>
+              </div>
+              <div class="tile">
+                <span class="tile__label"><span aria-hidden="true">⏭️</span> Atlandı</span>
+                <span class="tile__value" id="stat-skipped">–</span>
+              </div>
+              <div class="tile">
+                <span class="tile__label"><span aria-hidden="true">🆕</span> Yeni bulgu</span>
+                <span class="tile__value" id="stat-new">–</span>
+              </div>
+              <div class="tile">
+                <span class="tile__label">Tek çağrıda bölüm</span>
+                <span class="tile__value" id="stat-batch">–</span>
+              </div>
+            </div>
+          </section>
+
+          <!-- --- agent cards --- -->
           <section aria-labelledby="advisors-title">
             <div class="section-head">
-              <h2 id="advisors-title">Danışman ekibi</h2>
-              <div class="filters" id="filters" role="group" aria-label="Kategoriye göre filtrele"></div>
+              <h2 id="advisors-title">Ajan ekibi</h2>
             </div>
-            <div class="grid" id="advisor-grid"></div>
-            <p class="empty-filter" id="empty-filter" hidden>Bu kategoride ajan yok.</p>
+            <div class="chips" id="filters" role="group" aria-label="Kategoriye göre filtrele"></div>
+            <div class="grid grid--3" id="advisor-grid" style="margin-top: var(--s3)"></div>
+            <p class="chart-empty" id="advisors-empty" hidden>Bu kategoride ajan yok.</p>
           </section>
 
-          <!-- History -->
-          <section aria-labelledby="history-title" class="history">
+          <!-- --- run history --- -->
+          <section aria-labelledby="history-title">
             <div class="section-head">
               <h2 id="history-title">Son çalıştırmalar</h2>
+            </div>
+            <div class="chart-card">
+              <div class="chart-card__head">
+                <span class="chart-card__title">Çalıştırma geçmişi</span>
+                <span class="chart-card__sub" id="history-sub"></span>
+              </div>
+              <!-- Legend is always present for ≥2 series, and every entry
+                   carries an icon so colour never carries meaning alone. -->
               <ul class="legend" aria-label="Grafik göstergesi">
-                <li><span class="swatch swatch--ok" aria-hidden="true"></span> Çalıştı</li>
-                <li><span class="swatch swatch--failed" aria-hidden="true"></span> Hata</li>
-                <li><span class="swatch swatch--skipped" aria-hidden="true"></span> Atlandı</li>
+                <li><span class="swatch swatch--ok" aria-hidden="true"></span> ✅ Çalıştı</li>
+                <li><span class="swatch swatch--failed" aria-hidden="true"></span> ⚠️ Hata</li>
+                <li><span class="swatch swatch--skipped" aria-hidden="true"></span> ⏭️ Atlandı</li>
               </ul>
+              <div class="chart" id="chart-history"></div>
+              <details class="details">
+                <summary>Tablo görünümü</summary>
+                <div class="details__body" id="table-history"></div>
+              </details>
             </div>
 
-            <figure class="chart-figure">
-              <!-- role="group", not role="img": the bars below are focusable and
-                   must stay reachable by assistive tech; the table underneath is
-                   the equivalent text view. -->
-              <div class="chart" id="chart" role="group" aria-label="Son çalıştırmaların durum dağılımı"></div>
-              <figcaption class="chart-caption" id="chart-caption"></figcaption>
-            </figure>
+            <!-- Magnitude on a week × hour grid: WHEN the runs happen, which
+                 the stacked columns above cannot show. Sequential ramp, one
+                 hue, plus a written scale. -->
+            <div class="chart-card" style="margin-top: var(--s4)">
+              <div class="chart-card__head">
+                <span class="chart-card__title">Çalıştırma yoğunluğu</span>
+                <span class="chart-card__sub" id="activity-sub"></span>
+              </div>
+              <p class="chart-card__sub">
+                Haftanın günü × saat (İstanbul). Koyu/parlak hücre o saatte daha
+                çok çalıştırma demektir.
+              </p>
+              <div class="chart chart--scroll-x" id="chart-activity"></div>
+            </div>
+          </section>
 
-            <div class="table-wrap">
-              <table class="table">
-                <caption class="visually-hidden">Son çalıştırmaların tablo görünümü</caption>
-                <thead>
-                  <tr>
-                    <th scope="col">Zaman</th>
-                    <th scope="col">Sonuç</th>
-                    <th scope="col" class="num">✅</th>
-                    <th scope="col" class="num">⚠️</th>
-                    <th scope="col" class="num">⏭️</th>
-                    <th scope="col" class="num">Süre</th>
-                    <th scope="col">Slack</th>
-                  </tr>
-                </thead>
-                <tbody id="history-body"></tbody>
-              </table>
+          <!-- --- per-advisor analysis table --- -->
+          <section aria-labelledby="advisor-table-title">
+            <div class="section-head">
+              <h2 id="advisor-table-title">Ajan karnesi</h2>
+              <span class="chart-card__sub" id="advisor-table-sub"></span>
+            </div>
+            <div class="chart-card">
+              <div id="table-advisors"></div>
             </div>
           </section>
         </div>
-      </div>
+      </section>
 
-      <!-- ======================= TEK RAPOR (okuma) ======================= -->
-      <div id="view-report" hidden>
-        <nav class="doc-nav" aria-label="Rapor gezinmesi">
-          <a class="btn btn--ghost" href="#/">← Panoya dön</a>
-          <a class="btn btn--ghost" id="doc-back-day" href="#/raporlar">🗂️ O günün raporları</a>
-        </nav>
-        <article class="doc">
-          <header class="doc__head">
-            <div class="doc__emoji" id="doc-emoji" aria-hidden="true">📄</div>
-            <h1 class="doc__title" id="doc-title">Yükleniyor…</h1>
-            <p class="doc__meta" id="doc-meta"></p>
-          </header>
-          <p class="doc__lead" id="doc-lead" hidden></p>
-          <div class="doc__body" id="doc-body"></div>
-          <footer class="doc__foot">
-            <a class="btn btn--ghost" href="#/">← Panoya dön</a>
-          </footer>
-        </article>
-      </div>
+      <!-- =================================================================
+           TAB 2 — 📄 İÇERİK & RAPORLAR
+           ================================================================= -->
+      <section
+        id="panel-icerik"
+        role="tabpanel"
+        aria-labelledby="tab-icerik"
+        tabindex="0"
+        class="stack"
+        hidden
+      >
+        <!-- The reading view / archive / day views replace the list below,
+             all inside this tab so the tab bar never disappears. -->
+        <div id="icerik-list" class="stack">
+          <section aria-labelledby="reports-title">
+            <div class="section-head">
+              <h2 id="reports-title">Bugünün raporları</h2>
+              <a class="btn btn--ghost" href="#/raporlar">🗂️ Arşiv</a>
+            </div>
+            <p class="section-note" id="reports-note">Yükleniyor…</p>
+            <label class="visually-hidden" for="report-search">Raporlarda ara</label>
+            <input
+              id="report-search"
+              class="field"
+              type="search"
+              placeholder="🔎 Raporlarda ara (başlık, özet, kategori)…"
+              autocomplete="off"
+              style="margin: var(--s3) 0"
+            />
+            <div class="grid" id="report-grid"></div>
+            <p class="chart-empty" id="reports-empty" hidden>Henüz yayınlanmış rapor yok.</p>
+          </section>
+        </div>
 
-      <!-- ============================ ARŞİV ============================ -->
-      <div id="view-archive" hidden>
-        <nav class="doc-nav" aria-label="Arşiv gezinmesi">
-          <a class="btn btn--ghost" href="#/">← Panoya dön</a>
-        </nav>
-        <section class="archive">
-          <h2>🗂️ Rapor arşivi</h2>
-          <p class="section-note" id="archive-note"></p>
-          <div id="archive-list" class="archive-list"></div>
-          <p class="empty-filter" id="archive-empty" hidden>Arşivde henüz gün yok.</p>
-        </section>
-      </div>
+        <!-- --- single report reading view -------------------------------
+             One advisor's document, laid out as a deliverable: title block,
+             metric strip, body (sections with their own tables/charts),
+             action checklist, sources. Everything below the title block is
+             hidden unless the document actually carries it — a plain-text
+             briefing degrades to lead + body and still reads as a document.
+             `@media print` turns this article into a clean PDF page. -->
+        <div id="icerik-doc" hidden>
+          <nav class="doc-nav no-print" aria-label="Rapor gezinmesi">
+            <a class="btn btn--ghost" href="#/icerik">← Raporlara dön</a>
+            <a class="btn btn--ghost" id="doc-back-day" href="#/raporlar">🗂️ O günün raporları</a>
+            <button class="btn btn--ghost" id="doc-print" type="button">🖨️ Yazdır / PDF</button>
+          </nav>
+          <article class="doc" id="doc-article">
+            <header class="doc__head">
+              <p class="doc__kicker" id="doc-kicker"></p>
+              <div class="doc__titlerow">
+                <span class="doc__emoji" id="doc-emoji" aria-hidden="true">📄</span>
+                <h2 class="doc__title" id="doc-title">Yükleniyor…</h2>
+              </div>
+              <p class="doc__meta" id="doc-meta"></p>
+              <ul class="doc__facts" id="doc-facts" aria-label="Belge künyesi"></ul>
+            </header>
 
-      <!-- ========================== BİR GÜN =========================== -->
-      <div id="view-day" hidden>
-        <nav class="doc-nav" aria-label="Gün gezinmesi">
-          <a class="btn btn--ghost" href="#/">← Panoya dön</a>
-          <a class="btn btn--ghost" href="#/raporlar">🗂️ Arşiv</a>
-        </nav>
-        <section class="reports">
-          <h2 id="day-title">—</h2>
-          <p class="section-note" id="day-note"></p>
-          <div class="report-grid" id="day-grid"></div>
-        </section>
-      </div>
+            <p class="doc__lead" id="doc-lead" hidden></p>
+
+            <!-- Metric strip: 2–4 figures the advisor put a number on. -->
+            <div class="doc__metrics" id="doc-metrics" hidden></div>
+
+            <div class="doc__body" id="doc-body"></div>
+
+            <!-- Action checklist: what to DO, with its deadline badges. -->
+            <section
+              class="doc-block doc-block--actions"
+              id="doc-actions"
+              aria-labelledby="doc-actions-title"
+              hidden
+            >
+              <h3 class="doc-block__title" id="doc-actions-title">
+                <span aria-hidden="true">✅</span> Aksiyonlar
+              </h3>
+              <ul class="checklist" id="doc-actions-list"></ul>
+            </section>
+
+            <!-- Sources: every link the report leans on, once. -->
+            <section
+              class="doc-block doc-block--sources"
+              id="doc-sources"
+              aria-labelledby="doc-sources-title"
+              hidden
+            >
+              <h3 class="doc-block__title" id="doc-sources-title">
+                <span aria-hidden="true">📚</span> Kaynaklar
+              </h3>
+              <ol class="sourcelist" id="doc-sources-list"></ol>
+              <p class="doc-block__note">
+                Bağlantıları açıp doğrulayın; rakamlar kaynağın kendi sayfasından
+                teyit edilmelidir.
+              </p>
+            </section>
+
+            <footer class="doc__foot">
+              <p class="doc__stamp" id="doc-stamp"></p>
+              <a class="btn btn--ghost no-print" href="#/icerik">← Raporlara dön</a>
+            </footer>
+          </article>
+        </div>
+
+        <!-- --- archive --- -->
+        <div id="icerik-archive" hidden>
+          <nav class="doc-nav" aria-label="Arşiv gezinmesi">
+            <a class="btn btn--ghost" href="#/icerik">← Raporlara dön</a>
+          </nav>
+          <section>
+            <div class="section-head">
+              <h2>🗂️ Rapor arşivi</h2>
+            </div>
+            <p class="section-note" id="archive-note"></p>
+            <div id="archive-list" class="archive-list" style="margin-top: var(--s3)"></div>
+            <p class="chart-empty" id="archive-empty" hidden>Arşivde henüz gün yok.</p>
+          </section>
+        </div>
+
+        <!-- --- one day --- -->
+        <div id="icerik-day" hidden>
+          <nav class="doc-nav" aria-label="Gün gezinmesi">
+            <a class="btn btn--ghost" href="#/icerik">← Raporlara dön</a>
+            <a class="btn btn--ghost" href="#/raporlar">🗂️ Arşiv</a>
+          </nav>
+          <section>
+            <div class="section-head">
+              <h2 id="day-title">—</h2>
+            </div>
+            <p class="section-note" id="day-note"></p>
+            <div class="grid" id="day-grid" style="margin-top: var(--s3)"></div>
+          </section>
+        </div>
+      </section>
+
+      <!-- =================================================================
+           TAB 3 — 📊 PERFORMANS & TOKEN
+           ================================================================= -->
+      <section
+        id="panel-performans"
+        role="tabpanel"
+        aria-labelledby="tab-performans"
+        tabindex="0"
+        class="stack"
+        hidden
+      >
+        <div id="perf-empty" class="state" hidden>
+          <div class="state__icon" aria-hidden="true">📊</div>
+          <h2>Henüz token verisi yok</h2>
+          <p>
+            Token ve performans ölçümü her brifing çalıştırmasında kaydediliyor.
+            Model çağrısı yapan ilk çalıştırmadan sonra bu sekme dolacak.
+          </p>
+          <p class="state__hint">
+            Ölçüm dosyası: <code>metrics.json</code> · son 60 çalıştırma saklanır.
+          </p>
+        </div>
+
+        <div id="perf-body" hidden class="stack">
+          <!-- The ONE hero figure of this view. -->
+          <div class="card">
+            <span class="tile__label">Son çalıştırmanın toplam tokenı</span>
+            <div class="hero">
+              <span class="hero__value" id="perf-hero">–</span>
+              <span class="hero__unit" id="perf-hero-note">token</span>
+            </div>
+            <p class="section-note" id="perf-hero-sub"></p>
+          </div>
+
+          <section aria-labelledby="perf-tiles-title">
+            <h2 id="perf-tiles-title" class="visually-hidden">Performans özeti</h2>
+            <div class="tiles tiles--4">
+              <div class="tile">
+                <span class="tile__label">Verimlilik</span>
+                <span class="tile__value" id="perf-efficiency">–</span>
+                <span class="tile__note">karakter / 1K token</span>
+              </div>
+              <div class="tile">
+                <span class="tile__label">Bölüm başına maliyet</span>
+                <span class="tile__value" id="perf-per-section">–</span>
+                <span class="tile__note">token / bölüm</span>
+              </div>
+              <div class="tile">
+                <span class="tile__label">Ortalama gecikme</span>
+                <span class="tile__value" id="perf-latency">–</span>
+                <span class="tile__note">model çağrısı süresi</span>
+              </div>
+              <div class="tile">
+                <span class="tile__label">Yedek model / tekrar</span>
+                <span class="tile__value" id="perf-resilience">–</span>
+                <span class="tile__note" id="perf-resilience-note"></span>
+              </div>
+            </div>
+          </section>
+
+          <!-- 💡 the recommendations panel, deliberately high on the page -->
+          <section aria-labelledby="recos-title">
+            <div class="section-head">
+              <h2 id="recos-title"><span aria-hidden="true">💡</span> Optimizasyon Önerileri</h2>
+            </div>
+            <p class="section-note">
+              Hepsi kayıtlı ölçümlerden hesaplanır; genel geçer tavsiye yoktur.
+            </p>
+            <div class="recos" id="recos" style="margin-top: var(--s3)"></div>
+            <p class="chart-empty" id="recos-empty" hidden>
+              Öneri üretmek için yeterli geçmiş yok. Birkaç çalıştırma sonra burada
+              somut tasarruf önerileri görünecek.
+            </p>
+          </section>
+
+          <!-- charts -->
+          <div class="charts charts--2">
+            <div class="chart-card">
+              <div class="chart-card__head">
+                <span class="chart-card__title">Çalıştırma başına toplam token</span>
+                <span class="chart-card__sub">en yenisi sağda</span>
+              </div>
+              <div class="chart" id="chart-tokens"></div>
+            </div>
+
+            <div class="chart-card">
+              <div class="chart-card__head">
+                <span class="chart-card__title">Model çağrısı gecikmesi</span>
+                <span class="chart-card__sub">saniye</span>
+              </div>
+              <div class="chart" id="chart-latency"></div>
+            </div>
+          </div>
+
+          <div class="chart-card">
+            <div class="chart-card__head">
+              <span class="chart-card__title">Token dağılımı — girdi / çıktı / düşünme</span>
+              <span class="chart-card__sub" id="split-sub"></span>
+            </div>
+            <ul class="legend" aria-label="Token türü göstergesi">
+              <li><span class="swatch swatch--s1" aria-hidden="true"></span> Girdi (prompt)</li>
+              <li><span class="swatch swatch--s2" aria-hidden="true"></span> Çıktı (yanıt)</li>
+              <li><span class="swatch swatch--s3" aria-hidden="true"></span> Düşünme (görünmez)</li>
+            </ul>
+            <div class="chart" id="chart-split"></div>
+          </div>
+
+          <div class="charts charts--2">
+            <!-- Part-to-whole: the ring answers "who eats the budget", and the
+                 total sits in the middle so the share and the absolute number
+                 are read together. The legend carries every slice's per cent,
+                 so identity is never colour alone. -->
+            <div class="chart-card">
+              <div class="chart-card__head">
+                <span class="chart-card__title">Token dağılımı — ajan başına</span>
+                <span class="chart-card__sub" id="agents-donut-sub">tahmini</span>
+              </div>
+              <div class="chart" id="chart-agents"></div>
+            </div>
+
+            <!-- Magnitude: the same advisors ranked, with the number printed on
+                 every bar (which is also the relief for the light-mode steps
+                 that sit under 3:1). -->
+            <div class="chart-card">
+              <div class="chart-card__head">
+                <span class="chart-card__title">Ajan başına tahmini token</span>
+                <span class="chart-card__sub">büyükten küçüğe</span>
+              </div>
+              <div class="chart" id="chart-agent-bars"></div>
+            </div>
+          </div>
+
+          <div class="chart-card">
+            <div class="chart-card__head">
+              <span class="chart-card__title">Verim — 1.000 token başına üretilen karakter</span>
+              <span class="chart-card__sub">yüksek olan iyi</span>
+            </div>
+            <p class="chart-card__sub">
+              Token payı çıktı payından belirgin yüksekse, o ajan ürettiğinden
+              fazlasını harcıyor demektir — kısaltmaya oradan başlanır.
+            </p>
+            <div class="chart" id="chart-agent-efficiency"></div>
+            <details class="details">
+              <summary>Tablo görünümü</summary>
+              <div class="details__body" id="table-agents"></div>
+            </details>
+            <p class="chart-card__sub" id="attribution-note"></p>
+          </div>
+
+          <details class="details">
+            <summary>Tüm çalıştırmaların tablosu</summary>
+            <div class="details__body" id="table-runs"></div>
+          </details>
+        </div>
+      </section>
+
+      <!-- =================================================================
+           TAB 4 — ✅ İŞLER & TAKİP
+           ================================================================= -->
+      <section
+        id="panel-isler"
+        role="tabpanel"
+        aria-labelledby="tab-isler"
+        tabindex="0"
+        class="stack"
+        hidden
+      >
+        <div id="isler-empty" class="state" hidden>
+          <div class="state__icon" aria-hidden="true">✅</div>
+          <h2>Takip edilecek görev henüz yok</h2>
+          <p>
+            Hesap Sorucu Koç, her ajanın brifingindeki “✅ Bugünün görevi”
+            maddelerini toplar ve seriyi burada tutar. İlk tam brifingden sonra
+            bugünün görev listesi ve gün serisi burada görünecek.
+          </p>
+          <p class="state__hint">
+            Kişisel veri içerebilecek bölümlerin görevleri bu listeye hiç yazılmaz.
+          </p>
+        </div>
+
+        <div id="isler-body" hidden class="stack">
+          <div class="tiles tiles--4">
+            <div class="tile tile--wide">
+              <span class="tile__label">Gün serisi</span>
+              <div class="streak">
+                <span class="streak__flame" aria-hidden="true">🔥</span>
+                <span>
+                  <span class="streak__value"><span id="streak-value">0</span> <small>gün</small></span>
+                  <span class="streak__label">üst üste görev üretildi</span>
+                </span>
+              </div>
+            </div>
+            <div class="tile">
+              <span class="tile__label">Bugünün görevi</span>
+              <span class="tile__value" id="task-count">0</span>
+              <span class="tile__note">ajandan gelen madde</span>
+            </div>
+            <div class="tile">
+              <span class="tile__label">Kayıtlı gün</span>
+              <span class="tile__value" id="task-days">0</span>
+              <span class="tile__note" id="task-last"></span>
+            </div>
+          </div>
+
+          <section aria-labelledby="tasks-title">
+            <div class="section-head">
+              <h2 id="tasks-title">Bugünün görev listesi</h2>
+            </div>
+            <p class="section-note">
+              Her madde, o ajanın raporundaki 15-30 dakikalık tek somut eylemdir.
+            </p>
+            <div class="tasks" id="task-list" style="margin-top: var(--s3)"></div>
+          </section>
+        </div>
+      </section>
+
+      <!-- =================================================================
+           TAB 5 — 💡 ÖNERİLER & FİKİRLER
+           ================================================================= -->
+      <section
+        id="panel-fikirler"
+        role="tabpanel"
+        aria-labelledby="tab-fikirler"
+        tabindex="0"
+        class="stack"
+        hidden
+      >
+        <div id="fikirler-empty" class="state" hidden>
+          <div class="state__icon" aria-hidden="true">💡</div>
+          <h2>Henüz proje önerisi üretilmedi</h2>
+          <p>
+            İnovasyon &amp; Proje Geliştirme Ajanı her tam brifingde 2-3 somut
+            proje önerisi hazırlar: problem, çözüm, beklenen fayda, efor
+            seviyesi, ilk adım ve riskler.
+          </p>
+          <p class="state__hint">
+            <code>documents/</code> klasörüne <code>.txt</code> veya
+            <code>.md</code> belge bırakırsan öneriler o belgelere dayandırılır.
+          </p>
+        </div>
+
+        <div id="fikirler-body" hidden class="stack">
+          <div class="section-head">
+            <h2><span aria-hidden="true">💡</span> Bugünün proje önerileri</h2>
+            <a class="btn btn--ghost" id="fikirler-link" href="#/icerik">📄 Tam rapor</a>
+          </div>
+          <p class="section-note" id="fikirler-note"></p>
+          <article class="idea">
+            <div class="idea__body doc__body" id="fikirler-body-text"></div>
+          </article>
+        </div>
+      </section>
+
+      <!-- =================================================================
+           TAB 6 — 🔗 İNTEGRASYONLAR & BAĞLANTILAR
+           ================================================================= -->
+      <section
+        id="panel-entegrasyonlar"
+        role="tabpanel"
+        aria-labelledby="tab-entegrasyonlar"
+        tabindex="0"
+        class="stack"
+        hidden
+      >
+        <div id="entegrasyonlar-empty" class="state" hidden>
+          <div class="state__icon" aria-hidden="true">🔗</div>
+          <h2>Henüz entegrasyon verisi yok</h2>
+          <p>
+            Slack, Asana, Google Drive ve dağıtım durumu hakkında bilgi
+            her brifing çalıştırmasında toplanır. İlk çalıştırmadan sonra
+            bu sekme dolacak.
+          </p>
+        </div>
+
+        <div id="entegrasyonlar-body" hidden class="stack">
+          <section aria-labelledby="integrations-title">
+            <div class="section-head">
+              <h2 id="integrations-title"><span aria-hidden="true">🔗</span> Entegrasyon Durumu</h2>
+            </div>
+            <p class="section-note">
+              Slack kanalları, Asana projeleri, Google Drive klasörü ve mesaj dağıtımının
+              gerçek zamanlı durumu.
+            </p>
+            <div class="integrations-grid" id="integrations-grid" style="margin-top: var(--s3)"></div>
+          </section>
+        </div>
+      </section>
+
+      <!-- =================================================================
+           TAB 7 — 📧 GMAIL & TAKVİM
+           ================================================================= -->
+      <section
+        id="panel-gmail"
+        role="tabpanel"
+        aria-labelledby="tab-gmail"
+        tabindex="0"
+        class="stack"
+        hidden
+      >
+        <div id="gmail-empty" class="state" hidden>
+          <div class="state__icon" aria-hidden="true">📧</div>
+          <h2>Gmail ve Takvim verisi henüz yok</h2>
+          <p>
+            Gmail ve Google Takvim entegrasyonu kurulduğunda bu sekme
+            e-postalar ve toplantılar hakkında bilgi gösterecek.
+          </p>
+        </div>
+
+        <div id="gmail-body" hidden class="stack">
+          <!-- --- Gmail & Calendar Stats Grid --- -->
+          <div class="charts charts--2">
+            <!-- Gmail Card -->
+            <div class="chart-card chart-card--gmail">
+              <div class="chart-card__head">
+                <span class="chart-card__emoji" aria-hidden="true" style="color: #EA4335">📧</span>
+                <span class="chart-card__title">Gmail İstatistikleri</span>
+              </div>
+              <div class="tiles tiles--2">
+                <div class="tile">
+                  <span class="tile__label">Okunmamış</span>
+                  <span class="tile__value" id="gmail-unread">–</span>
+                </div>
+                <div class="tile">
+                  <span class="tile__label">Son 24 saatte</span>
+                  <span class="tile__value" id="gmail-total-24h">–</span>
+                </div>
+                <div class="tile">
+                  <span class="tile__label"><span aria-hidden="true">🔴</span> ACIL</span>
+                  <span class="tile__value" id="gmail-urgent">–</span>
+                </div>
+                <div class="tile">
+                  <span class="tile__label">Yapılacak eylem</span>
+                  <span class="tile__value" id="gmail-action-items">–</span>
+                </div>
+                <div class="tile tile--wide">
+                  <span class="tile__label"><span aria-hidden="true">⭐</span> VIP gönderenler</span>
+                  <span class="tile__value" id="gmail-vip-count">–</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Calendar Card -->
+            <div class="chart-card chart-card--calendar">
+              <div class="chart-card__head">
+                <span class="chart-card__emoji" aria-hidden="true" style="color: #4285F4">📅</span>
+                <span class="chart-card__title">Takvim İstatistikleri</span>
+              </div>
+              <div class="tiles tiles--2">
+                <div class="tile">
+                  <span class="tile__label">Bugünün toplantısı</span>
+                  <span class="tile__value" id="calendar-today-meetings">–</span>
+                </div>
+                <div class="tile">
+                  <span class="tile__label">Toplam toplantı süresi</span>
+                  <span class="tile__value" id="calendar-total-time">–</span>
+                </div>
+                <div class="tile">
+                  <span class="tile__label"><span aria-hidden="true">⏱️</span> Odak zamanı</span>
+                  <span class="tile__value" id="calendar-focus-blocks">–</span>
+                </div>
+                <div class="tile tile--wide" id="calendar-next-meeting-container" hidden>
+                  <span class="tile__label">Sonraki toplantı</span>
+                  <span class="tile__value" id="calendar-next-meeting">—</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- --- Available Time Slots --- -->
+          <section aria-labelledby="availability-title">
+            <div class="section-head">
+              <h2 id="availability-title"><span aria-hidden="true">⏰</span> Boş Zaman Dilimleri</h2>
+            </div>
+            <div id="calendar-available-slots" class="badges" style="margin-top: var(--s3)"></div>
+          </section>
+
+          <!-- --- Recent Emails --- -->
+          <section aria-labelledby="recent-emails-title">
+            <div class="section-head">
+              <h2 id="recent-emails-title"><span aria-hidden="true">📬</span> Son Önemli E-postalar</h2>
+            </div>
+            <div id="gmail-recent-emails" class="email-list" style="margin-top: var(--s3)"></div>
+            <p class="chart-empty" id="gmail-empty-emails" hidden>Son e-postalar yok.</p>
+          </section>
+
+          <!-- --- Quick Actions --- -->
+          <section aria-labelledby="quick-actions-title">
+            <div class="section-head">
+              <h2 id="quick-actions-title"><span aria-hidden="true">⚡</span> Hızlı Erişim</h2>
+            </div>
+            <div class="quick-actions" style="margin-top: var(--s3)">
+              <a class="btn btn--primary" href="https://mail.google.com" rel="noreferrer noopener" target="_blank">
+                <span aria-hidden="true">📧</span> Inbox'u Aç
+              </a>
+              <a class="btn btn--primary" href="https://calendar.google.com" rel="noreferrer noopener" target="_blank">
+                <span aria-hidden="true">📅</span> Takvimi Aç
+              </a>
+            </div>
+          </section>
+
+          <!-- --- Last Update --- -->
+          <p class="section-note" id="gmail-last-update"></p>
+        </div>
+      </section>
+
+      <!-- =================================================================
+           TAB 8 — 📊 PERFORMANS & ANALİZ
+           ================================================================= -->
+      <section
+        id="panel-analiz"
+        role="tabpanel"
+        aria-labelledby="tab-analiz"
+        tabindex="0"
+        class="stack"
+        hidden
+      >
+        <div id="analiz-empty" class="state" hidden>
+          <div class="state__icon" aria-hidden="true">📊</div>
+          <h2>Performans verisi henüz yok</h2>
+          <p>
+            Performans analizi verisi henüz oluşturulmadı. Brifing çalıştırıldığında
+            bu sekme günlük metrikleri, iş durumunu ve eğilimleri gösterecek.
+          </p>
+        </div>
+
+        <div id="analiz-body" hidden class="stack">
+          <!-- --- Daily Metrics --- -->
+          <section aria-labelledby="daily-metrics-title">
+            <div class="section-head">
+              <h2 id="daily-metrics-title"><span aria-hidden="true">📈</span> Günlük Metrikler</h2>
+            </div>
+            <div id="daily-metrics" class="metrics-grid" style="margin-top: var(--s3)"></div>
+          </section>
+
+          <!-- --- Work Status --- -->
+          <section aria-labelledby="work-status-title">
+            <div class="section-head">
+              <h2 id="work-status-title"><span aria-hidden="true">⏱️</span> İş Durumu</h2>
+            </div>
+            <div id="work-status" class="metrics-grid" style="margin-top: var(--s3)"></div>
+          </section>
+
+          <!-- --- Trends Chart --- -->
+          <section aria-labelledby="trends-title">
+            <div class="section-head">
+              <h2 id="trends-title"><span aria-hidden="true">📊</span> Eğilimler (7 Gün)</h2>
+            </div>
+            <!-- Three rates on ONE axis (all of them are per cent), so a single
+                 plot is honest here — a crosshair reads all three at the same
+                 day. The legend is built by the chart. -->
+            <div class="chart-card" style="margin-top: var(--s3)">
+              <div class="chart-card__head">
+                <span class="chart-card__title">Tamamlanma · tarih uyumu · başarı</span>
+                <span class="chart-card__sub" id="trends-sub">son 7 gün · %</span>
+              </div>
+              <div class="chart chart--tall" id="chart-trends-7d"></div>
+            </div>
+          </section>
+
+          <!-- --- Alerts Panel --- -->
+          <section aria-labelledby="alerts-title">
+            <div class="section-head">
+              <h2 id="alerts-title"><span aria-hidden="true">🔔</span> Uyarılar &amp; İletiler</h2>
+            </div>
+            <div id="alerts-panel" class="alerts-list" style="margin-top: var(--s3)"></div>
+          </section>
+
+          <!-- --- Daily Feedback --- -->
+          <section id="feedback-section" aria-labelledby="feedback-title" hidden>
+            <div class="section-head">
+              <h2 id="feedback-title"><span aria-hidden="true">💡</span> Günlük Öneriler</h2>
+            </div>
+            <div class="feedback-box" style="margin-top: var(--s3)">
+              <p id="feedback-text"></p>
+            </div>
+          </section>
+        </div>
+      </section>
     </main>
 
     <footer class="footer">
       <p>
-        Planlı çalıştırmalar (İstanbul):
-        <strong>10:00 tam brifing</strong> ·
+        Planlı çalıştırmalar (İstanbul): <strong>10:00 tam brifing</strong> ·
         <strong>14:00</strong> · <strong>18:00</strong> · <strong>22:00</strong>
-        artımlı (yalnızca yeni bulgular).
-      </p>
-      <p class="footer__note">
-        Ekipte <strong>15 ajan</strong> var. Artımlı çalıştırmalarda yeni bir
-        şey yoksa Slack'e mesaj gitmez; pano yine güncellenir.
+        artımlı (yalnızca yeni bulgular). Teknik nöbetçi saat başı kontrol eder.
       </p>
       <p>
-        <a href="https://github.com/Beltass/AI-Executive-Assistant/actions/workflows/daily-briefing.yml" rel="noreferrer noopener">
-          GitHub Actions çalıştırma geçmişi →
-        </a>
+        <a
+          href="https://github.com/Beltass/AI-Executive-Assistant/actions/workflows/daily-briefing.yml"
+          rel="noreferrer noopener"
+          >GitHub Actions çalıştırma geçmişi →</a
+        >
       </p>
-      <p class="footer__note">
+      <p>
         Bu pano <strong>herkese açıktır</strong>. Kişisel veri içerebilecek
         bölümler (Gmail/Takvim brifingi) buraya <em>hiç</em> yazılmaz; onlar
         yalnızca Slack'e gider.
@@ -284,6 +977,7 @@
     <div id="tooltip" class="tooltip" role="status" aria-live="polite" hidden></div>
 
     <script src="./markdown.js"></script>
+    <script src="./charts.js"></script>
     <script src="./app.js"></script>
   </body>
 </html>

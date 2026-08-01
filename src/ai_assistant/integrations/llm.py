@@ -10,7 +10,8 @@ import logging
 import os
 import re
 import time
-from typing import List, Optional
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional
 
 import httpx
 
@@ -111,6 +112,147 @@ def last_model() -> Optional[str]:
     configured, or every attempt failed).
     """
     return _last_model
+
+
+# --- per-call accounting ----------------------------------------------------
+#
+# WHY: the whole advisor team rides on ONE batched generation, and until now
+# nothing recorded what that call actually COST. Without token counts there is
+# no way to answer the only question that matters on a free tier — "where is the
+# quota going, and what can I stop sending?" — so every generation now leaves
+# behind a :class:`CallStats` record.
+#
+# NOTHING SECRET LIVES HERE. Only counters, a wall-clock duration and PUBLIC
+# model names (``gemini-2.5-flash``). No prompt, no response, no key: the record
+# is written to a file in a public repository (see
+# :mod:`ai_assistant.metrics`), so it may only ever contain numbers.
+
+
+@dataclass
+class CallStats:
+    """What one generation cost — tokens, wall clock, retries, fallback.
+
+    Attributes:
+        provider: ``gemini`` or ``openai``.
+        model: The model that actually SERVED the answer (or the last one
+            tried, when everything failed). A public name, never a key.
+        prompt_tokens: Input tokens billed (Gemini ``promptTokenCount``).
+        output_tokens: Visible answer tokens (``candidatesTokenCount``).
+        thoughts_tokens: Internal reasoning tokens of a "thinking" model
+            (``thoughtsTokenCount``); 0 when the provider does not report any.
+        total_tokens: Provider-reported total (``totalTokenCount``), falling
+            back to the sum of the three above when it is absent.
+        latency_seconds: Wall clock for the whole call INCLUDING retry sleeps
+            and fallback attempts — what the run actually waited.
+        retries: How many times a request was re-sent after a transient
+            failure (429/5xx), summed across every model tried.
+        fallback_used: True when the primary model did not serve the answer
+            and a model further down the chain had to.
+        models_tried: How many models of the chain were attempted.
+        ok: Whether a usable answer came back at all.
+    """
+
+    provider: str = ""
+    model: str = ""
+    prompt_tokens: int = 0
+    output_tokens: int = 0
+    thoughts_tokens: int = 0
+    total_tokens: int = 0
+    latency_seconds: float = 0.0
+    retries: int = 0
+    fallback_used: bool = False
+    models_tried: int = 0
+    ok: bool = False
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "provider": self.provider,
+            "model": self.model,
+            "prompt_tokens": int(self.prompt_tokens),
+            "output_tokens": int(self.output_tokens),
+            "thoughts_tokens": int(self.thoughts_tokens),
+            "total_tokens": int(self.total_tokens),
+            "latency_seconds": round(float(self.latency_seconds), 2),
+            "retries": int(self.retries),
+            "fallback_used": bool(self.fallback_used),
+            "models_tried": int(self.models_tried),
+            "ok": bool(self.ok),
+        }
+
+
+_last_call: Optional[CallStats] = None
+
+
+def _record_call(stats: CallStats) -> None:
+    global _last_call
+    _last_call = stats
+
+
+def last_call_stats() -> Optional[CallStats]:
+    """Cost of the most recent generation in this process, or ``None``.
+
+    ``None`` means no generation was even attempted (no provider configured, or
+    a quiet incremental run where nobody had anything new to say).
+    """
+    return _last_call
+
+
+def reset_call_stats() -> None:
+    """Forget the recorded call — used by tests and by long-lived processes."""
+    global _last_call
+    _last_call = None
+
+
+def _int(value: Any) -> int:
+    """Coerce a provider-reported counter to a non-negative int, never raising."""
+    try:
+        number = int(value)
+    except (TypeError, ValueError):
+        return 0
+    return number if number > 0 else 0
+
+
+def _gemini_usage(data: dict) -> Dict[str, int]:
+    """Read ``usageMetadata`` off a generateContent payload.
+
+    Every field is optional in practice (older models omit
+    ``thoughtsTokenCount`` entirely, and a malformed payload may omit the block
+    altogether), so each one degrades to 0 and the total is reconstructed when
+    the provider did not send it.
+    """
+    usage = data.get("usageMetadata") if isinstance(data, dict) else None
+    if not isinstance(usage, dict):
+        usage = {}
+    prompt = _int(usage.get("promptTokenCount"))
+    output = _int(usage.get("candidatesTokenCount"))
+    thoughts = _int(usage.get("thoughtsTokenCount"))
+    total = _int(usage.get("totalTokenCount")) or (prompt + output + thoughts)
+    return {
+        "prompt_tokens": prompt,
+        "output_tokens": output,
+        "thoughts_tokens": thoughts,
+        "total_tokens": total,
+    }
+
+
+def _openai_usage(data: dict) -> Dict[str, int]:
+    """The same counters from an OpenAI chat-completions payload."""
+    usage = data.get("usage") if isinstance(data, dict) else None
+    if not isinstance(usage, dict):
+        usage = {}
+    details = usage.get("completion_tokens_details")
+    thoughts = (
+        _int(details.get("reasoning_tokens")) if isinstance(details, dict) else 0
+    )
+    prompt = _int(usage.get("prompt_tokens"))
+    output = _int(usage.get("completion_tokens"))
+    total = _int(usage.get("total_tokens")) or (prompt + output)
+    return {
+        "prompt_tokens": prompt,
+        "output_tokens": output,
+        "thoughts_tokens": thoughts,
+        "total_tokens": total,
+    }
 
 
 def _time_budget_seconds() -> float:
@@ -245,23 +387,27 @@ def _apply_request_spacing() -> None:
         time.sleep(spacing)
 
 
-def _post_gemini_with_retry(url: str, headers: dict, payload: dict) -> httpx.Response:
+def _post_gemini_with_retry(
+    url: str, headers: dict, payload: dict
+) -> tuple[httpx.Response, int]:
     """POST to Gemini, retrying transient failures with backoff.
 
     Retries on rate limiting (429) AND on transient server errors
     (500/502/503/504 — the "model is overloaded" / "service unavailable"
     family), honouring ``Retry-After`` when the API sends it.
 
-    Returns the final response (which may still be a failure once retries are
-    exhausted); callers either fall back to the next model or turn it into a
-    graceful failure.
+    Returns ``(response, retries)``. The response may still be a failure once
+    retries are exhausted; callers either fall back to the next model or turn it
+    into a graceful failure. ``retries`` counts the RE-sends (0 = answered
+    first try) and is recorded on :class:`CallStats` so the dashboard can show
+    how much of a run was spent fighting the quota.
     """
     max_retries, base = _gemini_retry_config()
     attempt = 0
     while True:
         resp = http_post(url, headers=headers, json=payload, timeout=_gemini_timeout())
         if resp.status_code not in RETRYABLE_STATUS_CODES or attempt >= max_retries:
-            return resp
+            return resp, attempt
         delay = _retry_delay(resp, attempt, base)
         # Never sleep past the run's budget: waiting out a quota window we no
         # longer have time for only delays the digest.
@@ -271,7 +417,7 @@ def _post_gemini_with_retry(url: str, headers: dict, payload: dict) -> httpx.Res
                 "kalan süre bütçesi (%.0fs) yeniden denemeye yetmiyor, vazgeçiliyor",
                 max(0.0, remaining),
             )
-            return resp
+            return resp, attempt
         time.sleep(delay)
         attempt += 1
 
@@ -393,7 +539,14 @@ def _generate_gemini(
     models = _gemini_model_chain()
     last_error = "bilinmeyen hata"
 
-    for model in models:
+    # Cost accounting for THIS call: wall clock across every model and every
+    # retry, so the dashboard reports what the run really waited for.
+    started = time.monotonic()
+    stats = CallStats(provider="gemini")
+
+    for position, model in enumerate(models):
+        stats.models_tried = position + 1
+        stats.model = model
         if time_budget_exhausted():
             # Every remaining model would hit the same exhausted quota window;
             # fail fast so the digest still goes out with what we do have.
@@ -406,7 +559,8 @@ def _generate_gemini(
         url = f"{GEMINI_MODELS_URL}/{model}:generateContent"
         _apply_request_spacing()
         try:
-            resp = _post_gemini_with_retry(url, headers, payload)
+            resp, retries = _post_gemini_with_retry(url, headers, payload)
+            stats.retries += retries
         except Exception as exc:
             # Transport-level problem (timeout, DNS, TLS): try the next model.
             last_error = _redact_key(f"{model}: {exc}", key)
@@ -432,6 +586,8 @@ def _generate_gemini(
         except Exception as exc:
             # Redact the key from any transport/HTTP error before it propagates
             # into an advisor's failed message (which may reach Slack).
+            stats.latency_seconds = time.monotonic() - started
+            _record_call(stats)
             raise RuntimeError(_redact_key(f"{model}: {exc}", key)) from None
 
         text = _extract_gemini_text(data)
@@ -443,8 +599,26 @@ def _generate_gemini(
         # Log WHICH model actually served the answer (never the key).
         logger.info("gemini yanıtı '%s' modelinden alındı", model)
         _record_model(model)
+        for name, value in _gemini_usage(data).items():
+            setattr(stats, name, value)
+        stats.ok = True
+        # "Fallback" means the PRIMARY model did not serve this answer.
+        stats.fallback_used = position > 0
+        stats.latency_seconds = time.monotonic() - started
+        _record_call(stats)
+        logger.info(
+            "token kullanımı: girdi %s · çıktı %s · düşünme %s · toplam %s (%.1fs)",
+            stats.prompt_tokens,
+            stats.output_tokens,
+            stats.thoughts_tokens,
+            stats.total_tokens,
+            stats.latency_seconds,
+        )
         return text
 
+    stats.fallback_used = len(models) > 1
+    stats.latency_seconds = time.monotonic() - started
+    _record_call(stats)
     raise RuntimeError(
         f"gemini tüm modellerde başarısız ({', '.join(models)}) — son hata: {last_error}"
     )
@@ -467,19 +641,31 @@ def _generate_openai(
         # Same budget as Gemini: the deep, multi-section briefings need headroom.
         "max_tokens": max_output_tokens or _gemini_max_output_tokens(),
     }
-    resp = http_post(
-        url,
-        headers={"Authorization": f"Bearer {key}"},
-        json=payload,
-        timeout=_gemini_timeout(),
-    )
-    resp.raise_for_status()
-    data = resp.json()
-    choices = data.get("choices") or []
-    if not choices:
-        raise RuntimeError("openai returned no choices")
-    text = (choices[0].get("message", {}).get("content") or "").strip()
-    if not text:
-        raise RuntimeError("openai returned empty text")
+    started = time.monotonic()
+    stats = CallStats(provider="openai", model=OPENAI_MODEL, models_tried=1)
+    try:
+        resp = http_post(
+            url,
+            headers={"Authorization": f"Bearer {key}"},
+            json=payload,
+            timeout=_gemini_timeout(),
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        choices = data.get("choices") or []
+        if not choices:
+            raise RuntimeError("openai returned no choices")
+        text = (choices[0].get("message", {}).get("content") or "").strip()
+        if not text:
+            raise RuntimeError("openai returned empty text")
+    except Exception:
+        stats.latency_seconds = time.monotonic() - started
+        _record_call(stats)
+        raise
     _record_model(OPENAI_MODEL)
+    for name, value in _openai_usage(data).items():
+        setattr(stats, name, value)
+    stats.ok = True
+    stats.latency_seconds = time.monotonic() - started
+    _record_call(stats)
     return text
