@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
   "date": "2026-08-01",
-  "generated_at": "2026-08-01T12:06:43+03:00",
-  "generated_at_istanbul": "01.08.2026 12:06",
-  "mode": "full",
-  "mode_label": "tam brifing",
+  "generated_at": "2026-08-01T15:03:55+03:00",
+  "generated_at_istanbul": "01.08.2026 15:03",
+  "mode": "incremental",
+  "mode_label": "artımlı",
   "count": 13,
   "reports": [
     {
@@ -90,12 +90,12 @@
       "name": "Yapay Zeka Haberleri",
       "emoji": "🤖",
       "category": "sektör",
-      "headline": "Yapay zeka teknolojileri hızla gelişirken, etik kullanım, güvenlik açıkları ve veri gizliliği endişeleri, teknoloji devlerinin öncelikli gündemini oluşturuyor.",
-      "excerpt": "Yapay zeka dünyası her geçen gün yeni gelişmelerle karşımıza çıkıyor. Ancak bu gelişmeler sadece yeni özellikler ve yetenekler sunmakla kalmıyor, aynı zamanda etik, güvenlik ve veri yönetimi gibi…",
-      "words": 682,
+      "headline": "Yapay zeka dünyası, hem modellerin güvenlik ve kontrol zorluklarıyla hem de sektördeki yetenek açığıyla yüzleşerek hızlı büyümenin getirdiği ikili bir meydan okuma yaşıyor.",
+      "excerpt": "Yapay zeka teknolojileri, hayatımızın her alanına sızarken, bu hızlı ilerlemenin beraberinde getirdiği karmaşık sorunları da göz ardı edemeyiz. Son dönemde ortaya çıkan haberler, yapay zekanın sadece…",
+      "words": 650,
       "read_minutes": 3,
-      "generated_at": "2026-08-01T12:06:43+03:00",
-      "generated_at_istanbul": "01.08.2026 12:06",
+      "generated_at": "2026-08-01T15:03:55+03:00",
+      "generated_at_istanbul": "01.08.2026 15:03",
       "path": "ai_news.json"
     },
     {
@@ -116,12 +116,12 @@
       "name": "Banka & Çağrı Merkezi Proje Uzmanı",
       "emoji": "🏦",
       "category": "sektör",
-      "headline": "Üretken yapay zekâ, banka çağrı merkezlerinde verimliliği artırırken, müşteri veri gizliliği, prompt güvenliği ve yasal uyum açısından ciddi yeni riskler doğurmaktadır.",
-      "excerpt": "Bankacılık çağrı merkezleri, müşteri etkileşiminin kritik bir noktasıdır. Bu alandaki dış kaynak yönetimi, sadece maliyet avantajı değil, aynı zamanda bilgi güvenliği ve yasal uyum risklerini de…",
-      "words": 1081,
-      "read_minutes": 5,
-      "generated_at": "2026-08-01T12:06:43+03:00",
-      "generated_at_istanbul": "01.08.2026 12:06",
+      "headline": "Üretken yapay zekâ (Gen AI) çağrı merkezlerinde verimlilik vaat ederken, transkriptlerin modele beslenmesi ve prompt üzerinden veri sızması gibi yeni ve karmaşık veri güvenliği ve uyum riskleri doğuruyor.",
+      "excerpt": "Bankaların çağrı merkezleri, müşteri deneyiminin nabzını tutan, ancak aynı zamanda hassas veri akışının en yoğun olduğu kritik birimlerdir. Üretken yapay zekânın (Gen AI) sunduğu otomasyon ve…",
+      "words": 1319,
+      "read_minutes": 7,
+      "generated_at": "2026-08-01T15:03:55+03:00",
+      "generated_at_istanbul": "01.08.2026 15:03",
       "path": "banking_cc_projects.json"
     },
     {
