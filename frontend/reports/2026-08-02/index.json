@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "date": "2026-08-02",
+  "generated_at": "2026-08-02T12:09:40+03:00",
+  "generated_at_istanbul": "02.08.2026 12:09",
+  "mode": "full",
+  "mode_label": "tam brifing",
+  "count": 5,
+  "reports": [
+    {
+      "id": "weather",
+      "name": "Hava Durumu Meteoroloğu",
+      "emoji": "🌤️",
+      "category": "operasyon",
+      "headline": "İstanbul, İstanbul, Türkiye Cumhuriyeti için bugünkü hava durumu: gökyüzü çok bulutlu / kapalı.",
+      "excerpt": "İstanbul, İstanbul, Türkiye Cumhuriyeti için bugünkü hava durumu: gökyüzü çok bulutlu / kapalı.",
+      "words": 42,
+      "read_minutes": 1,
+      "action_count": 0,
+      "generated_at": "2026-08-02T12:09:40+03:00",
+      "generated_at_istanbul": "02.08.2026 12:09",
+      "path": "weather.json"
+    },
+    {
+      "id": "morning_operations",
+      "name": "Sabah İşletme Brifingi",
+      "emoji": "📋",
+      "category": "operasyon",
+      "headline": "Bugünün operasyonel odağı, kritik yol üzerindeki \"devam eden\" ana proje hedeflerini doğrulamak ve \"riskli\" bağımlı görevleri proaktif şekilde ele almaktır.",
+      "excerpt": "Sabahın bu ilk anları, günün geri kalanının ritmini belirler. Dünkü operasyonel tempomuz genel olarak stabil seyretse de, kritik yol üzerindeki bazı bağımlı görevlerde hafif bir yavaşlama sinyali…",
+      "words": 473,
+      "read_minutes": 2,
+      "action_count": 1,
+      "generated_at": "2026-08-02T12:09:40+03:00",
+      "generated_at_istanbul": "02.08.2026 12:09",
+      "path": "morning_operations.json"
+    },
+    {
+      "id": "career_development",
+      "name": "Kariyer Gelişimi (İK · İlanlar · İngilizce · Sertifika)",
+      "emoji": "💼",
+      "category": "kariyer",
+      "headline": "Banka çağrı merkezi yöneticileri için geleceğin kariyerinde kritik beceriler müşteri analitiği ve yapay zeka entegrasyonu olup, iş ilanlarında bu yetkinlikleri ölçülebilir sonuçlarla vurgulamak öne çıkacaktır.",
+      "excerpt": "Merhaba! Kariyer yolculuğunuzda hem bugüne hem de yarına odaklanmak, sizi rakiplerinizden ayrıştıracak en önemli adımdır. Özellikle banka çağrı merkezleri gibi dinamik bir alanda üst düzey yönetici…",
+      "words": 1762,
+      "read_minutes": 9,
+      "action_count": 1,
+      "generated_at": "2026-08-02T12:09:40+03:00",
+      "generated_at_istanbul": "02.08.2026 12:09",
+      "path": "career_development.json"
+    },
+    {
+      "id": "market_intelligence",
+      "name": "Pazar İstihbaratı (Sektör · YZ · CX · Bankacılık)",
+      "emoji": "📊",
+      "category": "sektör",
+      "headline": "Müşteri deneyimi beklentileri proaktif ve kişiselleştirilmiş hizmetlere kayarken, dış kaynak tedarikçi seçiminde finansal sağlamlık, kapsamlı sertifikasyon doğrulama ve detaylı güvenlik soru setleri kritik önem taşımaktadır.",
+      "excerpt": "Pazar dinamikleri hızla değişirken, bankacılık ve çağrı merkezi sektörlerinde rekabet avantajı sağlamak, sadece mevcut operasyonları yönetmekle değil, aynı zamanda gelecekteki trendleri öngörmek ve…",
+      "words": 1791,
+      "read_minutes": 9,
+      "action_count": 1,
+      "generated_at": "2026-08-02T12:09:40+03:00",
+      "generated_at_istanbul": "02.08.2026 12:09",
+      "path": "market_intelligence.json"
+    },
+    {
+      "id": "kids_development",
+      "name": "Çocuk Gelişimi Danışmanı",
+      "emoji": "👨‍👩‍👧",
+      "category": "aile",
+      "headline": "Çocuklarda duygusal okuryazarlık ve düzenleme becerilerini geliştirmek, yaşa uygun stratejilerle hem 4 hem de 10 yaşındaki kızlarınızın sağlıklı sosyal ve duygusal gelişimine temel oluşturur.",
+      "excerpt": "Çocukların dünyasında duygular, bazen fırtınalı bir deniz gibidir. Ebeveyn olarak bu fırtınaları sakinleştirmek kadar, onlara kendi yelkenlerini nasıl yöneteceklerini öğretmek de önemlidir. Duygu…",
+      "words": 718,
+      "read_minutes": 4,
+      "action_count": 1,
+      "generated_at": "2026-08-02T12:09:40+03:00",
+      "generated_at_istanbul": "02.08.2026 12:09",
+      "path": "kids_development.json"
+    }
+  ]
+}
