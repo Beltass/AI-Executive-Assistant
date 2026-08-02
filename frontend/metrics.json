@@ -1,22 +1,22 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-08-02T09:09:40+00:00",
-  "generated_at_istanbul": "02.08.2026 12:09",
+  "generated_at": "2026-08-02T12:04:38+00:00",
+  "generated_at_istanbul": "02.08.2026 15:04",
   "history_limit": 60,
   "attribution_note": "Ajan başına token değerleri TAHMİNDİR: ekip tek bir toplu model çağrısıyla çalışır, sağlayıcı tokenları çağrı başına raporlar. Girdi tokenları her ajanın prompt uzunluğuna, çıktı tokenları ürettiği metin uzunluğuna göre paylaştırılır.",
   "totals": {
-    "runs": 12,
-    "runs_with_llm": 12,
-    "total_tokens": 155254,
-    "prompt_tokens": 84803,
-    "output_tokens": 45415,
-    "thoughts_tokens": 25036,
-    "characters": 237355,
-    "sections": 68,
-    "avg_tokens_per_run": 12937,
-    "avg_latency_seconds": 46.0,
-    "chars_per_1k_tokens": 1528.8,
-    "tokens_per_section": 2283.1,
+    "runs": 13,
+    "runs_with_llm": 13,
+    "total_tokens": 168469,
+    "prompt_tokens": 89830,
+    "output_tokens": 49344,
+    "thoughts_tokens": 29295,
+    "characters": 252147,
+    "sections": 69,
+    "avg_tokens_per_run": 12959,
+    "avg_latency_seconds": 46.3,
+    "chars_per_1k_tokens": 1496.7,
+    "tokens_per_section": 2441.6,
     "fallback_runs": 2,
     "retry_total": 2,
     "guide_saved_chars": 121164
@@ -25,22 +25,22 @@
     {
       "severity": "info",
       "title": "Düşünme (thinking) tokenı oranı",
-      "detail": "Toplam token'ın %19,4'i modelin görünmeyen iç akıl yürütmesine gidiyor (17990 token). Bu kısım brifingde hiç görünmez. Oran yüksekse daha hafif bir model ya da daha net/kısa bir görev tanımı doğrudan tasarruf sağlar.",
-      "metric": "%19,4",
+      "detail": "Toplam token'ın %21,6'i modelin görünmeyen iç akıl yürütmesine gidiyor (21753 token). Bu kısım brifingde hiç görünmez. Oran yüksekse daha hafif bir model ya da daha net/kısa bir görev tanımı doğrudan tasarruf sağlar.",
+      "metric": "%21,6",
       "advisor": ""
     },
     {
       "severity": "warn",
       "title": "Girdi, çıktıdan pahalı",
-      "detail": "Çalıştırma başına ortalama 7013 token prompt gönderiliyor, 3633 token yanıt alınıyor — girdi toplamın %53,1'i. Yani kotanın çoğu soru sormaya gidiyor, cevap almaya değil. Persona metinlerini kısaltmak buradan kazandırır.",
-      "metric": "7013 / 3633 token",
+      "detail": "Çalıştırma başına ortalama 7271 token prompt gönderiliyor, 4022 token yanıt alınıyor — girdi toplamın %50,5'i. Yani kotanın çoğu soru sormaya gidiyor, cevap almaya değil. Persona metinlerini kısaltmak buradan kazandırır.",
+      "metric": "7271 / 4022 token",
       "advisor": ""
     },
     {
       "severity": "warn",
       "title": "Artımlı çalıştırma tam brifing kadar girdi gönderiyor",
-      "detail": "Artımlı modda ortalama 2.6 bölüm üretiliyor ama ortalama 6691 girdi tokenı gönderiliyor — tam brifingin (7818) %85,6'i kadar. Artımlı prompt daha da kısaltılabilir: yalnızca yeni bulgusu olan bölümler ve kısa yazım kuralları gönderilmeli.",
-      "metric": "6691 vs 7818 girdi tokenı",
+      "detail": "Artımlı modda ortalama 2.2 bölüm üretiliyor ama ortalama 7052 girdi tokenı gönderiliyor — tam brifingin (7818) %90,2'i kadar. Artımlı prompt daha da kısaltılabilir: yalnızca yeni bulgusu olan bölümler ve kısa yazım kuralları gönderilmeli.",
+      "metric": "7052 vs 7818 girdi tokenı",
       "advisor": ""
     },
     {
@@ -60,15 +60,15 @@
     {
       "severity": "good",
       "title": "Verimlilik iyileşiyor",
-      "detail": "1000 token başına üretilen metin 982 karakterden 3110 karaktere çıktı (+217%). Aynı kotadan daha fazla brifing alıyorsun.",
-      "metric": "3110 karakter/1K token",
+      "detail": "1000 token başına üretilen metin 1109 karakterden 3049 karaktere çıktı (+175%). Aynı kotadan daha fazla brifing alıyorsun.",
+      "metric": "3049 karakter/1K token",
       "advisor": ""
     },
     {
       "severity": "good",
       "title": "Ortak yazım kuralları tek sefer gönderiliyor",
-      "detail": "Son 7 çalıştırmada, aynı yazım kılavuzunu her bölümde tekrarlamak yerine bir kez göndererek yaklaşık 55.944 karakter (kabaca dört karakter = bir token) girdi tasarruf edildi.",
-      "metric": "~13986 token",
+      "detail": "Son 7 çalıştırmada, aynı yazım kılavuzunu her bölümde tekrarlamak yerine bir kez göndererek yaklaşık 51.324 karakter (kabaca dört karakter = bir token) girdi tasarruf edildi.",
+      "metric": "~12831 token",
       "advisor": ""
     }
   ],
@@ -1234,6 +1234,51 @@
           "token_share": 0.1,
           "output_share": 0.4,
           "name": "Hava Durumu Meteoroloğu"
+        }
+      ],
+      "attribution": "estimate"
+    },
+    {
+      "at": "2026-08-02T12:04:38+00:00",
+      "at_istanbul": "02.08.2026 15:04",
+      "mode": "incremental",
+      "mode_label": "artımlı",
+      "provider": "gemini",
+      "model": "gemini-2.5-flash",
+      "llm_called": true,
+      "llm_ok": true,
+      "prompt_tokens": 5027,
+      "output_tokens": 3929,
+      "thoughts_tokens": 4259,
+      "total_tokens": 13215,
+      "latency_seconds": 49.81,
+      "duration_seconds": 53.5,
+      "retries": 0,
+      "fallback_used": false,
+      "models_tried": 1,
+      "advisors_ok": 1,
+      "advisors_failed": 0,
+      "advisors_skipped": 12,
+      "sections": 1,
+      "sections_requested": 1,
+      "characters": 14792,
+      "prompt_chars_total": 0,
+      "guide_saved_chars": 0,
+      "chars_per_1k_tokens": 1119.3,
+      "tokens_per_section": 13215.0,
+      "thoughts_share": 32.2,
+      "prompt_share": 38.0,
+      "agents": [
+        {
+          "id": "market_intelligence",
+          "prompt_chars": 0,
+          "output_chars": 14792,
+          "est_prompt_tokens": 0,
+          "est_output_tokens": 3929,
+          "est_total_tokens": 3929,
+          "token_share": 43.9,
+          "output_share": 100.0,
+          "name": "Pazar İstihbaratı (Sektör · YZ · CX · Bankacılık)"
         }
       ],
       "attribution": "estimate"
