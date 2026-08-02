@@ -1,74 +1,60 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-08-02T12:04:38+00:00",
-  "generated_at_istanbul": "02.08.2026 15:04",
+  "generated_at": "2026-08-02T16:03:33+00:00",
+  "generated_at_istanbul": "02.08.2026 19:03",
   "history_limit": 60,
   "attribution_note": "Ajan başına token değerleri TAHMİNDİR: ekip tek bir toplu model çağrısıyla çalışır, sağlayıcı tokenları çağrı başına raporlar. Girdi tokenları her ajanın prompt uzunluğuna, çıktı tokenları ürettiği metin uzunluğuna göre paylaştırılır.",
   "totals": {
-    "runs": 13,
-    "runs_with_llm": 13,
-    "total_tokens": 168469,
-    "prompt_tokens": 89830,
-    "output_tokens": 49344,
-    "thoughts_tokens": 29295,
-    "characters": 252147,
-    "sections": 69,
-    "avg_tokens_per_run": 12959,
-    "avg_latency_seconds": 46.3,
-    "chars_per_1k_tokens": 1496.7,
-    "tokens_per_section": 2441.6,
+    "runs": 14,
+    "runs_with_llm": 14,
+    "total_tokens": 196139,
+    "prompt_tokens": 96566,
+    "output_tokens": 58618,
+    "thoughts_tokens": 40955,
+    "characters": 283095,
+    "sections": 71,
+    "avg_tokens_per_run": 14009,
+    "avg_latency_seconds": 50.2,
+    "chars_per_1k_tokens": 1443.3,
+    "tokens_per_section": 2762.5,
     "fallback_runs": 2,
     "retry_total": 2,
-    "guide_saved_chars": 121164
+    "guide_saved_chars": 124926
   },
   "recommendations": [
     {
       "severity": "info",
       "title": "Düşünme (thinking) tokenı oranı",
-      "detail": "Toplam token'ın %21,6'i modelin görünmeyen iç akıl yürütmesine gidiyor (21753 token). Bu kısım brifingde hiç görünmez. Oran yüksekse daha hafif bir model ya da daha net/kısa bir görev tanımı doğrudan tasarruf sağlar.",
-      "metric": "%21,6",
+      "detail": "Toplam token'ın %26,6'i modelin görünmeyen iç akıl yürütmesine gidiyor (32917 token). Bu kısım brifingde hiç görünmez. Oran yüksekse daha hafif bir model ya da daha net/kısa bir görev tanımı doğrudan tasarruf sağlar.",
+      "metric": "%26,6",
       "advisor": ""
     },
     {
       "severity": "warn",
       "title": "Girdi, çıktıdan pahalı",
-      "detail": "Çalıştırma başına ortalama 7271 token prompt gönderiliyor, 4022 token yanıt alınıyor — girdi toplamın %50,5'i. Yani kotanın çoğu soru sormaya gidiyor, cevap almaya değil. Persona metinlerini kısaltmak buradan kazandırır.",
-      "metric": "7271 / 4022 token",
+      "detail": "Çalıştırma başına ortalama 7773 token prompt gönderiliyor, 5174 token yanıt alınıyor — girdi toplamın %44'i. Yani kotanın çoğu soru sormaya gidiyor, cevap almaya değil. Persona metinlerini kısaltmak buradan kazandırır.",
+      "metric": "7773 / 5174 token",
       "advisor": ""
     },
     {
       "severity": "warn",
       "title": "Artımlı çalıştırma tam brifing kadar girdi gönderiyor",
-      "detail": "Artımlı modda ortalama 2.2 bölüm üretiliyor ama ortalama 7052 girdi tokenı gönderiliyor — tam brifingin (7818) %90,2'i kadar. Artımlı prompt daha da kısaltılabilir: yalnızca yeni bulgusu olan bölümler ve kısa yazım kuralları gönderilmeli.",
-      "metric": "7052 vs 7818 girdi tokenı",
-      "advisor": ""
-    },
-    {
-      "severity": "info",
-      "title": "Yedek modele düşülüyor",
-      "detail": "Son 7 çalıştırmanın 1 tanesinde birincil model yanıt veremedi ve zincirdeki yedek model devreye girdi. Bu genellikle kota/yoğunluk demektir: çalıştırma saatlerini birbirinden uzaklaştırmak veya birincil modeli doğrudan daha hafif bir modelle değiştirmek bekleme süresini kısaltır.",
-      "metric": "1/7 çalıştırma",
-      "advisor": ""
-    },
-    {
-      "severity": "info",
-      "title": "Yeniden deneme maliyeti",
-      "detail": "Son 7 çalıştırmada toplam 1 kez istek tekrarlandı (429/5xx). Her tekrar bekleme süresidir, token değil — ama brifingi geciktirir. Tekrarlar sürüyorsa GEMINI_REQUEST_SPACING_SECONDS değerini artırmak yardımcı olur.",
-      "metric": "1 tekrar",
+      "detail": "Artımlı modda ortalama 2.0 bölüm üretiliyor ama ortalama 7756 girdi tokenı gönderiliyor — tam brifingin (7818) %99,2'i kadar. Artımlı prompt daha da kısaltılabilir: yalnızca yeni bulgusu olan bölümler ve kısa yazım kuralları gönderilmeli.",
+      "metric": "7756 vs 7818 girdi tokenı",
       "advisor": ""
     },
     {
       "severity": "good",
       "title": "Verimlilik iyileşiyor",
-      "detail": "1000 token başına üretilen metin 1109 karakterden 3049 karaktere çıktı (+175%). Aynı kotadan daha fazla brifing alıyorsun.",
-      "metric": "3049 karakter/1K token",
+      "detail": "1000 token başına üretilen metin 1167 karakterden 3040 karaktere çıktı (+160%). Aynı kotadan daha fazla brifing alıyorsun.",
+      "metric": "3040 karakter/1K token",
       "advisor": ""
     },
     {
       "severity": "good",
       "title": "Ortak yazım kuralları tek sefer gönderiliyor",
-      "detail": "Son 7 çalıştırmada, aynı yazım kılavuzunu her bölümde tekrarlamak yerine bir kez göndererek yaklaşık 51.324 karakter (kabaca dört karakter = bir token) girdi tasarruf edildi.",
-      "metric": "~12831 token",
+      "detail": "Son 7 çalıştırmada, aynı yazım kılavuzunu her bölümde tekrarlamak yerine bir kez göndererek yaklaşık 50.466 karakter (kabaca dört karakter = bir token) girdi tasarruf edildi.",
+      "metric": "~12616 token",
       "advisor": ""
     }
   ],
@@ -1279,6 +1265,62 @@
           "token_share": 43.9,
           "output_share": 100.0,
           "name": "Pazar İstihbaratı (Sektör · YZ · CX · Bankacılık)"
+        }
+      ],
+      "attribution": "estimate"
+    },
+    {
+      "at": "2026-08-02T16:03:33+00:00",
+      "at_istanbul": "02.08.2026 19:03",
+      "mode": "incremental",
+      "mode_label": "artımlı",
+      "provider": "gemini",
+      "model": "gemini-2.5-flash",
+      "llm_called": true,
+      "llm_ok": true,
+      "prompt_tokens": 6736,
+      "output_tokens": 9274,
+      "thoughts_tokens": 11660,
+      "total_tokens": 27670,
+      "latency_seconds": 101.07,
+      "duration_seconds": 104.7,
+      "retries": 0,
+      "fallback_used": false,
+      "models_tried": 1,
+      "advisors_ok": 2,
+      "advisors_failed": 0,
+      "advisors_skipped": 11,
+      "sections": 2,
+      "sections_requested": 2,
+      "characters": 30948,
+      "prompt_chars_total": 19198,
+      "guide_saved_chars": 3762,
+      "chars_per_1k_tokens": 1118.5,
+      "tokens_per_section": 13835.0,
+      "thoughts_share": 42.1,
+      "prompt_share": 24.3,
+      "agents": [
+        {
+          "id": "market_intelligence",
+          "prompt_chars": 11079,
+          "output_chars": 17638,
+          "est_prompt_tokens": 4391,
+          "est_output_tokens": 5285,
+          "est_total_tokens": 9677,
+          "token_share": 60.4,
+          "output_share": 57.0,
+          "name": "Pazar İstihbaratı (Sektör · YZ · CX · Bankacılık)"
+        },
+        {
+          "id": "career_development",
+          "prompt_chars": 5916,
+          "output_chars": 13310,
+          "est_prompt_tokens": 2345,
+          "est_output_tokens": 3989,
+          "est_total_tokens": 6333,
+          "token_share": 39.6,
+          "output_share": 43.0,
+          "name": "Kariyer Gelişimi (İK · İlanlar · İngilizce · Sertifika)"
         }
       ],
       "attribution": "estimate"
