@@ -1,14 +1,14 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-08-03T17:11:16+00:00",
-  "generated_at_istanbul": "03.08.2026 20:11",
+  "generated_at": "2026-08-03T20:28:19+00:00",
+  "generated_at_istanbul": "03.08.2026 23:28",
   "run": {
     "conclusion": "ok",
     "total": 13,
     "ok": 1,
     "failed": 0,
     "skipped": 12,
-    "duration_seconds": 88.0,
+    "duration_seconds": 53.3,
     "batch": {
       "enabled": true,
       "attempted": false,
@@ -22,17 +22,17 @@
     },
     "tokens": {
       "called": true,
-      "prompt": 4676,
-      "output": 6030,
-      "thoughts": 2157,
-      "total": 12863,
-      "latency_seconds": 83.9,
+      "prompt": 4837,
+      "output": 326,
+      "thoughts": 7862,
+      "total": 13025,
+      "latency_seconds": 49.1,
       "retries": 0,
       "fallback_used": false
     },
     "mode": "incremental",
     "mode_label": "artımlı",
-    "new_findings": 3,
+    "new_findings": 4,
     "nothing_new_count": 12
   },
   "slack": {
@@ -88,11 +88,11 @@
       "id": "market_intelligence",
       "name": "Pazar İstihbaratı (Sektör · YZ · CX · Bankacılık)",
       "status": "ok",
-      "content_length": 21687,
+      "content_length": 1956,
       "detail": "",
       "emoji": "📊",
       "category": "sektör",
-      "new_findings": 3,
+      "new_findings": 4,
       "nothing_new": false
     },
     {
@@ -211,7 +211,7 @@
     "urgent_count": 0,
     "action_items": 0,
     "vip_emails": 0,
-    "last_update": "2026-08-03T17:11:16+00:00",
+    "last_update": "2026-08-03T20:28:19+00:00",
     "last_fetch_error": null
   },
   "calendar": {
@@ -225,7 +225,7 @@
       "duration_minutes": null
     },
     "available_slots": [],
-    "last_update": "2026-08-03T17:11:16+00:00",
+    "last_update": "2026-08-03T20:28:19+00:00",
     "last_fetch_error": null
   },
   "integrations": {
@@ -263,8 +263,8 @@
       "completion_rate": 7.7,
       "deadline_adherence": 7.7,
       "success_rate": 100.0,
-      "token_efficiency": 6030.0,
-      "last_update": "2026-08-03T17:11:16+00:00"
+      "token_efficiency": 326.0,
+      "last_update": "2026-08-03T20:28:19+00:00"
     },
     "work_status": {
       "meeting_hours": 0.0,
@@ -283,11 +283,11 @@
         7.7
       ],
       "deadline_7d": [
-        76.9,
         7.7,
         15.4,
         7.7,
         76.9,
+        7.7,
         7.7,
         7.7
       ],
@@ -593,6 +593,20 @@
       "mode": "incremental",
       "new_findings": 3,
       "total_tokens": 12863
+    },
+    {
+      "at": "2026-08-03T20:28:19+00:00",
+      "at_istanbul": "03.08.2026 23:28",
+      "conclusion": "ok",
+      "ok": 1,
+      "failed": 0,
+      "skipped": 12,
+      "total": 13,
+      "duration_seconds": 53.3,
+      "slack": "ok",
+      "mode": "incremental",
+      "new_findings": 4,
+      "total_tokens": 13025
     }
   ]
 }
