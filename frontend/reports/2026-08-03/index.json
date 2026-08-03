@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
   "date": "2026-08-03",
-  "generated_at": "2026-08-03T13:42:58+03:00",
-  "generated_at_istanbul": "03.08.2026 13:42",
-  "mode": "full",
-  "mode_label": "tam brifing",
+  "generated_at": "2026-08-03T16:42:37+03:00",
+  "generated_at_istanbul": "03.08.2026 16:42",
+  "mode": "incremental",
+  "mode_label": "artımlı",
   "count": 5,
   "reports": [
     {
@@ -54,13 +54,13 @@
       "name": "Pazar İstihbaratı (Sektör · YZ · CX · Bankacılık)",
       "emoji": "📊",
       "category": "sektör",
-      "headline": "Bankacılık çağrı merkezlerinde yapay zeka entegrasyonu hızlanırken, dış kaynak sözleşmelerinde uyum ve veri güvenliği maddeleri kritik önem taşıyor.",
-      "excerpt": "Bankacılık çağrı merkezleri, teknolojik dönüşümün ve müşteri beklentilerinin en yoğun hissedildiği alanlardan biri. Yapay zeka, operasyonel verimliliği artırma ve müşteri deneyimini kişiselleştirme…",
-      "words": 1989,
-      "read_minutes": 10,
+      "headline": "Yapay zekâ teknolojileri çağrı merkezlerinde verimlilik ve müşteri deneyimi potansiyeli sunarken, güvenlik ve veri uyumu riskleri, özellikle de dış kaynak kullanımında, kritik bir sözleşme ve yönetişim mimarisi gerektiriyor.",
+      "excerpt": "Bankacılık çağrı merkezleri, teknoloji ve insan etkileşiminin kesiştiği, dinamik bir alan. Bugünün pazarında, yapay zekânın hızla evrilen yetenekleri bir yandan maliyetleri düşürme ve hizmet…",
+      "words": 2638,
+      "read_minutes": 13,
       "action_count": 0,
-      "generated_at": "2026-08-03T13:42:58+03:00",
-      "generated_at_istanbul": "03.08.2026 13:42",
+      "generated_at": "2026-08-03T16:42:37+03:00",
+      "generated_at_istanbul": "03.08.2026 16:42",
       "path": "market_intelligence.json"
     },
     {
