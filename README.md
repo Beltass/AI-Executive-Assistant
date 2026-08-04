@@ -30,12 +30,30 @@ runs cleanly out of the box before you have configured anything.
 On top of the connection checks the assistant ships a **supervised team of
 daily advisor agents** that produce a single Turkish morning briefing.
 
-| Advisor              | Persona                                   | Needs                                            |
-| -------------------- | ----------------------------------------- | ------------------------------------------------ |
-| Hava Durumu          | Turkish meteorologist daily summary       | Nothing — `WEATHER_CITY` defaults to `Istanbul` (override with `WEATHER_COUNTRY` / `WEATHER_LATITUDE`+`WEATHER_LONGITUDE`); Open-Meteo, **no key** |
-| Liderlik Koçu        | Senior leadership coach                    | `GEMINI_API_KEY` or `OPENAI_API_KEY`             |
-| Çocuk Gelişimi       | Child development & education advisor       | `GEMINI_API_KEY` or `OPENAI_API_KEY`             |
-| Kariyer & İK         | Senior HR director / career mentor          | `GEMINI_API_KEY` or `OPENAI_API_KEY`             |
+The live roster is **thirteen** advisors, in report order (the Turkish titles
+are the ones the dashboard and Slack show; the key is the stable identifier used
+by `SLACK_CHANNEL_<KEY>` and by `frontend/reports/`):
+
+| # | Advisor (`key`) | Persona | Needs |
+| - | --------------- | ------- | ----- |
+| 1 | 📋 Sabah İşletme Brifingi (`morning_operations`) | Chief-of-staff start-of-day briefing: yesterday's numbers, today's priorities | Google OAuth for the mail/calendar facts (+ an LLM key to deepen it) |
+| 2 | 📬 İletişim & Takvim Danışmanı (`communications_calendar`) | Mail load, action items, meeting density and free focus blocks | Google OAuth + an LLM key |
+| 3 | 🗓️ Toplantı Hazırlık & Takip (`meeting_prep`) | Executive-assistant prep note for the next meeting: what was said last time, what is still open, this time's agenda | Google OAuth (Calendar + Drive); `MEETING_PREP_NOTES_FOLDER_ID` or `GOOGLE_DRIVE_FOLDER_ID` for the past notes |
+| 4 | 💼 Kariyer Gelişimi (İK · İlanlar · İngilizce · Sertifika) (`career_development`) | HR mentor + job scout + business-English coach + free-certificate hunter, in one call | An LLM key (`JOB_KEYWORDS` / `JOB_LOCATION` / `USER_SECTOR` have defaults) |
+| 5 | 📊 Pazar İstihbaratı (Sektör · YZ · CX · Bankacılık) (`market_intelligence`) | Sector & competitor intel, AI news, CX research and bank contact-center governance, in one call | An LLM key (every RSS feed has a default) |
+| 6 | 📣 Müşteri Şikayet & İtibar Radarı (`complaint_radar`) | Reads the sector's complaint agenda from RSS, groups it into fixed themes and INTERPRETS it (volume, competitor comparison, which KPI it presses) | Nothing — both feeds have defaults; an LLM key turns the headlines into commentary |
+| 7 | 🔬 Veri Analisti (Çağrı Merkezi Operasyonu) (`data_analyst`) | Reads the operation's own numbers (`ai_assistant.analysis`) and says what they mean | A data source (`DATA_ANALYST_SOURCE`) + an LLM key |
+| 8 | 🧠 Yapay Zeka & İnovasyon (Ustalaşma · Fikirler) (`ai_innovation`) | AI enablement lesson of the day + concrete project proposals scored for effort/impact | An LLM key (`AI_MASTERY_LEVEL` / `AI_MASTERY_RSS_URL` have defaults) |
+| 9 | 👨‍👩‍👧 Çocuk Gelişimi Danışmanı (`kids_development`) | Child development & education advisor | An LLM key |
+| 10 | 🧭 Yönetici Koçu (Gelişim + Hesap Verebilirlik) (`executive_coaching`) | Leadership coaching plus the accountability streak over yesterday's tasks | An LLM key (the accountability half needs none) |
+| 11 | 📈 İş Analisti Danışmanı (`work_analyst`) | Watches the run itself: anomalies, bottlenecks, repeated failures | An LLM key |
+| 12 | 🚦 Operasyon Direktörü (Günün Kararları) (`operations_director`) | Turns the whole run into ONE prioritised decision list (owner · deadline · cost of inaction) | An LLM key |
+| 13 | 🛡️ Teknik Gözetim (7/24 SRE) (`sre_watchdog`) | The machine's own watchdog: run freshness, quota, artefacts | Nothing — **no LLM call at all** |
+
+Many of these are *consolidations*: the specialist personas described in the
+phase sections below (job scout, sector intel, AI news, accountability coach, …)
+still live in `src/ai_assistant/advisors/`, but they now contribute to one of
+the thirteen briefings above instead of writing their own.
 
 Each advisor exposes one interface — `generate_briefing()` — returning a
 structured `Briefing` (title, status `ok`/`failed`/`skipped`, text). All
@@ -44,7 +62,7 @@ call means `failed`; neither crashes the run.
 
 ### Phase 2 advisors
 
-Five additional supervised agents extend the team. They follow the exact same
+Four additional supervised agents extend the team. They follow the exact same
 `Advisor` interface, so the Operations Manager auto-discovers them, and they
 degrade to `skipped` when their config/LLM key is absent.
 
@@ -54,7 +72,6 @@ degrade to `skipped` when their config/LLM key is absent.
 | Sektör & Rakip İstihbaratı       | Sector technology/AI & competitor briefing           | An LLM key (`USER_SECTOR`, `SECTOR_NEWS_RSS_URL` have defaults) |
 | Yapay Zeka Haberleri             | AI news roundup from a feed or LLM                    | Nothing — `AI_NEWS_RSS_URL` has a default feed; an LLM key deepens it |
 | Ücretsiz Sertifika & Eğitim      | Free certs/courses & language resources for your field | LLM key (opt. `USER_SECTOR`)                     |
-| Anka Köprüsü                     | Generic HTTP connector to your external "Anka" assistant | `ANKA_WEBHOOK_URL` / `ANKA_API_URL`              |
 
 **İş Avcısı compliance note.** The job scout deliberately does **not** log in to
 or auto-submit applications on LinkedIn / Kariyer.net (that would breach their
@@ -270,6 +287,51 @@ figure may only appear when it can be ATTRIBUTED — the source organisation is
 named next to it, unverifiable numbers are simply not given, and a standing
 caveat tells the user to confirm anything at the source.
 
+### Phase 1C advisors (the current roster's two newest)
+
+The consolidation that produced today's thirteen advisors also **retired** two
+(*Hava Durumu* — a phone already gives you the forecast — and *Anka Köprüsü*,
+whose bridge is no longer fed; both modules stay on disk so a rollback is a
+comment change) and **added** two:
+
+| Advisor                         | Persona                                                        | Needs                                                       |
+| ------------------------------- | -------------------------------------------------------------- | ----------------------------------------------------------- |
+| Toplantı Hazırlık & Takip       | Executive assistant writing the note you read before walking in | Google OAuth (Calendar + Drive); notes folder optional        |
+| Müşteri Şikayet & İtibar Radarı | Complaint-management / VoC consultant reading the sector's complaint agenda | Nothing — both feeds have defaults; an LLM key interprets them |
+
+**Toplantı Hazırlık & Takip** reads the upcoming meetings from Google Calendar
+(the **same** shared OAuth as the ops briefing — no second auth path), drops what
+nobody prepares for (all-day entries, attendee-less focus blocks), and matches
+each meeting to past notes in Drive by TITLE tokens and ATTENDEE names, with
+Turkish letters folded so *Şikayet* and *sikayet* are the same word. The notes
+folder is `MEETING_PREP_NOTES_FOLDER_ID`, falling back to
+`GOOGLE_DRIVE_FOLDER_ID`; `MEETING_PREP_LOOKAHEAD_DAYS` (default 3) and
+`MEETING_PREP_MAX_NOTES` (default 3) bound the work. Because the shared scope
+only sees file *metadata*, an unreadable note body is normal: the section is then
+written at title level and the model is told to say so. Its output separates
+**your** open items from **the team's**, proposes an agenda with the carried-over
+items first, and ends with one 15-30 minute preparation task. It is `private`:
+calendar entries and note content never reach the public dashboard. Missing
+Google credentials, an auth failure, an unreachable calendar or an empty diary
+each degrade to `skipped` with a Turkish explanation.
+
+**Müşteri Şikayet & İtibar Radarı** merges two complaint/reputation feeds
+(`COMPLAINT_RADAR_RSS_URL`, `COMPLAINT_RADAR_SECTOR_RSS_URL`, both defaulting to
+Turkish Google News searches for banking complaints) into ONE pool, de-duplicates
+by headline, and passes what is left through the findings ledger — so the day's
+second run never re-tells the morning's complaint. Headlines are grouped under
+the **fixed** themes in `COMPLAINT_THEMES` (waiting time, unresolved cases,
+repeat contacts, fees, digital channels, tone, product decisions, data &
+security), so the same complaint carries the same label from day to day. Its job
+is interpretation, not a list: what mechanism broke, which reply closes a
+complaint and which enlarges it, what it presses on FCR / repeat contact / CES /
+NPS. Optionally `COMPLAINT_RADAR_BRANDS` and `COMPLAINT_RADAR_COMPETITORS`
+(comma-separated) name the institutions to watch; those have **no** default,
+because inventing a brand name would put a fabricated institution in the
+briefing, and without them the model is told to compare only the institutions the
+feed actually names. Without an LLM key the section still delivers today's REAL
+headlines, grouped by source.
+
 ### Deduplication + incremental runs
 
 Running four times a day is only useful if the later runs do not repeat the
@@ -305,7 +367,6 @@ string) falls back to the default.
 
 | Setting               | Default                                                        |
 | --------------------- | -------------------------------------------------------------- |
-| `WEATHER_CITY`        | `Istanbul`                                                      |
 | `USER_SECTOR`         | `banka çağrı merkezleri`                                        |
 | `JOB_KEYWORDS`        | `çağrı merkezi müdürü, müşteri deneyimi yöneticisi, operasyon müdürü` |
 | `JOB_LOCATION`        | `İstanbul`                                                      |
@@ -313,12 +374,16 @@ string) falls back to the default.
 | `SECTOR_NEWS_RSS_URL` | Google News RSS search for *çağrı merkezi banka* (Turkish)      |
 | `BANKING_NEWS_RSS_URL` | Google News RSS search for banking / contact-center / outsourcing news (Turkish) |
 | `BANKING_SECURITY_RSS_URL` | Google News RSS search for KVKK / bilgi güvenliği / veri ihlali in banking (Turkish) |
+| `COMPLAINT_RADAR_RSS_URL` | Google News RSS search for *banka şikayet* / *bankacılık müşteri şikayeti* (Turkish) |
+| `COMPLAINT_RADAR_SECTOR_RSS_URL` | Google News RSS search for sector complaints — *bankacılık şikayet*, *tüketici hakem heyeti*, BDDK (Turkish) |
 | `ACCOUNTABILITY_STATE_FILE` | `.assistant_state/accountability.json` (committed back to `main` by the workflow) |
 
 Two deliberate exceptions: **no API key is ever defaulted** (without
 `GEMINI_API_KEY`/`OPENAI_API_KEY` the LLM advisors still report `skipped` and the
-run exits `0`), and the **Anka Köprüsü has no default endpoint** — that URL is
-specific to you, so the bridge legitimately stays `skipped` until you set it.
+run exits `0`), and **nothing user-specific is invented** — the complaint radar's
+`COMPLAINT_RADAR_BRANDS` / `COMPLAINT_RADAR_COMPETITORS` name real institutions
+and the meeting-prep notes folder is your own Drive folder, so those stay unset
+until you provide them (and the advisors simply do less, never crash).
 
 ### One batched LLM call per run
 
@@ -337,9 +402,10 @@ Calendar) and then contribute those facts inside their batched section, exactly
 like the existing RSS advisors. The accountability coach uses no LLM at all, so
 the run stays at ~1 Gemini request.
 
-Non-LLM work stays outside the batch: the weather advisor still calls Open-Meteo
-directly and the news advisors still fetch their RSS feeds themselves; only the
-*summarization* is batched. If the batched call fails, or the model omits a
+Non-LLM work stays outside the batch: the news advisors and the complaint radar
+still fetch their RSS feeds themselves, meeting prep still reads Calendar and
+Drive itself, and the SRE watchdog reads files only; only the *summarization* is
+batched. If the batched call fails, or the model omits a
 section, those advisors transparently fall back to their own per-advisor call.
 Set `DIGEST_BATCH_MODE=false` to disable batching entirely.
 
@@ -354,13 +420,6 @@ the answer. Every request carries a timeout (`GEMINI_TIMEOUT_SECONDS`, default
 120s) so a hung call can't stall the job, and every surfaced error is passed
 through key redaction — **the API key can never appear in a log, an error or a
 Slack message**.
-
-**Anka Köprüsü env contract.** Configure `ANKA_WEBHOOK_URL` (or the alias
-`ANKA_API_URL`); optionally `ANKA_API_KEY` (sent as `Authorization: Bearer`) and
-`ANKA_HTTP_METHOD` (default `POST`). When configured, the bridge fires a small
-JSON trigger — `{"source": "ai_executive_assistant", "action": "daily_trigger"}`
-— and reports a short status. Without a URL it is `skipped`
-(`Anka endpoint not configured`).
 
 ### Operations Manager (the supervising agent)
 
@@ -389,7 +448,7 @@ python -m ai_assistant.daily_digest
 
 ### Report documents (one reading page per advisor)
 
-Fifteen advisors writing 300-500 words each used to arrive as ONE Slack message.
+Thirteen advisors writing 300-500 words each used to arrive as ONE Slack message.
 That is unreadable on a phone, so the run is now split apart.
 `ai_assistant.reports` writes every successful section as its own document:
 
@@ -406,8 +465,9 @@ into the day rather than replacing it, and days older than
 without bound.
 
 **Privacy.** The dashboard is PUBLIC. An advisor whose section can contain
-personal data sets `private = True` (today: the Gmail/Calendar
-`Gün Başı Operasyon Brifingi`). Its content is never written to
+personal data sets `private = True` (today: `communications_calendar`,
+`meeting_prep`, `data_analyst`, `ai_innovation`, `executive_coaching`,
+`work_analyst`, `operations_director` and `sre_watchdog`). Its content is never written to
 `frontend/reports/` — it is delivered inline in Slack instead. The rule is
 enforced twice, by the flag and by a hard-coded key list, and it has its own
 test.
@@ -457,19 +517,29 @@ Everything else is **optional** and now has a sensible default (see
 [Defaults](#defaults-the-whole-team-is-active-out-of-the-box)); set a secret only
 when you want to override one:
 
-- `WEATHER_CITY` / `WEATHER_COUNTRY` — override the default city (`Istanbul`).
 - `JOB_KEYWORDS` / `JOB_LOCATION` — override the default job-scout search.
 - `USER_SECTOR` — tailors the sector intel & free-cert advisors (default
   "banka çağrı merkezleri").
 - `SECTOR_NEWS_RSS_URL` / `AI_NEWS_RSS_URL` / `BANKING_NEWS_RSS_URL` /
-  `BANKING_SECURITY_RSS_URL` — override the default Google News feeds.
+  `BANKING_SECURITY_RSS_URL` / `COMPLAINT_RADAR_RSS_URL` /
+  `COMPLAINT_RADAR_SECTOR_RSS_URL` — override the default Google News feeds.
+- `COMPLAINT_RADAR_BRANDS` / `COMPLAINT_RADAR_COMPETITORS` — comma-separated
+  institutions the complaint radar watches and compares. **No default** (a made-up
+  brand must never reach the briefing); unset simply drops that part of the prompt.
 - `ACCOUNTABILITY_STATE_FILE` — where the accountability coach writes its streak
   state. **Leave this unset in CI**: the workflow only commits the default path
   back to the repo, so overriding it disables the durable streak.
 - `OPS_BRIEFING_MAX_EMAILS` / `OPS_BRIEFING_EMAIL_WINDOW` — how much recent mail
   the ops briefing looks at (defaults: 12 messages, `1d`).
-- `ANKA_WEBHOOK_URL` (+ optional `ANKA_API_KEY`) — the only agent with **no**
-  default: without it the Anka bridge stays `skipped`.
+- `GOOGLE_DRIVE_FOLDER_ID` — the Drive root used for report archiving, and the
+  fallback folder meeting prep looks for past meeting notes in.
+- `MEETING_PREP_NOTES_FOLDER_ID` / `MEETING_PREP_LOOKAHEAD_DAYS` /
+  `MEETING_PREP_MAX_NOTES` — the notes folder and the bounds of the meeting-prep
+  search (defaults: `GOOGLE_DRIVE_FOLDER_ID`, 3 days, 3 notes).
+- `SLACK_CHANNEL_<ADVISOR_KEY>` — one optional sub-channel per advisor, e.g.
+  `SLACK_CHANNEL_MEETING_PREP` or `SLACK_CHANNEL_COMPLAINT_RADAR`; an unset one
+  falls back to `SLACK_MAIN_CHANNEL`. Create them all with
+  `python -m ai_assistant.integrations.slack_setup --apply`.
 
 To activate the **Gün Başı Operasyon Brifingi** in the cloud, do the one-time
 local Google login once and add the three secrets it names:
@@ -518,7 +588,9 @@ Any secret you omit falls back to its default (or leaves that advisor/notifier
 │   │   ├── _llm_base.py           # shared LLM persona base + rich guide
 │   │   ├── _batch.py              # one batched LLM call for the whole team
 │   │   ├── _rss.py                # shared RSS/Atom fetch + parse helper
-│   │   ├── weather.py             # Open-Meteo meteorologist (no key)
+│   │   ├── meeting_prep.py        # Calendar + Drive meeting prep note (private)
+│   │   ├── complaint_radar.py     # sector complaint & reputation radar
+│   │   ├── weather.py             # RETIRED (kept on disk for rollback)
 │   │   ├── leadership_coach.py
 │   │   ├── kids_development.py
 │   │   ├── career_hr.py
@@ -532,7 +604,7 @@ Any secret you omit falls back to its default (or leaves that advisor/notifier
 │   │   ├── accountability_coach.py# consolidates + chases the daily tasks
 │   │   ├── daily_ops_briefing.py  # Gmail + Calendar morning briefing
 │   │   ├── language_coach.py      # business English & executive presence
-│   │   └── anka_bridge.py         # generic HTTP connector to "Anka"
+│   │   └── anka_bridge.py         # RETIRED (kept on disk for rollback)
 │   ├── memory.py                  # findings ledger (dedup across runs)
 │   ├── notifiers/
 │   │   ├── __init__.py
@@ -553,6 +625,8 @@ Any secret you omit falls back to its default (or leaves that advisor/notifier
     ├── test_google_auth.py
     ├── test_advisors.py
     ├── test_new_advisors.py
+    ├── test_meeting_prep.py        # calendar/Drive stubs, every skip path
+    ├── test_complaint_radar.py     # feed merge, dedup, non-LLM fallback
     ├── test_batch.py
     ├── test_operations_manager.py
     ├── test_status_report.py

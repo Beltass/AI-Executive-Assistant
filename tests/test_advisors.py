@@ -73,16 +73,20 @@ def no_config(monkeypatch):
 #: The roster after the 20 -> 10 consolidation, plus the two analysis-engine
 #: personas (data analyst, operations director) and the SRE watchdog, in
 #: registration order.
+#:
+#: PHASE 1C: ``weather`` and ``anka_bridge`` left the live roster (their modules
+#: stay on disk, and the tests below still exercise them directly), and
+#: ``meeting_prep`` + ``complaint_radar`` joined it — so the count is unchanged.
 EXPECTED_ADVISOR_KEYS = [
-    "weather",
     "morning_operations",
     "communications_calendar",
+    "meeting_prep",
     "career_development",
     "market_intelligence",
+    "complaint_radar",
     "data_analyst",
     "ai_innovation",
     "kids_development",
-    "anka_bridge",
     "executive_coaching",
     "work_analyst",
     "operations_director",
@@ -192,9 +196,10 @@ def test_anka_bridge_skipped_without_url(no_config):
 
 
 # --- Built-in defaults: the whole team is active out of the box -------------
-# ``config.DEFAULT_SETTINGS`` pre-fills the NON-SECRET settings, so weather,
-# job scout, sector intel and the news feeds all produce content without any
-# manual configuration — while a missing LLM key still means ``skipped``.
+# ``config.DEFAULT_SETTINGS`` pre-fills the NON-SECRET settings, so the job
+# scout, the sector intel desk, the complaint radar and the news feeds all
+# produce content without any manual configuration — while a missing LLM key
+# still means ``skipped``.
 
 
 @pytest.fixture()
@@ -206,7 +211,6 @@ def defaults_only(monkeypatch):
 
 
 def test_defaults_activate_the_whole_team(defaults_only):
-    assert config.setting("WEATHER_CITY") == "Istanbul"
     assert config.setting("USER_SECTOR") == "banka çağrı merkezleri"
     assert "çağrı merkezi müdürü" in config.setting("JOB_KEYWORDS")
     assert config.setting("JOB_LOCATION") == "İstanbul"
@@ -219,18 +223,24 @@ def test_defaults_activate_the_whole_team(defaults_only):
     assert config.setting("BANKING_NEWS_RSS_URL").startswith(
         "https://news.google.com/rss/search?q="
     )
+    assert config.setting("COMPLAINT_RADAR_RSS_URL").startswith(
+        "https://news.google.com/rss/search?q="
+    )
+    assert config.setting("COMPLAINT_RADAR_SECTOR_RSS_URL").startswith(
+        "https://news.google.com/rss/search?q="
+    )
     assert config.setting("ACCOUNTABILITY_STATE_FILE").endswith(".json")
 
 
 def test_env_var_overrides_the_default(monkeypatch, defaults_only):
-    monkeypatch.setenv("WEATHER_CITY", "Ankara")
-    assert config.setting("WEATHER_CITY") == "Ankara"
+    monkeypatch.setenv("USER_SECTOR", "sigortacılık")
+    assert config.setting("USER_SECTOR") == "sigortacılık"
 
 
 def test_blank_env_var_falls_back_to_the_default(monkeypatch, defaults_only):
     # GitHub Actions expands an unset secret to an empty string.
-    monkeypatch.setenv("WEATHER_CITY", "   ")
-    assert config.setting("WEATHER_CITY") == "Istanbul"
+    monkeypatch.setenv("USER_SECTOR", "   ")
+    assert config.setting("USER_SECTOR") == "banka çağrı merkezleri"
 
 
 def test_anka_bridge_has_no_default_endpoint(defaults_only):
@@ -241,7 +251,14 @@ def test_anka_bridge_has_no_default_endpoint(defaults_only):
     assert briefing.status == STATUS_SKIPPED
 
 
-def test_weather_runs_with_the_default_city(monkeypatch, defaults_only):
+def test_weather_runs_with_an_explicit_city(monkeypatch, defaults_only):
+    """The retired weather advisor still works — but only when a city is given.
+
+    ``WEATHER_CITY`` lost its built-in default with the advisor's retirement,
+    so the module (kept for rollback) is exercised with an explicit setting.
+    """
+    monkeypatch.setenv("WEATHER_CITY", "Istanbul")
+
     from ai_assistant.advisors import weather as weather_module
 
     calls = []

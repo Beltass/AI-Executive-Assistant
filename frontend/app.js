@@ -94,7 +94,7 @@
       emoji: "👥",
       color: "#7ED321",
       description_tr: "Takım performansı, kariyer gelişimi ve insan kaynakları",
-      categories: ["kariyer", "kişisel-gelişim", "aile", "liderlik"]
+      categories: ["kişisel gelişim", "kişisel-gelişim", "liderlik"]
     },
     "marketing-sales": {
       id: "marketing-sales",
@@ -103,7 +103,7 @@
       emoji: "💼",
       color: "#F5A623",
       description_tr: "Müşteri içgörüleri, pazar fırsatları ve satış analizi",
-      categories: ["müşteri", "pazarlama", "satış"]
+      categories: ["sektör", "müşteri", "pazarlama", "satış"]
     },
     "innovation-tech": {
       id: "innovation-tech",
@@ -130,7 +130,7 @@
       emoji: "📚",
       color: "#1ABC9C",
       description_tr: "Kariyer yolları, öğrenme kaynakları ve beceri gelişimi",
-      categories: ["eğitim", "bilgi", "kişisel-gelişim", "kariyer"]
+      categories: ["kariyer", "eğitim", "bilgi"]
     },
     "personal-family": {
       id: "personal-family",
@@ -139,109 +139,160 @@
       emoji: "🏠",
       color: "#34495E",
       description_tr: "Kişisel sağlık, aile konuları ve yaşam tarzı",
-      categories: ["kişisel", "aile", "sağlık", "çevre"]
+      categories: ["aile", "kişisel", "sağlık", "çevre"]
     }
   };
 
+  /* The live advisor roster, grouped by konu (topic) and uzmanlık (expertise).
+   *
+   * `advisor_id`, `name_tr`, `emoji` and `category` mirror ADVISOR_META in
+   * ai_assistant/status_report.py — that module is the source of truth, so a
+   * new advisor there needs one new entry here and nothing else. `topic` is
+   * the TOPICS key this expertise is filed under in the "Konuya göre" view.
+   */
   var EXPERTISE_AREAS = {
-    "data-analyst": {
-      id: "data-analyst",
-      name_tr: "Veri Analisti",
-      name_en: "Data Analyst",
-      emoji: "📊",
-      advisor_id: "data_analyst",
+    /* -- İş Analitikleri ------------------------------------------------- */
+    "morning-operations": {
+      id: "morning-operations",
+      name_tr: "Sabah İşletme Brifingi",
+      name_en: "Morning Operations Briefing",
+      emoji: "📋",
+      advisor_id: "morning_operations",
       color: "#4A90E2",
-      category: "business-analytics"
+      category: "operasyon",
+      topic: "business-analytics"
     },
     "operations-director": {
       id: "operations-director",
-      name_tr: "Operasyon Müdürü",
+      name_tr: "Operasyon Direktörü (Günün Kararları)",
       name_en: "Operations Director",
-      emoji: "👔",
-      advisor_id: "morning_operations",
-      color: "#34495E",
-      category: "business-analytics"
+      emoji: "🚦",
+      advisor_id: "operations_director",
+      color: "#4A90E2",
+      category: "operasyon",
+      topic: "business-analytics"
     },
-    "email-analyst": {
-      id: "email-analyst",
-      name_tr: "E-Posta Analisti",
-      name_en: "Email Analyst",
-      emoji: "📧",
-      advisor_id: "email_analyst",
-      color: "#E74C3C",
-      category: "communications"
+    "data-analyst": {
+      id: "data-analyst",
+      name_tr: "Veri Analisti (Çağrı Merkezi Operasyonu)",
+      name_en: "Data Analyst",
+      emoji: "🔬",
+      advisor_id: "data_analyst",
+      color: "#4A90E2",
+      category: "operasyon",
+      topic: "business-analytics"
     },
     "work-analyst": {
       id: "work-analyst",
-      name_tr: "İş Analisti",
+      name_tr: "İş Analisti Danışmanı",
       name_en: "Work Analyst",
-      emoji: "📋",
+      emoji: "📈",
       advisor_id: "work_analyst",
-      color: "#9B59B6",
-      category: "business-analytics"
+      color: "#4A90E2",
+      category: "operasyon",
+      topic: "business-analytics"
     },
-    "sector-intelligence": {
-      id: "sector-intelligence",
-      name_tr: "Sektör & Rekabet",
-      name_en: "Sector Intelligence",
-      emoji: "🌐",
-      advisor_id: "sector_intel",
-      color: "#1ABC9C",
-      category: "business-analytics"
+
+    /* -- İletişim -------------------------------------------------------- */
+    "communications-calendar": {
+      id: "communications-calendar",
+      name_tr: "İletişim & Takvim Danışmanı",
+      name_en: "Communications & Calendar",
+      emoji: "📬",
+      advisor_id: "communications_calendar",
+      color: "#E74C3C",
+      category: "operasyon",
+      topic: "communications"
     },
-    "customer-experience": {
-      id: "customer-experience",
-      name_tr: "Müşteri Deneyimi",
-      name_en: "Customer Experience",
-      emoji: "🎯",
-      advisor_id: "cx_research",
+    "meeting-prep": {
+      id: "meeting-prep",
+      name_tr: "Toplantı Hazırlık & Takip",
+      name_en: "Meeting Prep & Follow-up",
+      emoji: "🗓️",
+      advisor_id: "meeting_prep",
+      color: "#E74C3C",
+      category: "operasyon",
+      topic: "communications"
+    },
+
+    /* -- Pazarlama & Satış ----------------------------------------------- */
+    "market-intelligence": {
+      id: "market-intelligence",
+      name_tr: "Pazar İstihbaratı (Sektör · YZ · CX · Bankacılık)",
+      name_en: "Market Intelligence",
+      emoji: "📊",
+      advisor_id: "market_intelligence",
       color: "#F5A623",
-      category: "marketing-sales"
+      category: "sektör",
+      topic: "marketing-sales"
     },
+    "complaint-radar": {
+      id: "complaint-radar",
+      name_tr: "Müşteri Şikayet & İtibar Radarı",
+      name_en: "Complaint & Reputation Radar",
+      emoji: "📣",
+      advisor_id: "complaint_radar",
+      color: "#F5A623",
+      category: "sektör",
+      topic: "marketing-sales"
+    },
+
+    /* -- İnovasyon ------------------------------------------------------- */
     "ai-innovation": {
       id: "ai-innovation",
-      name_tr: "Yapay Zeka İnovasyon",
-      name_en: "AI Innovation",
-      emoji: "💡",
+      name_tr: "Yapay Zeka & İnovasyon (Ustalaşma · Fikirler)",
+      name_en: "AI & Innovation",
+      emoji: "🧠",
       advisor_id: "ai_innovation",
-      color: "#7ED321",
-      category: "innovation-tech"
-    },
-    "career-hr": {
-      id: "career-hr",
-      name_tr: "Kariyer & İK",
-      name_en: "Career & HR",
-      emoji: "🎓",
-      advisor_id: "career_hr",
-      color: "#F1C40F",
-      category: "human-resources"
-    },
-    "communications": {
-      id: "communications-expert",
-      name_tr: "İletişim",
-      name_en: "Communications",
-      emoji: "🎤",
-      advisor_id: "communications",
-      color: "#E91E63",
-      category: "communications"
-    },
-    "learning-resources": {
-      id: "learning-resources",
-      name_tr: "Öğrenme Kaynakları",
-      name_en: "Learning Resources",
-      emoji: "📚",
-      advisor_id: "free_certs",
-      color: "#00BCD4",
-      category: "learning-development"
-    },
-    "personal-development": {
-      id: "personal-development",
-      name_tr: "Kişisel Gelişim",
-      name_en: "Personal Development",
-      emoji: "🏋️",
-      advisor_id: "language_coach",
       color: "#9B59B6",
-      category: "human-resources"
+      category: "kişisel gelişim",
+      topic: "innovation-tech"
+    },
+    "sre-watchdog": {
+      id: "sre-watchdog",
+      name_tr: "Teknik Gözetim (7/24 SRE)",
+      name_en: "SRE Watchdog",
+      emoji: "🛡️",
+      advisor_id: "sre_watchdog",
+      color: "#9B59B6",
+      category: "operasyon",
+      topic: "innovation-tech"
+    },
+
+    /* -- Gelişim --------------------------------------------------------- */
+    "career-development": {
+      id: "career-development",
+      name_tr: "Kariyer Gelişimi (İK · İlanlar · İngilizce · Sertifika)",
+      name_en: "Career Development",
+      emoji: "💼",
+      advisor_id: "career_development",
+      color: "#1ABC9C",
+      category: "kariyer",
+      topic: "learning-development"
+    },
+
+    /* -- İnsan Kaynakları ------------------------------------------------ */
+    "executive-coaching": {
+      id: "executive-coaching",
+      name_tr: "Yönetici Koçu (Gelişim + Hesap Verebilirlik)",
+      name_en: "Executive Coaching",
+      emoji: "🧭",
+      advisor_id: "executive_coaching",
+      color: "#7ED321",
+      category: "kişisel gelişim",
+      topic: "human-resources"
+    },
+
+    /* -- Kişisel & Aile -------------------------------------------------- */
+    "kids-development": {
+      id: "kids-development",
+      name_tr: "Çocuk Gelişimi Danışmanı",
+      name_en: "Kids Development",
+      emoji: "👨‍👩‍👧",
+      advisor_id: "kids_development",
+      color: "#34495E",
+      category: "aile",
+      topic: "personal-family"
     }
   };
 
@@ -254,6 +305,7 @@
     docs: {}, // "date/id" -> document
     category: "*",
     search: "",
+    grouping: "list", // İçerik tab: "list" | "topic" | "expertise"
     lastFetch: null,
     tab: DEFAULT_TAB,
     route: { name: "tab", tab: DEFAULT_TAB },
@@ -266,9 +318,21 @@
   /* report organization helpers                                           */
   /* ====================================================================== */
 
-  /** Find topic for a report based on its category. */
+  /** Find topic for a report: its advisor's own filing, else its category.
+   *
+   * The advisor lookup comes first because the backend category is coarse —
+   * seven of the thirteen advisors are filed under `operasyon` — so the
+   * per-advisor `topic` is the only thing that can tell the calendar
+   * assistant apart from the operations director. Archived reports from
+   * retired advisors have no entry here and fall back to the category match.
+   */
   function getReportTopic(report) {
-    if (!report || !report.category) return "business-analytics"; // default
+    if (!report) return "business-analytics"; // default
+    var expertiseKey = getReportExpertise(report);
+    if (expertiseKey && TOPICS[EXPERTISE_AREAS[expertiseKey].topic]) {
+      return EXPERTISE_AREAS[expertiseKey].topic;
+    }
+    if (!report.category) return "business-analytics";
     for (var topicKey in TOPICS) {
       var topic = TOPICS[topicKey];
       if (topic.categories.indexOf(report.category) !== -1) {
@@ -1044,136 +1108,171 @@
     return haystack.indexOf(query) !== -1;
   }
 
-  function renderReportsList() {
-    var host = $(“report-grid”);
-    host.innerHTML = “”;
+  /* The İçerik tab files the SAME report set three ways — flat list, konuya
+   * göre, uzmanlığa göre — and the user picks with the chips above the grid.
+   * `state.grouping` holds that choice; `renderReports` is the only entry
+   * point the rest of the app calls. */
+  var GROUPINGS = ["list", "topic", "expertise"];
+
+  /* Everything the three views share: pick the newest day, apply the search
+   * box, update the note and the tab badge. Returns null when there is
+   * nothing to draw (no reports at all, or the search matched none) after
+   * putting the right message on screen, so each renderer starts with a
+   * guard and then only worries about layout. */
+  function reportsPreamble() {
     var day = state.days[latestDay()];
     var entries = day && Array.isArray(day.reports) ? day.reports : [];
-    var query = state.search.trim().toLocaleLowerCase(“tr”);
-    var visible = entries.filter(function (entry) {
-      return matchesSearch(entry, query);
-    });
 
     if (!entries.length) {
       text(
-        $(“reports-note”),
-        “Bu çalıştırmada yayınlanmış rapor yok. Tam brifing İstanbul saatiyle “ +
-          “10:00'da hazırlanır.”
+        $("reports-note"),
+        "Bu çalıştırmada yayınlanmış rapor yok. Tam brifing İstanbul saatiyle " +
+          "10:00'da hazırlanır."
       );
-      show($(“reports-empty”), true);
-      $(“reports-empty”).textContent = “Henüz yayınlanmış rapor yok.”;
-      return;
+      show($("reports-empty"), true);
+      $("reports-empty").textContent = "Henüz yayınlanmış rapor yok.";
+      return null;
     }
 
     var isToday = day.date === todayIso();
     text(
-      $(“reports-note”),
-      (isToday ? “Bugünün brifingi” : prettyDate(day.date) + “ brifingi”) +
-        “ · “ + entries.length + “ rapor” +
-        (day.generated_at_istanbul ? “ · “ + day.generated_at_istanbul + “ (İstanbul)” : “”)
+      $("reports-note"),
+      (isToday ? "Bugünün brifingi" : prettyDate(day.date) + " brifingi") +
+        " · " + entries.length + " rapor" +
+        (day.generated_at_istanbul ? " · " + day.generated_at_istanbul + " (İstanbul)" : "")
     );
 
-    if (!visible.length) {
-      show($(“reports-empty”), true);
-      $(“reports-empty”).textContent =
-        “”” + state.search + “” için rapor bulunamadı.”;
-      return;
-    }
-    show($(“reports-empty”), false);
-
-    // Default list view — no topic/expertise grouping, just cards
-    visible.forEach(function (entry) {
-      host.appendChild(reportCard(entry, day.date));
-    });
-
-    var badge = $(“badge-icerik”);
+    var badge = $("badge-icerik");
     badge.hidden = false;
-    badge.className = “tab__badge”;
+    badge.className = "tab__badge";
     badge.textContent = String(entries.length);
-  }
 
-  /** Render reports organized by topic. */
-  function renderReportsByTopic() {
-    var host = $(“report-grid”);
-    host.innerHTML = “”;
-    var day = state.days[latestDay()];
-    var entries = day && Array.isArray(day.reports) ? day.reports : [];
-    var query = state.search.trim().toLocaleLowerCase(“tr”);
+    var query = state.search.trim().toLocaleLowerCase("tr");
     var visible = entries.filter(function (entry) {
       return matchesSearch(entry, query);
     });
 
     if (!visible.length) {
-      show($(“reports-empty”), true);
-      $(“reports-empty”).textContent =
-        “”” + state.search + “” için rapor bulunamadı.”;
-      return;
+      show($("reports-empty"), true);
+      $("reports-empty").textContent =
+        "“" + state.search + "” için rapor bulunamadı.";
+      return null;
     }
-    show($(“reports-empty”), false);
+    show($("reports-empty"), false);
+    return { day: day, visible: visible };
+  }
 
-    var groups = groupByTopic(visible);
+  /** One grouped block: emoji heading, optional description, card grid. */
+  function reportSection(group, reports, date) {
+    var section = make("div", "report-section");
+
+    var heading = make("h3", "report-section__heading");
+    var emoji = make("span", "report-section__emoji", group.emoji || "📄");
+    emoji.setAttribute("aria-hidden", "true");
+    heading.appendChild(emoji);
+    heading.appendChild(make("span", null, group.name_tr));
+    heading.appendChild(make("span", "report-section__count", String(reports.length)));
+    section.appendChild(heading);
+
+    if (group.description_tr) {
+      section.appendChild(
+        make("p", "report-section__description", group.description_tr)
+      );
+    }
+
+    var grid = make("div", "report-subsection-grid");
+    reports.forEach(function (entry) {
+      grid.appendChild(reportCard(entry, date));
+    });
+    section.appendChild(grid);
+    return section;
+  }
+
+  /** Flat list — every published report as a card, newest day first. */
+  function renderReportsList() {
+    var host = $("report-grid");
+    host.innerHTML = "";
+    host.className = "grid";
+    var view = reportsPreamble();
+    if (!view) return;
+
+    view.visible.forEach(function (entry) {
+      host.appendChild(reportCard(entry, view.day.date));
+    });
+  }
+
+  /** Render reports organized by topic (konu). */
+  function renderReportsByTopic() {
+    var host = $("report-grid");
+    host.innerHTML = "";
+    host.className = "stack stack--tight";
+    var view = reportsPreamble();
+    if (!view) return;
+
+    var groups = groupByTopic(view.visible);
     Object.keys(TOPICS).forEach(function (topicKey) {
-      var topic = TOPICS[topicKey];
       var reports = groups[topicKey];
       if (!reports.length) return;
-
-      var section = make(“div”, “report-section”);
-      var heading = make(“h2”, “report-section__heading”);
-      heading.appendChild(make(“span”, “report-section__emoji”, topic.emoji));
-      heading.appendChild(make(“span”, null, topic.name_tr));
-      section.appendChild(heading);
-
-      if (topic.description_tr) {
-        section.appendChild(make(“p”, “report-section__description”, topic.description_tr));
-      }
-
-      var grid = make(“div”, “report-subsection-grid”);
-      reports.forEach(function (entry) {
-        grid.appendChild(reportCard(entry, day.date));
-      });
-      section.appendChild(grid);
-      host.appendChild(section);
+      host.appendChild(reportSection(TOPICS[topicKey], reports, view.day.date));
     });
   }
 
-  /** Render reports organized by expertise. */
+  /** Render reports organized by expertise (uzmanlık). */
   function renderReportsByExpertise() {
-    var host = $(“report-grid”);
-    host.innerHTML = “”;
-    var day = state.days[latestDay()];
-    var entries = day && Array.isArray(day.reports) ? day.reports : [];
-    var query = state.search.trim().toLocaleLowerCase(“tr”);
-    var visible = entries.filter(function (entry) {
-      return matchesSearch(entry, query);
-    });
+    var host = $("report-grid");
+    host.innerHTML = "";
+    host.className = "stack stack--tight";
+    var view = reportsPreamble();
+    if (!view) return;
 
-    if (!visible.length) {
-      show($(“reports-empty”), true);
-      $(“reports-empty”).textContent =
-        “”” + state.search + “” için rapor bulunamadı.”;
-      return;
-    }
-    show($(“reports-empty”), false);
-
-    var groups = groupByExpertise(visible);
+    var groups = groupByExpertise(view.visible);
     Object.keys(EXPERTISE_AREAS).forEach(function (expertiseKey) {
-      var expertise = EXPERTISE_AREAS[expertiseKey];
       var reports = groups[expertiseKey];
       if (!reports.length) return;
-
-      var section = make(“div”, “report-section”);
-      var heading = make(“h2”, “report-section__heading”);
-      heading.appendChild(make(“span”, “report-section__emoji”, expertise.emoji));
-      heading.appendChild(make(“span”, null, expertise.name_tr));
-      section.appendChild(heading);
-
-      var grid = make(“div”, “report-subsection-grid”);
-      reports.forEach(function (entry) {
-        grid.appendChild(reportCard(entry, day.date));
-      });
-      section.appendChild(grid);
-      host.appendChild(section);
+      host.appendChild(
+        reportSection(EXPERTISE_AREAS[expertiseKey], reports, view.day.date)
+      );
     });
+
+    // An archived report from a retired advisor has no expertise entry, so it
+    // would silently vanish from this view. Give it its own trailing block.
+    var orphans = view.visible.filter(function (entry) {
+      return !getReportExpertise(entry);
+    });
+    if (orphans.length) {
+      host.appendChild(
+        reportSection(
+          { emoji: "🗂️", name_tr: "Diğer (arşivdeki eski danışmanlar)" },
+          orphans,
+          view.day.date
+        )
+      );
+    }
+  }
+
+  /** Keep the grouping chips in sync with `state.grouping`. */
+  function renderGroupingChips() {
+    var host = $("report-grouping");
+    if (!host) return;
+    var buttons = host.querySelectorAll("[data-group]");
+    for (var i = 0; i < buttons.length; i++) {
+      buttons[i].setAttribute(
+        "aria-pressed",
+        buttons[i].getAttribute("data-group") === state.grouping ? "true" : "false"
+      );
+    }
+  }
+
+  /** The İçerik tab's single render entry point — honours `state.grouping`. */
+  function renderReports() {
+    renderGroupingChips();
+    if (state.grouping === "topic") {
+      renderReportsByTopic();
+    } else if (state.grouping === "expertise") {
+      renderReportsByExpertise();
+    } else {
+      renderReportsList();
+    }
   }
 
   function renderArchive() {
@@ -1572,14 +1671,14 @@
     return loadArchive().then(function () {
       var date = latestDay();
       if (!date) {
-        renderReportsList();
+        renderReports();
         renderIdeas();
         return null;
       }
       // Always re-read the newest day: an incremental run adds to it.
       delete state.days[date];
       return loadDay(date).then(function (day) {
-        renderReportsList();
+        renderReports();
         renderIdeas();
         return day;
       });
@@ -2873,7 +2972,20 @@
 
     $("report-search").addEventListener("input", function (event) {
       state.search = event.target.value || "";
-      renderReportsList();
+      renderReports();
+    });
+
+    // Grouping chips: flat list / konuya göre / uzmanlığa göre. The markup is
+    // static in index.html, so one delegated listener covers all three.
+    $("report-grouping").addEventListener("click", function (event) {
+      var button = event.target.closest
+        ? event.target.closest("[data-group]")
+        : null;
+      if (!button) return;
+      var grouping = button.getAttribute("data-group");
+      if (GROUPINGS.indexOf(grouping) === -1 || grouping === state.grouping) return;
+      state.grouping = grouping;
+      renderReports();
     });
 
     // The browser's own print dialog is the PDF export: `@media print` in

@@ -67,8 +67,6 @@ jobs:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          ANKA_WEBHOOK_URL: ${{ secrets.ANKA_WEBHOOK_URL }}
-          ANKA_API_KEY: ${{ secrets.ANKA_API_KEY }}
         run: |
           set -e
           echo "Sohbet kanalı yoklaması başlanıyor..."

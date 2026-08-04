@@ -370,6 +370,19 @@
               autocomplete="off"
               style="margin: var(--s3) 0"
             />
+            <!-- The same report set, filed three ways. `data-group` maps 1:1
+                 onto the render functions in app.js; the pressed chip is
+                 whatever `state.grouping` holds. -->
+            <div
+              class="chips report-grouping"
+              id="report-grouping"
+              role="group"
+              aria-label="Raporları grupla"
+            >
+              <button class="chip" type="button" data-group="list" aria-pressed="true">📄 Liste</button>
+              <button class="chip" type="button" data-group="topic" aria-pressed="false">🗂️ Konuya göre</button>
+              <button class="chip" type="button" data-group="expertise" aria-pressed="false">🎓 Uzmanlığa göre</button>
+            </div>
             <div class="grid" id="report-grid"></div>
             <p class="chart-empty" id="reports-empty" hidden>Henüz yayınlanmış rapor yok.</p>
           </section>

@@ -85,11 +85,6 @@ CATEGORY_GROWTH = "kişisel gelişim"
 CATEGORY_OPS = "operasyon"
 
 ADVISOR_META: Dict[str, Dict[str, str]] = {
-    "weather": {
-        "title": "Hava Durumu Meteoroloğu",
-        "emoji": "🌤️",
-        "category": CATEGORY_OPS,
-    },
     "morning_operations": {
         "title": "Sabah İşletme Brifingi",
         "emoji": "📋",
@@ -100,6 +95,11 @@ ADVISOR_META: Dict[str, Dict[str, str]] = {
         "emoji": "📬",
         "category": CATEGORY_OPS,
     },
+    "meeting_prep": {
+        "title": "Toplantı Hazırlık & Takip",
+        "emoji": "🗓️",
+        "category": CATEGORY_OPS,
+    },
     "career_development": {
         "title": "Kariyer Gelişimi (İK · İlanlar · İngilizce · Sertifika)",
         "emoji": "💼",
@@ -108,6 +108,11 @@ ADVISOR_META: Dict[str, Dict[str, str]] = {
     "market_intelligence": {
         "title": "Pazar İstihbaratı (Sektör · YZ · CX · Bankacılık)",
         "emoji": "📊",
+        "category": CATEGORY_SECTOR,
+    },
+    "complaint_radar": {
+        "title": "Müşteri Şikayet & İtibar Radarı",
+        "emoji": "📣",
         "category": CATEGORY_SECTOR,
     },
     "data_analyst": {
@@ -124,11 +129,6 @@ ADVISOR_META: Dict[str, Dict[str, str]] = {
         "title": "Çocuk Gelişimi Danışmanı",
         "emoji": "👨‍👩‍👧",
         "category": CATEGORY_FAMILY,
-    },
-    "anka_bridge": {
-        "title": "Anka Köprüsü",
-        "emoji": "🕊️",
-        "category": CATEGORY_OPS,
     },
     "executive_coaching": {
         "title": "Yönetici Koçu (Gelişim + Hesap Verebilirlik)",

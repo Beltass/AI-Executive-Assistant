@@ -940,6 +940,67 @@ button {
   color: var(--text-3);
 }
 
+/* --- grouped report sections (konuya / uzmanlığa göre) -------------------- */
+
+/* The grouping chips sit between the search box and the grid. */
+.report-grouping {
+  margin-bottom: var(--s3);
+}
+
+/* In a grouped view #report-grid is a `.stack`, and each group is one of
+   these blocks: heading, optional description, then its own card grid. */
+.report-section {
+  display: grid;
+  gap: var(--s3);
+  padding-top: var(--s3);
+  border-top: 1px solid var(--border);
+}
+
+.report-section:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.report-section__heading {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  font-size: var(--t-lg);
+  font-weight: 650;
+}
+
+.report-section__emoji {
+  font-size: 1.25rem;
+}
+
+.report-section__count {
+  display: inline-block;
+  padding: 1px var(--s2);
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  color: var(--text-3);
+  font-size: var(--t-xs);
+  font-weight: 600;
+}
+
+.report-section__description {
+  margin-top: calc(var(--s3) * -1 + var(--s1));
+  font-size: var(--t-sm);
+  color: var(--text-3);
+}
+
+.report-subsection-grid {
+  display: grid;
+  gap: var(--s3);
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 620px) {
+  .report-subsection-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 /* --- archive rows --------------------------------------------------------- */
 
 .archive-list {

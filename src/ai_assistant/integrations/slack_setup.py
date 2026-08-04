@@ -7,7 +7,7 @@ per advisor:
   its headline and the links;
 * ``SLACK_CHANNEL_<ADVISOR_KEY>`` receives that advisor's own section in full.
 
-Creating thirteen channels by hand, copying thirteen channel ids out of the
+Creating fourteen channels by hand, copying fourteen channel ids out of the
 Slack UI and pasting them into ``.env`` without a typo is exactly the kind of task
 that should not be done by hand. This module does it::
 
@@ -36,7 +36,7 @@ Scopes*:
 * ``channels:join``  — add the bot itself to a channel it did not create
 * ``chat:write``     — post the daily messages (used by the notifier, not here)
 * ``groups:read`` + ``groups:write`` — ONLY if you keep the private channels
-  (the six advisors that handle personal or operational data default to
+  (the eight advisors that handle personal or operational data default to
   private; pass ``--all-public`` to opt out)
 
 After adding scopes you must REINSTALL the app to the workspace, or the token
@@ -90,11 +90,10 @@ class ChannelSpec:
 
 #: The fourteen channels: one main room plus one per advisor of the roster.
 #:
-#: The seven advisors that read the user's own mail, calendar, backlog,
-#: operation data, coaching notes and the system's own internals default to
-#: PRIVATE channels — the same content the
-#: dashboard refuses to publish (see
-#: ``ai_assistant.reports.PRIVATE_ADVISOR_KEYS``).
+#: The eight advisors that read the user's own mail, calendar, meeting notes,
+#: backlog, operation data, coaching notes and the system's own internals
+#: default to PRIVATE channels — the same content the dashboard refuses to
+#: publish (see ``ai_assistant.reports.PRIVATE_ADVISOR_KEYS``).
 MAIN_CHANNEL = ChannelSpec(
     env_key=MAIN_CHANNEL_ENV,
     name="ai-asistan-genel",
@@ -108,17 +107,6 @@ MAIN_CHANNEL = ChannelSpec(
 )
 
 ADVISOR_CHANNELS: Tuple[ChannelSpec, ...] = (
-    ChannelSpec(
-        env_key=advisor_channel_env("weather"),
-        name="ai-hava-durumu",
-        label="Hava Durumu Meteoroloğu",
-        purpose=(
-            "Hava Durumu Meteoroloğu ajanının kanalı. Günün hava tahmini, "
-            "giyim ve yol önerileri."
-        ),
-        topic="🌤️ Günlük hava tahmini ve güne hazırlık",
-        advisor_key="weather",
-    ),
     ChannelSpec(
         env_key=advisor_channel_env("morning_operations"),
         name="ai-sabah-operasyon",
@@ -144,6 +132,20 @@ ADVISOR_CHANNELS: Tuple[ChannelSpec, ...] = (
         advisor_key="communications_calendar",
     ),
     ChannelSpec(
+        env_key=advisor_channel_env("meeting_prep"),
+        name="ai-toplanti-hazirlik",
+        label="Toplantı Hazırlık & Takip",
+        purpose=(
+            "Toplantı Hazırlık & Takip ajanının kanalı. Yaklaşan toplantı "
+            "öncesi hazırlık notu: geçen sefer ne konuşuldu, kimin üstünde ne "
+            "kaldı, bu sefer gündem ne olsun. TAKVİM VE DOKÜMAN İÇERİĞİ "
+            "taşır; panoya yazılmaz."
+        ),
+        topic="🗓️ Toplantı öncesi hazırlık ve aksiyon takibi · 🔒 kişisel",
+        private=True,
+        advisor_key="meeting_prep",
+    ),
+    ChannelSpec(
         env_key=advisor_channel_env("career_development"),
         name="ai-kariyer-gelisim",
         label="Kariyer Gelişimi",
@@ -164,6 +166,18 @@ ADVISOR_CHANNELS: Tuple[ChannelSpec, ...] = (
         ),
         topic="📊 Sektör · YZ gündemi · CX · bankacılık",
         advisor_key="market_intelligence",
+    ),
+    ChannelSpec(
+        env_key=advisor_channel_env("complaint_radar"),
+        name="ai-sikayet-radari",
+        label="Müşteri Şikayet & İtibar Radarı",
+        purpose=(
+            "Müşteri Şikayet & İtibar Radarı ajanının kanalı. Sektördeki "
+            "şikâyet gündemi, temalara göre gruplama, kurumların çözüm "
+            "yaklaşımı, hacim değişimi ve rakip kıyası."
+        ),
+        topic="📣 Şikâyet temaları · hacim · rakip kıyası",
+        advisor_key="complaint_radar",
     ),
     ChannelSpec(
         env_key=advisor_channel_env("data_analyst"),
@@ -201,17 +215,6 @@ ADVISOR_CHANNELS: Tuple[ChannelSpec, ...] = (
         ),
         topic="👨‍👩‍👧 Çocuklarla bugün ne yapılır",
         advisor_key="kids_development",
-    ),
-    ChannelSpec(
-        env_key=advisor_channel_env("anka_bridge"),
-        name="ai-anka-koprusu",
-        label="Anka Köprüsü",
-        purpose=(
-            "Anka Köprüsü ajanının kanalı. Anka tarafındaki gelişmelerin "
-            "günlük köprü özeti."
-        ),
-        topic="🕊️ Anka köprüsü günlük not",
-        advisor_key="anka_bridge",
     ),
     ChannelSpec(
         env_key=advisor_channel_env("executive_coaching"),
@@ -290,7 +293,7 @@ def all_specs(prefix: str = "", all_public: bool = False) -> List[ChannelSpec]:
 
     Args:
         prefix: Replaces the default ``ai-`` name prefix, e.g. ``asistan-``.
-        all_public: Create the four personal-data channels as public too.
+        all_public: Create the eight personal-data channels as public too.
     """
     specs = [MAIN_CHANNEL, *ADVISOR_CHANNELS]
     out: List[ChannelSpec] = []
@@ -782,7 +785,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--all-public",
         action="store_true",
         help=(
-            "Kişisel veri taşıyan dört kanalı da herkese açık oluştur "
+            "Kişisel veri taşıyan sekiz kanalı da herkese açık oluştur "
             "(varsayılan: özel)."
         ),
     )

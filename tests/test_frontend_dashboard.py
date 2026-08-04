@@ -735,3 +735,45 @@ def test_the_table_builder_produces_a_real_table_with_a_caption():
     assert tags.count("tr") == 3  # header + two rows
     assert "caption" in tags
     assert any(n["cls"] == "visually-hidden" for n in nodes)
+
+
+# --- the files actually parse ----------------------------------------------
+#
+# Every test above reads app.js as TEXT, so a file that node refuses to parse
+# still passes all of them while the dashboard renders nothing at all. This is
+# not hypothetical: a round of "smart quotes" once turned ~40 lines of
+# `$("report-grid")` into `$(“report-grid”)`, which is a SyntaxError at load.
+# These two tests hand the real files to a real parser.
+
+
+@node_only
+@pytest.mark.parametrize("script", ["app.js", "charts.js"], ids=["app", "charts"])
+def test_the_shipped_javascript_parses(script):
+    """`node --check` on the real file, not a string match on its text."""
+    result = subprocess.run(
+        ["node", "--check", str(FRONTEND / script)],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, (
+        f"frontend/{script} does not parse:\n{result.stderr}"
+    )
+
+
+@node_only
+def test_no_typographic_quote_sits_in_javascript_syntax_position(app):
+    """U+201C/U+201D are fine INSIDE a Turkish string, fatal as a delimiter.
+
+    `node --check` is the real guard (a smart quote used as a delimiter is a
+    SyntaxError), so this asserts the file parses and then pins the shapes
+    that a quote-mangling editor produces, to fail with a readable message
+    rather than a parser dump.
+    """
+    result = subprocess.run(
+        ["node", "--check", str(APP)], capture_output=True, text=True
+    )
+    assert result.returncode == 0, f"frontend/app.js does not parse:\n{result.stderr}"
+
+    for pattern in (r"\$\(\s*[“”]", r"[“”]\s*\)\s*;", r"\bvar\s+\w+\s*=\s*[“”]"):
+        offenders = re.findall(pattern, app)
+        assert not offenders, f"typographic quote in syntax position: {offenders[:5]}"
