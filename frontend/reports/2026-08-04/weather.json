@@ -8,8 +8,8 @@
   "words": 40,
   "read_minutes": 1,
   "action_count": 0,
-  "generated_at": "2026-08-04T16:54:53+03:00",
-  "generated_at_istanbul": "04.08.2026 16:54",
+  "generated_at": "2026-08-04T16:58:54+03:00",
+  "generated_at_istanbul": "04.08.2026 16:58",
   "schema_version": 2,
   "date": "2026-08-04",
   "markdown": "İstanbul, İstanbul, Türkiye Cumhuriyeti için bugünkü hava durumu: gökyüzü parçalı bulutlu. Şu an hava 30°C civarında. Gün içinde sıcaklık 22°C ile 31°C arasında seyredecek. En yüksek rüzgar hızı yaklaşık 19 km/s. Bugün için dikkat gerektiren olağandışı bir hava olayı görünmüyor.",
@@ -26,11 +26,11 @@
     "advisor": "weather",
     "advisor_name": "Hava Durumu Meteoroloğu",
     "category": "operasyon",
-    "generated_at": "2026-08-04T16:54:53+03:00",
-    "generated_at_istanbul": "04.08.2026 16:54",
+    "generated_at": "2026-08-04T16:58:54+03:00",
+    "generated_at_istanbul": "04.08.2026 16:58",
     "words": 40,
     "read_minutes": 1,
-    "tokens": 27,
+    "tokens": 21,
     "tokens_estimated": true
   }
 }
