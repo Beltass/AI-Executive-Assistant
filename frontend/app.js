@@ -237,6 +237,38 @@
       topic: "marketing-sales"
     },
 
+    /* -- Kişisel Gelişim (Sosyal Medya & Kişisel) ----------------------- */
+    "linkedin-coach": {
+      id: "linkedin-coach",
+      name_tr: "LinkedIn İmaj Koçu",
+      name_en: "LinkedIn Image Coach",
+      emoji: "💼",
+      advisor_id: "linkedin_coach",
+      color: "#7ED321",
+      category: "kişisel gelişim",
+      topic: "human-resources"
+    },
+    "social-media-coach": {
+      id: "social-media-coach",
+      name_tr: "Sosyal Medya İmaj Koçu",
+      name_en: "Social Media Image Coach",
+      emoji: "📸",
+      advisor_id: "social_media_coach",
+      color: "#7ED321",
+      category: "kişisel gelişim",
+      topic: "human-resources"
+    },
+    "personal-assistant": {
+      id: "personal-assistant",
+      name_tr: "Kişisel Asistan",
+      name_en: "Personal Assistant",
+      emoji: "🤖",
+      advisor_id: "personal_assistant",
+      color: "#34495E",
+      category: "operasyon",
+      topic: "personal-family"
+    },
+
     /* -- İnovasyon ------------------------------------------------------- */
     "ai-innovation": {
       id: "ai-innovation",

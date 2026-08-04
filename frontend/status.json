@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-08-04T20:26:49+00:00",
-  "generated_at_istanbul": "04.08.2026 23:26",
+  "generated_at": "2026-08-04T23:39:00+00:00",
+  "generated_at_istanbul": "05.08.2026 02:39",
   "run": {
     "conclusion": "ok",
-    "total": 13,
+    "total": 15,
     "ok": 2,
     "failed": 0,
     "skipped": 11,
@@ -63,17 +63,6 @@
       "nothing_new": true
     },
     {
-      "id": "meeting_prep",
-      "name": "Toplantı Hazırlık & Takip",
-      "status": "skipped",
-      "content_length": 0,
-      "detail": "yeni bulgu yok",
-      "emoji": "🗓️",
-      "category": "operasyon",
-      "new_findings": 0,
-      "nothing_new": true
-    },
-    {
       "id": "career_development",
       "name": "Kariyer Gelişimi (İK · İlanlar · İngilizce · Sertifika)",
       "status": "skipped",
@@ -105,6 +94,39 @@
       "category": "sektör",
       "new_findings": 9,
       "nothing_new": false
+    },
+    {
+      "id": "linkedin_coach",
+      "name": "LinkedIn İmaj Koçu",
+      "status": "skipped",
+      "content_length": 0,
+      "detail": "yeni bulgu yok",
+      "emoji": "💼",
+      "category": "kişisel gelişim",
+      "new_findings": 0,
+      "nothing_new": true
+    },
+    {
+      "id": "social_media_coach",
+      "name": "Sosyal Medya İmaj Koçu",
+      "status": "skipped",
+      "content_length": 0,
+      "detail": "yeni bulgu yok",
+      "emoji": "📸",
+      "category": "kişisel gelişim",
+      "new_findings": 0,
+      "nothing_new": true
+    },
+    {
+      "id": "personal_assistant",
+      "name": "Kişisel Asistan",
+      "status": "skipped",
+      "content_length": 0,
+      "detail": "yeni bulgu yok",
+      "emoji": "🤖",
+      "category": "operasyon",
+      "new_findings": 0,
+      "nothing_new": true
     },
     {
       "id": "data_analyst",
