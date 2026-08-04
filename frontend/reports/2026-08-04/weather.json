@@ -1,0 +1,36 @@
+{
+  "id": "weather",
+  "name": "Hava Durumu Meteoroloğu",
+  "emoji": "🌤️",
+  "category": "operasyon",
+  "headline": "İstanbul, İstanbul, Türkiye Cumhuriyeti için bugünkü hava durumu: gökyüzü az bulutlu.",
+  "excerpt": "İstanbul, İstanbul, Türkiye Cumhuriyeti için bugünkü hava durumu: gökyüzü az bulutlu.",
+  "words": 40,
+  "read_minutes": 1,
+  "action_count": 0,
+  "generated_at": "2026-08-04T12:40:14+03:00",
+  "generated_at_istanbul": "04.08.2026 12:40",
+  "schema_version": 2,
+  "date": "2026-08-04",
+  "markdown": "İstanbul, İstanbul, Türkiye Cumhuriyeti için bugünkü hava durumu: gökyüzü az bulutlu. Şu an hava 30°C civarında. Gün içinde sıcaklık 22°C ile 31°C arasında seyredecek. En yüksek rüzgar hızı yaklaşık 19 km/s. Bugün için dikkat gerektiren olağandışı bir hava olayı görünmüyor.",
+  "key_metrics": [],
+  "sections": [
+    {
+      "title": "",
+      "body": "İstanbul, İstanbul, Türkiye Cumhuriyeti için bugünkü hava durumu: gökyüzü az bulutlu. Şu an hava 30°C civarında. Gün içinde sıcaklık 22°C ile 31°C arasında seyredecek. En yüksek rüzgar hızı yaklaşık 19 km/s. Bugün için dikkat gerektiren olağandışı bir hava olayı görünmüyor."
+    }
+  ],
+  "action_items": [],
+  "sources": [],
+  "meta": {
+    "advisor": "weather",
+    "advisor_name": "Hava Durumu Meteoroloğu",
+    "category": "operasyon",
+    "generated_at": "2026-08-04T12:40:14+03:00",
+    "generated_at_istanbul": "04.08.2026 12:40",
+    "words": 40,
+    "read_minutes": 1,
+    "tokens": 27,
+    "tokens_estimated": true
+  }
+}
