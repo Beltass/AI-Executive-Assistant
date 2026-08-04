@@ -33,5 +33,14 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
 
+      - name: Check JavaScript syntax
+        run: |
+          if [ -f frontend/app.js ]; then
+            node --check frontend/app.js
+          fi
+          if [ -f frontend/charts.js ]; then
+            node --check frontend/charts.js
+          fi
+
       - name: Run tests
         run: pytest -q
