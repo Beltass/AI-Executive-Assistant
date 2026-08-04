@@ -95,6 +95,11 @@ ADVISOR_META: Dict[str, Dict[str, str]] = {
         "emoji": "📬",
         "category": CATEGORY_OPS,
     },
+    "meeting_prep": {
+        "title": "Toplantı Hazırlık & Takip",
+        "emoji": "📝",
+        "category": CATEGORY_OPS,
+    },
     "career_development": {
         "title": "Kariyer Gelişimi (İK · İlanlar · İngilizce · Sertifika)",
         "emoji": "💼",
