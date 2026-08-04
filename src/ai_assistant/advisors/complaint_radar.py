@@ -1,27 +1,30 @@
-"""Müşteri Şikâyet & İtibar Radarı — sektörün şikâyet gündemi ve yorumu.
+"""Kapsamlı Pazar & Sentiment Analizi — dışarıdan gelen pazar sinyalleri.
 
-Bu danışman, bankaların ve finans kurumlarının müşteri şikâyet gündemini
-dışarıdan okur: hangi konu en çok konuşuluyor, kurumlar nasıl yanıt veriyor,
-hacim hangi yöne gidiyor ve rakiplerle kıyaslandığında nerede duruluyor.
-Amacı bir şikâyet LİSTESİ vermek değil, o listeyi YORUMLAMAKTIR — bir başlık
-yığını zaten şikâyet sitesinde duruyor; burada aranan "bu ne anlama geliyor,
-bizim operasyonumuza ne yapar" cevabıdır.
+Bu danışman, sektörün dışarıdan okunan tüm sinyallerini analiz eder:
+müşteri şikâyet gündemi, haber akışından pazar trendleri, rakip hamlelerinin
+yönü ve sektöre gelen tehdit/fırsat sinyalleri. Amacı bir yığın başlık vermek
+değil, o başlıkları ANLAMAKTIR ve operasyonun KPI'larına ne basınç yapacağını
+söylemektir.
 
-TEMALAR
--------
-Şikâyetler serbest metindir; okunabilir olması için :data:`COMPLAINT_THEMES`
-altındaki sabit temalara toplanır (bekleme süresi, çözümsüzlük, tekrar arama,
-ücret/komisyon, dijital kanal sorunları, iletişim dili, ürün/limit kararları,
-veri ve güvenlik). Tema listesi modelin uyduracağı bir şey değil, bu dosyada
-yazılıdır: aynı tema iki gün üst üste aynı adla anılsın diye.
+VERİ KAYNAKLARI
+---------------
+Kaynaklar RSS/web akışıdır ve :mod:`ai_assistant.advisors._rss` ile çekilir:
+  • Müşteri Şikâyeti: şikâyet platformlarının akışı
+  • Sektör Haber: finans/bankacılık sektörü haber akışı
+  • Pazar Trendleri: sektöre ilişkin ekonomi ve teknoloji haberleri
+  • Rakip İzleme: adı geçen rakiplerin haber/haml akışı
 
-BESLEMELER
-----------
-Kaynaklar RSS/web akışıdır ve :mod:`ai_assistant.advisors._rss` ile çekilir;
-tıpkı :mod:`~ai_assistant.advisors.market_intelligence` gibi birden fazla akış
-TEK havuzda birleştirilir, başlığa göre tekilleştirilir ve
+Tıpkı :mod:`~ai_assistant.advisors.market_intelligence` gibi birden fazla
+akış TEK havuzda birleştirilir, başlığa göre tekilleştirilir ve
 :mod:`ai_assistant.memory` defterinden geçirilir — böylece günün ikinci
-çalıştırması sabah anlatılan şikâyeti tekrar anlatmaz.
+çalıştırması sabah anlatılan bulguyu tekrar anlatmaz.
+
+TEMA & KATEGORILER
+------------------
+Şikâyetler :data:`COMPLAINT_THEMES` altında sabit temalara toplanır (bekleme,
+çözümsüzlük, tekrar arama, ücret, dijital kanallar, iletişim, ürün, güvenlik).
+Tema listesi modelin uyduracağı bir şey değil, bu dosyada yazılıdır: aynı
+tema iki gün üst üste aynı adla anılsın diye.
 
 Configuration (via environment):
     COMPLAINT_RADAR_RSS_URL         Ana şikâyet/itibar akışı (zorunlu değil).
