@@ -1,67 +1,67 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-08-04T13:58:54+00:00",
-  "generated_at_istanbul": "04.08.2026 16:58",
+  "generated_at": "2026-08-04T16:54:15+00:00",
+  "generated_at_istanbul": "04.08.2026 19:54",
   "history_limit": 60,
   "attribution_note": "Ajan başına token değerleri TAHMİNDİR: ekip tek bir toplu model çağrısıyla çalışır, sağlayıcı tokenları çağrı başına raporlar. Girdi tokenları her ajanın prompt uzunluğuna, çıktı tokenları ürettiği metin uzunluğuna göre paylaştırılır.",
   "totals": {
-    "runs": 23,
-    "runs_with_llm": 23,
-    "total_tokens": 306241,
-    "prompt_tokens": 134462,
-    "output_tokens": 89969,
-    "thoughts_tokens": 81810,
-    "characters": 653421,
-    "sections": 118,
-    "avg_tokens_per_run": 13314,
-    "avg_latency_seconds": 50.9,
-    "chars_per_1k_tokens": 2133.7,
-    "tokens_per_section": 2595.3,
+    "runs": 24,
+    "runs_with_llm": 24,
+    "total_tokens": 328851,
+    "prompt_tokens": 141200,
+    "output_tokens": 97624,
+    "thoughts_tokens": 90027,
+    "characters": 680154,
+    "sections": 120,
+    "avg_tokens_per_run": 13702,
+    "avg_latency_seconds": 52.5,
+    "chars_per_1k_tokens": 2068.3,
+    "tokens_per_section": 2740.4,
     "fallback_runs": 2,
     "retry_total": 2,
-    "guide_saved_chars": 172905
+    "guide_saved_chars": 176667
   },
   "recommendations": [
     {
       "severity": "warn",
       "title": "Pazar İstihbaratı (Sektör · YZ · CX · Bankacılık) beklenenden pahalı",
-      "detail": "Son 7 çalıştırmada bu ajan üretilen metnin %39,5'ini üretiyor ama tahmini token'ın %58,1'ini harcıyor (+18.6 puan fark). Persona ve görev metnini kısaltmak, aynı çıktıyı daha az girdi tokenıyla verir.",
-      "metric": "23691 tahmini token",
+      "detail": "Son 7 çalıştırmada bu ajan üretilen metnin %37,3'ini üretiyor ama tahmini token'ın %54,9'ini harcıyor (+17.6 puan fark). Persona ve görev metnini kısaltmak, aynı çıktıyı daha az girdi tokenıyla verir.",
+      "metric": "26977 tahmini token",
       "advisor": "market_intelligence"
     },
     {
       "severity": "warn",
       "title": "Düşünme (thinking) tokenı oranı",
-      "detail": "Toplam token'ın %39,6'i modelin görünmeyen iç akıl yürütmesine gidiyor (36033 token). Bu kısım brifingde hiç görünmez. Oran yüksekse daha hafif bir model ya da daha net/kısa bir görev tanımı doğrudan tasarruf sağlar.",
-      "metric": "%39,6",
+      "detail": "Toplam token'ın %41,8'i modelin görünmeyen iç akıl yürütmesine gidiyor (42095 token). Bu kısım brifingde hiç görünmez. Oran yüksekse daha hafif bir model ya da daha net/kısa bir görev tanımı doğrudan tasarruf sağlar.",
+      "metric": "%41,8",
       "advisor": ""
     },
     {
       "severity": "warn",
       "title": "Girdi, çıktıdan pahalı",
-      "detail": "Çalıştırma başına ortalama 4351 token prompt gönderiliyor, 3484 token yanıt alınıyor — girdi toplamın %33,5'i. Yani kotanın çoğu soru sormaya gidiyor, cevap almaya değil. Persona metinlerini kısaltmak buradan kazandırır.",
-      "metric": "4351 / 3484 token",
+      "detail": "Çalıştırma başına ortalama 4658 token prompt gönderiliyor, 3716 token yanıt alınıyor — girdi toplamın %32,4'i. Yani kotanın çoğu soru sormaya gidiyor, cevap almaya değil. Persona metinlerini kısaltmak buradan kazandırır.",
+      "metric": "4658 / 3716 token",
       "advisor": ""
     },
     {
       "severity": "warn",
       "title": "Artımlı çalıştırma tam brifing kadar girdi gönderiyor",
-      "detail": "Artımlı modda ortalama 1.5 bölüm üretiliyor ama ortalama 5708 girdi tokenı gönderiliyor — tam brifingin (2542) %224,5'i kadar. Artımlı prompt daha da kısaltılabilir: yalnızca yeni bulgusu olan bölümler ve kısa yazım kuralları gönderilmeli.",
-      "metric": "5708 vs 2542 girdi tokenı",
+      "detail": "Artımlı modda ortalama 1.8 bölüm üretiliyor ama ortalama 6244 girdi tokenı gönderiliyor — tam brifingin (2542) %245,6'i kadar. Artımlı prompt daha da kısaltılabilir: yalnızca yeni bulgusu olan bölümler ve kısa yazım kuralları gönderilmeli.",
+      "metric": "6244 vs 2542 girdi tokenı",
       "advisor": ""
     },
     {
       "severity": "good",
       "title": "Verimlilik iyileşiyor",
-      "detail": "1000 token başına üretilen metin 1180 karakterden 8760 karaktere çıktı (+642%). Aynı kotadan daha fazla brifing alıyorsun.",
-      "metric": "8760 karakter/1K token",
+      "detail": "1000 token başına üretilen metin 4040 karakterden 6484 karaktere çıktı (+60%). Aynı kotadan daha fazla brifing alıyorsun.",
+      "metric": "6484 karakter/1K token",
       "advisor": ""
     },
     {
       "severity": "good",
       "title": "Ortak yazım kuralları tek sefer gönderiliyor",
-      "detail": "Son 7 çalıştırmada, aynı yazım kılavuzunu her bölümde tekrarlamak yerine bir kez göndererek yaklaşık 37.454 karakter (kabaca dört karakter = bir token) girdi tasarruf edildi.",
-      "metric": "~9363 token",
+      "detail": "Son 7 çalıştırmada, aynı yazım kılavuzunu her bölümde tekrarlamak yerine bir kez göndererek yaklaşık 41.216 karakter (kabaca dört karakter = bir token) girdi tasarruf edildi.",
+      "metric": "~10304 token",
       "advisor": ""
     }
   ],
@@ -2151,6 +2151,62 @@
           "token_share": 0.1,
           "output_share": 0.4,
           "name": "Hava Durumu Meteoroloğu"
+        }
+      ],
+      "attribution": "estimate"
+    },
+    {
+      "at": "2026-08-04T16:54:15+00:00",
+      "at_istanbul": "04.08.2026 19:54",
+      "mode": "incremental",
+      "mode_label": "artımlı",
+      "provider": "gemini",
+      "model": "gemini-2.5-flash",
+      "llm_called": true,
+      "llm_ok": true,
+      "prompt_tokens": 6738,
+      "output_tokens": 7655,
+      "thoughts_tokens": 8217,
+      "total_tokens": 22610,
+      "latency_seconds": 88.46,
+      "duration_seconds": 92.2,
+      "retries": 0,
+      "fallback_used": false,
+      "models_tried": 1,
+      "advisors_ok": 2,
+      "advisors_failed": 0,
+      "advisors_skipped": 11,
+      "sections": 2,
+      "sections_requested": 2,
+      "characters": 26733,
+      "prompt_chars_total": 19323,
+      "guide_saved_chars": 3762,
+      "chars_per_1k_tokens": 1182.4,
+      "tokens_per_section": 11305.0,
+      "thoughts_share": 36.3,
+      "prompt_share": 29.8,
+      "agents": [
+        {
+          "id": "market_intelligence",
+          "prompt_chars": 11025,
+          "output_chars": 17409,
+          "est_prompt_tokens": 4334,
+          "est_output_tokens": 4985,
+          "est_total_tokens": 9319,
+          "token_share": 64.7,
+          "output_share": 65.1,
+          "name": "Pazar İstihbaratı (Sektör · YZ · CX · Bankacılık)"
+        },
+        {
+          "id": "ai_innovation",
+          "prompt_chars": 6114,
+          "output_chars": 9324,
+          "est_prompt_tokens": 2404,
+          "est_output_tokens": 2670,
+          "est_total_tokens": 5074,
+          "token_share": 35.3,
+          "output_share": 34.9,
+          "name": "Yapay Zeka & İnovasyon (Ustalaşma · Fikirler)"
         }
       ],
       "attribution": "estimate"

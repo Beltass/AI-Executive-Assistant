@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
   "date": "2026-08-04",
-  "generated_at": "2026-08-04T16:58:54+03:00",
-  "generated_at_istanbul": "04.08.2026 16:58",
-  "mode": "full",
-  "mode_label": "tam brifing",
+  "generated_at": "2026-08-04T19:54:15+03:00",
+  "generated_at_istanbul": "04.08.2026 19:54",
+  "mode": "incremental",
+  "mode_label": "artımlı",
   "count": 5,
   "reports": [
     {
@@ -54,13 +54,13 @@
       "name": "Pazar İstihbaratı (Sektör · YZ · CX · Bankacılık)",
       "emoji": "📊",
       "category": "sektör",
-      "headline": "Banka çağrı merkezlerinde hizmet kalitesi algısı, müşteri beklentileri ve telafisi üzerine akademik bulgular, dış kaynak yönetişimi ve yapay zeka entegrasyonunda kritik uyum risklerini beraberinde getiriyor.",
-      "excerpt": "Bankacılık sektöründeki çağrı merkezleri, teknolojik dönüşümün ve regülatif uyumun kesişim noktasında duruyor. Müşteri deneyimini şekillendiren akademik teorilerden, yapay zeka haberlerine ve…",
-      "words": 2326,
-      "read_minutes": 12,
-      "action_count": 1,
-      "generated_at": "2026-08-04T16:58:54+03:00",
-      "generated_at_istanbul": "04.08.2026 16:58",
+      "headline": "Yapay zekâ, bankacılık çağrı merkezlerinde verimlilik ve müşteri deneyimi potansiyeli sunarken, halüsinasyon ve uyum riskleri nedeniyle dikkatli bir yönetişim ve denetim gerektiriyor.",
+      "excerpt": "Bankacılık sektöründe yapay zekâ kullanımı, özellikle çağrı merkezlerinde agent destek sistemleri ve konuşma analitiği alanında olgunlaşmaya devam ediyor. Agent assist (temsilci destek) araçları…",
+      "words": 2031,
+      "read_minutes": 10,
+      "action_count": 0,
+      "generated_at": "2026-08-04T19:54:15+03:00",
+      "generated_at_istanbul": "04.08.2026 19:54",
       "path": "market_intelligence.json"
     },
     {
