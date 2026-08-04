@@ -115,6 +115,16 @@ ADVISOR_META: Dict[str, Dict[str, str]] = {
         "emoji": "💼",
         "category": CATEGORY_GROWTH,
     },
+    "social_media_coach": {
+        "title": "Sosyal Medya İmaj Koçu (Instagram · Twitter · Marka)",
+        "emoji": "📱",
+        "category": CATEGORY_GROWTH,
+    },
+    "personal_assistant": {
+        "title": "Kişisel Asistan (Takvim · Hedefler · Ağ · Fırsatlar)",
+        "emoji": "📅",
+        "category": CATEGORY_OPS,
+    },
     "data_analyst": {
         "title": "Veri Analisti (Çağrı Merkezi Operasyonu)",
         "emoji": "🔬",
