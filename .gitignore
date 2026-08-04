@@ -46,3 +46,6 @@ htmlcov/
 .idea/
 .vscode/
 .DS_Store
+
+# Local linkedin-coach worktree (separate branch, not part of main tree)
+linkedin-coach/
