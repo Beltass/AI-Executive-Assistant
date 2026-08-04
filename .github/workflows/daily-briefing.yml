@@ -208,6 +208,8 @@ jobs:
           ASANA_TOKEN: ${{ secrets.ASANA_TOKEN }}
           ASANA_WORKSPACE_ID: ${{ secrets.ASANA_WORKSPACE_ID }}
           ASANA_PROJECT_TEMPLATE: ${{ secrets.ASANA_PROJECT_TEMPLATE }}
+          # LinkedIn integration — optional; missing secrets simply skip the section
+          LINKEDIN_ACCESS_TOKEN: ${{ secrets.LINKEDIN_ACCESS_TOKEN }}
         run: python -m ai_assistant.notifiers.slack_notifier
 
       # NOTE: there used to be a second step here, "Distribute digest to
