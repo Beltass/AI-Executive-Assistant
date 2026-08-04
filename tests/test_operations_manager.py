@@ -133,3 +133,130 @@ def test_build_digest_offline(no_config):
     assert "Günlük Brifing" in digest.text
     assert "Operasyon Yöneticisi" in digest.text
     assert digest.counts[STATUS_FAILED] == 0
+
+
+# --- Integration distribution: the log must tell the TRUTH -------------------
+#
+# Every advisor used to log "Asana senkronizasyonu başarılı" even with no
+# ASANA_TOKEN anywhere, which is exactly what hid the fact that the secret was
+# never passed to the workflow at all. These pin the three honest states:
+# unconfigured -> skip (naming the missing setting), ran-but-did-nothing ->
+# say so, and success ONLY when work really happened.
+
+_BRIEFING = Briefing(key="boom", title="Patlayan Danışman", status=STATUS_OK, text="metin")
+
+
+@pytest.fixture()
+def no_integrations(monkeypatch):
+    """No Asana and no Drive credentials in the environment."""
+    for var in ("ASANA_TOKEN", "ASANA_WORKSPACE_ID", "GOOGLE_DRIVE_FOLDER_ID"):
+        monkeypatch.delenv(var, raising=False)
+    yield
+
+
+def test_asana_sync_skipped_without_token(no_integrations):
+    status = OperationsManager(advisors=[])._sync_to_asana(
+        "boom", "Patlayan Danışman", _BRIEFING
+    )
+    assert status.startswith("skipped")
+    assert "ASANA_TOKEN" in status
+
+
+def test_asana_sync_skipped_without_workspace(no_integrations, monkeypatch):
+    monkeypatch.setenv("ASANA_TOKEN", "tok")
+    status = OperationsManager(advisors=[])._sync_to_asana(
+        "boom", "Patlayan Danışman", _BRIEFING
+    )
+    assert status.startswith("skipped")
+    assert "ASANA_WORKSPACE_ID" in status
+
+
+def test_drive_archive_skipped_without_folder(no_integrations):
+    status = OperationsManager(advisors=[])._archive_to_drive(
+        "boom", "Patlayan Danışman", _BRIEFING, "2026-08-04"
+    )
+    assert status.startswith("skipped")
+    assert "GOOGLE_DRIVE_FOLDER_ID" in status
+
+
+def test_unconfigured_integration_logs_skip_not_success(no_integrations, caplog):
+    """The headline regression: no credentials must NOT read as success."""
+    manager = OperationsManager(advisors=[])
+    with caplog.at_level("INFO"):
+        manager._distribute_results("boom", "Patlayan Danışman", _BRIEFING, "2026-08-04")
+
+    text = caplog.text
+    assert "Asana senkronizasyonu başarılı" not in text
+    assert "Google Drive arşivlemesi başarılı" not in text
+    assert "Asana senkronizasyonu atlandı" in text
+    assert "ASANA_TOKEN" in text
+    assert "Google Drive arşivlemesi atlandı" in text
+    assert "GOOGLE_DRIVE_FOLDER_ID" in text
+
+    status = manager.distribution_status["boom"]
+    assert status["asana"].startswith("skipped")
+    assert status["drive"].startswith("skipped")
+
+
+def test_integration_that_did_nothing_says_so(caplog, monkeypatch):
+    manager = OperationsManager(advisors=[])
+    monkeypatch.setattr(
+        manager, "_sync_to_asana", lambda *a, **k: "no-op: yeni görev yok"
+    )
+    monkeypatch.setattr(
+        manager, "_archive_to_drive", lambda *a, **k: "no-op: belge yüklenmedi"
+    )
+    with caplog.at_level("INFO"):
+        manager._distribute_results("boom", "Patlayan Danışman", _BRIEFING, "2026-08-04")
+
+    assert "Asana senkronizasyonu başarılı" not in caplog.text
+    assert "Asana senkronizasyonu çalıştı ama hiçbir iş yapmadı" in caplog.text
+    assert "Google Drive arşivlemesi çalıştı ama hiçbir iş yapmadı" in caplog.text
+
+
+def test_success_is_logged_only_when_work_happened(caplog, monkeypatch):
+    manager = OperationsManager(advisors=[])
+    monkeypatch.setattr(
+        manager, "_sync_to_asana", lambda *a, **k: "success: 1 görev oluşturuldu"
+    )
+    monkeypatch.setattr(
+        manager, "_archive_to_drive", lambda *a, **k: "success: 1 belge yüklendi"
+    )
+    with caplog.at_level("INFO"):
+        manager._distribute_results("boom", "Patlayan Danışman", _BRIEFING, "2026-08-04")
+
+    assert "Asana senkronizasyonu başarılı: Patlayan Danışman" in caplog.text
+    assert "Google Drive arşivlemesi başarılı: Patlayan Danışman" in caplog.text
+
+
+def test_failing_integration_is_reported_as_failure(caplog, monkeypatch):
+    manager = OperationsManager(advisors=[])
+
+    def _boom(*_args, **_kwargs):
+        raise RuntimeError("intentional boom")
+
+    monkeypatch.setattr(manager, "_sync_to_asana", _boom)
+    with caplog.at_level("INFO"):
+        manager._distribute_results("boom", "Patlayan Danışman", _BRIEFING, "2026-08-04")
+
+    assert "Asana senkronizasyonu başarısız" in caplog.text
+    assert "intentional boom" in caplog.text
+    assert manager.distribution_status["boom"]["asana"].startswith("error")
+
+
+def test_distribution_summary_counts_only_real_successes(caplog):
+    from ai_assistant.operations_manager import _save_distribution_status
+
+    with caplog.at_level("INFO"):
+        _save_distribution_status(
+            {
+                "a": {"slack": "routed: C1", "asana": "skipped: ASANA_TOKEN tanımlı değil",
+                      "drive": "no-op: belge yüklenmedi"},
+                "b": {"slack": "routed: C2", "asana": "success: 1 görev oluşturuldu",
+                      "drive": "success: 1 belge yüklendi"},
+            }
+        )
+
+    assert '"asana": 1' in caplog.text
+    assert '"drive": 1' in caplog.text
+    assert '"slack": 0' in caplog.text

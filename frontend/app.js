@@ -2775,7 +2775,10 @@
       showContentView("list");
     }
 
-    if (changed && route.name !== "tab") window.scrollTo(0, 0);
+    // Any route change scrolls back to the top, tab switches included: a tab
+    // clicked from halfway down the page used to swap the panel out of view
+    // and leave the viewport where it was, so the tab looked broken.
+    if (changed) window.scrollTo(0, 0);
   }
 
   /* ====================================================================== */

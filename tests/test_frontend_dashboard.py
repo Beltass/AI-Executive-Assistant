@@ -777,3 +777,31 @@ def test_no_typographic_quote_sits_in_javascript_syntax_position(app):
     for pattern in (r"\$\(\s*[“”]", r"[“”]\s*\)\s*;", r"\bvar\s+\w+\s*=\s*[“”]"):
         offenders = re.findall(pattern, app)
         assert not offenders, f"typographic quote in syntax position: {offenders[:5]}"
+
+
+# --- the [hidden] attribute actually hides ----------------------------------
+#
+# `selectTab()` hides inactive panels with `panel.hidden = true`, and every
+# panel also carries `class="stack"` — `display: grid`. An author rule beats
+# the UA stylesheet's `[hidden] { display: none }`, so without a reset of our
+# own the attribute is a no-op and all eight panels render at once as one
+# endless page. The jsdom-backed tests cannot see this: jsdom applies the UA
+# rule with a different cascade priority than a real browser, so it reports the
+# panel as hidden either way. The assertion has to be made against the CSS
+# source itself.
+
+
+def test_the_hidden_attribute_is_reset_so_a_display_class_cannot_beat_it(css):
+    """`[hidden] { display: none !important }` must exist in styles.css."""
+    source = re.sub(r"/\*.*?\*/", "", css, flags=re.S)  # comments are not rules
+    bodies = re.findall(r"(?:^|[,}])\s*\[hidden\]\s*\{([^}]*)\}", source)
+    assert bodies, "styles.css has no [hidden] rule; .stack/.tile would win"
+    assert any(re.search(r"display\s*:\s*none", b) for b in bodies), (
+        f"[hidden] must set display: none, got: {[b.strip() for b in bodies]}"
+    )
+    assert any(
+        re.search(r"display\s*:\s*none\s*!important", b) for b in bodies
+    ), (
+        "[hidden] must use !important — any component class that declares a "
+        "display would otherwise defeat the attribute"
+    )
