@@ -1,14 +1,14 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-08-04T16:54:15+00:00",
-  "generated_at_istanbul": "04.08.2026 19:54",
+  "generated_at": "2026-08-04T20:26:49+00:00",
+  "generated_at_istanbul": "04.08.2026 23:26",
   "run": {
     "conclusion": "ok",
     "total": 13,
     "ok": 2,
     "failed": 0,
     "skipped": 11,
-    "duration_seconds": 92.1,
+    "duration_seconds": 69.0,
     "batch": {
       "enabled": true,
       "attempted": true,
@@ -17,22 +17,22 @@
       "sections_produced": 2,
       "model": "gemini-2.5-flash",
       "provider": "gemini",
-      "prompt_chars_total": 19323,
+      "prompt_chars_total": 20635,
       "guide_saved_chars": 3762
     },
     "tokens": {
       "called": true,
-      "prompt": 6738,
-      "output": 7655,
-      "thoughts": 8217,
-      "total": 22610,
-      "latency_seconds": 88.46,
+      "prompt": 7884,
+      "output": 4407,
+      "thoughts": 7399,
+      "total": 19690,
+      "latency_seconds": 63.99,
       "retries": 0,
       "fallback_used": false
     },
     "mode": "incremental",
     "mode_label": "artımlı",
-    "new_findings": 6,
+    "new_findings": 12,
     "nothing_new_count": 11
   },
   "slack": {
@@ -40,17 +40,6 @@
     "detail": "webhook — HTTP 200"
   },
   "advisors": [
-    {
-      "id": "weather",
-      "name": "Hava Durumu Meteoroloğu",
-      "status": "skipped",
-      "content_length": 0,
-      "detail": "yeni bulgu yok",
-      "emoji": "🌤️",
-      "category": "operasyon",
-      "new_findings": 0,
-      "nothing_new": true
-    },
     {
       "id": "morning_operations",
       "name": "Sabah İşletme Brifingi",
@@ -74,6 +63,17 @@
       "nothing_new": true
     },
     {
+      "id": "meeting_prep",
+      "name": "Toplantı Hazırlık & Takip",
+      "status": "skipped",
+      "content_length": 0,
+      "detail": "yeni bulgu yok",
+      "emoji": "🗓️",
+      "category": "operasyon",
+      "new_findings": 0,
+      "nothing_new": true
+    },
+    {
       "id": "career_development",
       "name": "Kariyer Gelişimi (İK · İlanlar · İngilizce · Sertifika)",
       "status": "skipped",
@@ -88,11 +88,22 @@
       "id": "market_intelligence",
       "name": "Pazar İstihbaratı (Sektör · YZ · CX · Bankacılık)",
       "status": "ok",
-      "content_length": 17409,
+      "content_length": 10402,
       "detail": "",
       "emoji": "📊",
       "category": "sektör",
-      "new_findings": 4,
+      "new_findings": 3,
+      "nothing_new": false
+    },
+    {
+      "id": "complaint_radar",
+      "name": "Müşteri Şikayet & İtibar Radarı",
+      "status": "ok",
+      "content_length": 6600,
+      "detail": "",
+      "emoji": "📣",
+      "category": "sektör",
+      "new_findings": 9,
       "nothing_new": false
     },
     {
@@ -109,13 +120,13 @@
     {
       "id": "ai_innovation",
       "name": "Yapay Zeka & İnovasyon (Ustalaşma · Fikirler)",
-      "status": "ok",
-      "content_length": 9324,
-      "detail": "",
+      "status": "skipped",
+      "content_length": 0,
+      "detail": "yeni bulgu yok",
       "emoji": "🧠",
       "category": "kişisel gelişim",
-      "new_findings": 2,
-      "nothing_new": false
+      "new_findings": 0,
+      "nothing_new": true
     },
     {
       "id": "kids_development",
@@ -125,17 +136,6 @@
       "detail": "yeni bulgu yok",
       "emoji": "👨‍👩‍👧",
       "category": "aile",
-      "new_findings": 0,
-      "nothing_new": true
-    },
-    {
-      "id": "anka_bridge",
-      "name": "Anka Köprüsü",
-      "status": "skipped",
-      "content_length": 0,
-      "detail": "yeni bulgu yok",
-      "emoji": "🕊️",
-      "category": "operasyon",
       "new_findings": 0,
       "nothing_new": true
     },
@@ -211,7 +211,7 @@
     "urgent_count": 0,
     "action_items": 0,
     "vip_emails": 0,
-    "last_update": "2026-08-04T16:54:15+00:00",
+    "last_update": "2026-08-04T20:26:49+00:00",
     "last_fetch_error": null
   },
   "calendar": {
@@ -225,7 +225,7 @@
       "duration_minutes": null
     },
     "available_slots": [],
-    "last_update": "2026-08-04T16:54:15+00:00",
+    "last_update": "2026-08-04T20:26:49+00:00",
     "last_fetch_error": null
   },
   "integrations": {
@@ -263,8 +263,8 @@
       "completion_rate": 15.4,
       "deadline_adherence": 15.4,
       "success_rate": 100.0,
-      "token_efficiency": 3827.5,
-      "last_update": "2026-08-04T16:54:15+00:00"
+      "token_efficiency": 2203.5,
+      "last_update": "2026-08-04T20:26:49+00:00"
     },
     "work_status": {
       "meeting_hours": 0.0,
@@ -284,11 +284,11 @@
       ],
       "deadline_7d": [
         7.7,
-        7.7,
         76.9,
         23.1,
         76.9,
         76.9,
+        15.4,
         15.4
       ],
       "success_7d": [
@@ -677,6 +677,20 @@
       "mode": "incremental",
       "new_findings": 6,
       "total_tokens": 22610
+    },
+    {
+      "at": "2026-08-04T20:26:49+00:00",
+      "at_istanbul": "04.08.2026 23:26",
+      "conclusion": "ok",
+      "ok": 2,
+      "failed": 0,
+      "skipped": 11,
+      "total": 13,
+      "duration_seconds": 69.0,
+      "slack": "ok",
+      "mode": "incremental",
+      "new_findings": 12,
+      "total_tokens": 19690
     }
   ]
 }

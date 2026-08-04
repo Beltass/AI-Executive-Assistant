@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
   "date": "2026-08-04",
-  "generated_at": "2026-08-04T19:54:15+03:00",
-  "generated_at_istanbul": "04.08.2026 19:54",
+  "generated_at": "2026-08-04T23:26:49+03:00",
+  "generated_at_istanbul": "04.08.2026 23:26",
   "mode": "incremental",
   "mode_label": "artımlı",
-  "count": 5,
+  "count": 6,
   "reports": [
     {
       "id": "weather",
@@ -54,13 +54,13 @@
       "name": "Pazar İstihbaratı (Sektör · YZ · CX · Bankacılık)",
       "emoji": "📊",
       "category": "sektör",
-      "headline": "Yapay zekâ, bankacılık çağrı merkezlerinde verimlilik ve müşteri deneyimi potansiyeli sunarken, halüsinasyon ve uyum riskleri nedeniyle dikkatli bir yönetişim ve denetim gerektiriyor.",
-      "excerpt": "Bankacılık sektöründe yapay zekâ kullanımı, özellikle çağrı merkezlerinde agent destek sistemleri ve konuşma analitiği alanında olgunlaşmaya devam ediyor. Agent assist (temsilci destek) araçları…",
-      "words": 2031,
-      "read_minutes": 10,
+      "headline": "Bankacılık sektöründe dijitalleşme ve yapay zeka entegrasyonu hızlanırken, yeni oyuncuların girişi rekabeti artırıyor ve müşteri deneyiminde hizmet kalitesi ile uyum riskleri öne çıkıyor.",
+      "excerpt": "BİM'in katılım bankası kurmak için BDDK'ya başvuru yapma kararı (Foreks.com, Ekonomi Gazetesi, CNN Türk), perakende kökenli büyük oyuncuların bankacılık sektörüne girişinin dijitalleşme ve maliyet…",
+      "words": 1264,
+      "read_minutes": 6,
       "action_count": 0,
-      "generated_at": "2026-08-04T19:54:15+03:00",
-      "generated_at_istanbul": "04.08.2026 19:54",
+      "generated_at": "2026-08-04T23:26:49+03:00",
+      "generated_at_istanbul": "04.08.2026 23:26",
       "path": "market_intelligence.json"
     },
     {
@@ -76,6 +76,20 @@
       "generated_at": "2026-08-04T16:58:54+03:00",
       "generated_at_istanbul": "04.08.2026 16:58",
       "path": "kids_development.json"
+    },
+    {
+      "id": "complaint_radar",
+      "name": "Müşteri Şikayet & İtibar Radarı",
+      "emoji": "📣",
+      "category": "sektör",
+      "headline": "BDDK raporlarına göre kart şikayetlerinde ciddi artış gözlenirken, dijital kanallardaki sorunlar ve kredi yapılandırma talepleri genel şikayet hacmini etkilemeye devam ediyor.",
+      "excerpt": "🔥 En çok konuşulan şikâyetler: Kart Şikayetleri: BDDK raporuna göre kart şikayetleri iki kat artmıştır (T24). Bu artış, kart aidatları, beklenmeyen kesintiler, limit sorunları veya dolandırıcılık…",
+      "words": 807,
+      "read_minutes": 4,
+      "action_count": 0,
+      "generated_at": "2026-08-04T23:26:49+03:00",
+      "generated_at_istanbul": "04.08.2026 23:26",
+      "path": "complaint_radar.json"
     }
   ]
 }
