@@ -68,10 +68,10 @@ def test_manager_runs_all_advisors_offline(no_config):
     assert [b.key for b in supervision.briefings] == [
         "morning_operations",
         "communications_calendar",
-        "meeting_prep",
         "career_development",
         "market_intelligence",
         "complaint_radar",
+        "linkedin_coach",
         "data_analyst",
         "ai_innovation",
         "kids_development",
