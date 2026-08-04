@@ -208,6 +208,14 @@ jobs:
           MEETING_PREP_LOOKAHEAD_DAYS: ${{ secrets.MEETING_PREP_LOOKAHEAD_DAYS }}
           MEETING_PREP_NOTES_FOLDER_ID: ${{ secrets.MEETING_PREP_NOTES_FOLDER_ID }}
           MEETING_PREP_MAX_NOTES: ${{ secrets.MEETING_PREP_MAX_NOTES }}
+          # Asana task sync. Without BOTH of the first two the sync is skipped
+          # for every advisor (and now SAYS so in the run log instead of
+          # reporting a success that never happened). ASANA_PROJECT_TEMPLATE is
+          # optional; per-advisor overrides are ASANA_<ADVISOR_KEY>_PROJECT and
+          # ASANA_<ADVISOR_KEY>_ASSIGNEE, added here only if you set them.
+          ASANA_TOKEN: ${{ secrets.ASANA_TOKEN }}
+          ASANA_WORKSPACE_ID: ${{ secrets.ASANA_WORKSPACE_ID }}
+          ASANA_PROJECT_TEMPLATE: ${{ secrets.ASANA_PROJECT_TEMPLATE }}
         run: python -m ai_assistant.notifiers.slack_notifier
 
       # NOTE: there used to be a second step here, "Distribute digest to

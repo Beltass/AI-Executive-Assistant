@@ -226,24 +226,49 @@ class OperationsManager:
 
         # Try to sync to Asana
         try:
-            self._sync_to_asana(advisor_id, advisor_title, briefing)
-            status["asana"] = "success"
-            logger.info(f"Asana senkronizasyonu başarılı: {advisor_title}")
+            status["asana"] = self._sync_to_asana(advisor_id, advisor_title, briefing)
         except Exception as exc:
             status["asana"] = f"error: {exc}"
-            logger.warning(f"Asana senkronizasyonu başarısız ({advisor_title}): {exc}")
+        self._log_integration("Asana senkronizasyonu", advisor_title, status["asana"])
 
         # Try to archive to Drive
         try:
-            self._archive_to_drive(advisor_id, advisor_title, briefing, date)
-            status["drive"] = "success"
-            logger.info(f"Google Drive arşivlemesi başarılı: {advisor_title}")
+            status["drive"] = self._archive_to_drive(
+                advisor_id, advisor_title, briefing, date
+            )
         except Exception as exc:
             status["drive"] = f"error: {exc}"
-            logger.warning(f"Google Drive arşivlemesi başarısız ({advisor_title}): {exc}")
+        self._log_integration("Google Drive arşivlemesi", advisor_title, status["drive"])
 
         # Record distribution status
         self.distribution_status[advisor_id] = status
+
+    @staticmethod
+    def _log_integration(label: str, advisor_title: str, status: str) -> None:
+        """Report an integration's REAL outcome, never a blanket "başarılı".
+
+        ``status`` is the short string the ``_sync_*``/``_archive_*`` helpers
+        return and ``distribution_status`` records. Only ``success`` — meaning
+        work actually happened (a task created, a document uploaded) — is
+        reported as success; an unconfigured integration says which setting is
+        missing, and one that ran without doing anything says exactly that.
+        """
+        detail = status.split(":", 1)[1].strip() if ":" in status else ""
+
+        if status.startswith("success"):
+            logger.info(f"{label} başarılı: {advisor_title}")
+        elif status.startswith("skipped"):
+            logger.info(
+                f"{label} atlandı ({advisor_title}): "
+                f"{detail or 'yapılandırma eksik'}"
+            )
+        elif status.startswith("error"):
+            logger.warning(f"{label} başarısız ({advisor_title}): {detail or status}")
+        else:
+            logger.info(
+                f"{label} çalıştı ama hiçbir iş yapmadı ({advisor_title}): "
+                f"{detail or status}"
+            )
 
     def _distribute_to_slack(
         self,
@@ -311,7 +336,7 @@ class OperationsManager:
         advisor_id: str,
         advisor_title: str,
         briefing: Briefing,
-    ) -> None:
+    ) -> str:
         """Create Asana tasks from advisor report.
 
         Parses actionable items from the briefing and creates them as Asana tasks.
@@ -327,17 +352,19 @@ class OperationsManager:
             advisor_id: Stable advisor identifier (e.g., "weather").
             advisor_title: Turkish advisor title (e.g., "Hava Tahmini").
             briefing: The Briefing object containing the report text.
+
+        Returns:
+            A short status string recorded in ``distribution_status``.
+            ``success`` ONLY when a task was really created.
         """
         try:
             asana_token = os.getenv("ASANA_TOKEN", "").strip()
             if not asana_token:
-                logger.debug("ASANA_TOKEN yapılandırılmamış")
-                return
+                return "skipped: ASANA_TOKEN tanımlı değil"
 
             workspace_id = os.getenv("ASANA_WORKSPACE_ID", "").strip()
             if not workspace_id:
-                logger.debug("ASANA_WORKSPACE_ID yapılandırılmamış")
-                return
+                return "skipped: ASANA_WORKSPACE_ID tanımlı değil"
 
             from .integrations.asana import AsanaClient
 
@@ -359,10 +386,7 @@ class OperationsManager:
             # Get or create project
             project_result = client.get_or_create_project(project_name)
             if not project_result.success:
-                logger.warning(
-                    f"Asana proje oluşturma başarısız ({advisor_title}): {project_result.error}"
-                )
-                return
+                return f"error: proje oluşturulamadı — {project_result.error}"
 
             # For now, we extract basic task info from the briefing text.
             # In production, you would parse the JSON report structure
@@ -388,13 +412,14 @@ class OperationsManager:
 
             if task_result.success:
                 logger.info(f"Asana görev oluşturuldu: {task_result.task_name} ({task_result.task_id})")
-            else:
-                logger.warning(f"Asana görev oluşturma başarısız: {task_result.error}")
+                return "success: 1 görev oluşturuldu"
+
+            return f"error: görev oluşturulamadı — {task_result.error}"
 
         except ImportError:
-            logger.debug("Asana integrations kullanılamıyor")
+            return "skipped: Asana entegrasyon modülü kullanılamıyor"
         except Exception as exc:
-            logger.error(f"Asana sinkronizasyonu hatası ({advisor_title}): {exc}")
+            return f"error: {exc}"
 
     def _archive_to_drive(
         self,
@@ -402,7 +427,7 @@ class OperationsManager:
         advisor_title: str,
         briefing: Briefing,
         date: str,
-    ) -> None:
+    ) -> str:
         """Archive advisor report to Google Drive.
 
         Saves the briefing text as a document under
@@ -420,12 +445,15 @@ class OperationsManager:
             advisor_title: Turkish advisor title (e.g., "Hava Tahmini").
             briefing: The Briefing object to archive.
             date: Report date in YYYY-MM-DD format (e.g., "2026-07-31").
+
+        Returns:
+            A short status string recorded in ``distribution_status``.
+            ``success`` ONLY when a document was really uploaded.
         """
         try:
             folder_id = os.getenv("GOOGLE_DRIVE_FOLDER_ID", "").strip()
             if not folder_id:
-                logger.debug("GOOGLE_DRIVE_FOLDER_ID yapılandırılmamış")
-                return
+                return "skipped: GOOGLE_DRIVE_FOLDER_ID tanımlı değil"
 
             from .integrations.google_drive import DriveClient, MIME_TYPE_MARKDOWN
 
@@ -464,10 +492,14 @@ class OperationsManager:
                 mime_type=MIME_TYPE_MARKDOWN,
             )
 
+            if not file_id:
+                return "no-op: belge yüklenmedi"
+
             logger.info(f"Google Drive'a kaydedildi ({advisor_title}): {file_id}")
+            return "success: 1 belge yüklendi"
 
         except Exception as exc:
-            logger.error(f"Google Drive arşivlemesi hatası ({advisor_title}): {exc}")
+            return f"error: {exc}"
 
     @staticmethod
     def _observe(advisor: Advisor, briefings: List[Briefing]) -> None:
@@ -569,14 +601,19 @@ def _save_distribution_status(distribution_status: Dict[str, Dict[str, Any]]) ->
             logger.debug("Dağıtım durumu kaydedilecek veri yok")
             return
 
-        # Create a summary of distribution status
+        # Create a summary of distribution status. Only a status that STARTS
+        # with "success" counts: a skipped or no-op integration must not
+        # inflate these numbers (see ``_log_integration``).
+        def _succeeded(value: Any) -> bool:
+            return isinstance(value, str) and value.startswith("success")
+
         summary = {
             "timestamp": datetime.now().isoformat(),
             "advisors": distribution_status,
             "summary": {
-                "slack": sum(1 for s in distribution_status.values() if s.get("slack") == "success"),
-                "asana": sum(1 for s in distribution_status.values() if s.get("asana") == "success"),
-                "drive": sum(1 for s in distribution_status.values() if s.get("drive") == "success"),
+                "slack": sum(1 for s in distribution_status.values() if _succeeded(s.get("slack"))),
+                "asana": sum(1 for s in distribution_status.values() if _succeeded(s.get("asana"))),
+                "drive": sum(1 for s in distribution_status.values() if _succeeded(s.get("drive"))),
             },
         }
 
