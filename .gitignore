@@ -49,3 +49,7 @@ htmlcov/
 
 # Local linkedin-coach worktree (separate branch, not part of main tree)
 linkedin-coach/
+
+# Local JS tooling scratch (not part of this Python project)
+node_modules/
+run_diag_*.js
