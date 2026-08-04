@@ -66,15 +66,15 @@ class _CrashingAdvisor(Advisor):
 def test_manager_runs_all_advisors_offline(no_config):
     supervision = OperationsManager().run()
     assert [b.key for b in supervision.briefings] == [
-        "weather",
         "morning_operations",
         "communications_calendar",
+        "meeting_prep",
         "career_development",
         "market_intelligence",
+        "complaint_radar",
         "data_analyst",
         "ai_innovation",
         "kids_development",
-        "anka_bridge",
         "executive_coaching",
         "work_analyst",
         "operations_director",

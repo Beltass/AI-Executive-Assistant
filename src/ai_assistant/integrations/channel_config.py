@@ -4,7 +4,7 @@ Maps each advisor to a Slack channel ID for targeted distribution. Loads channel
 mappings from environment variables with a fallback to the main channel.
 
 Channel environment variables follow the pattern: SLACK_CHANNEL_<ADVISOR_KEY_UPPERCASE>
-Example: SLACK_CHANNEL_WEATHER, SLACK_CHANNEL_MARKET_INTELLIGENCE, etc.
+Example: SLACK_CHANNEL_MEETING_PREP, SLACK_CHANNEL_MARKET_INTELLIGENCE, etc.
 
 If a specific channel is not configured, the advisor's report falls back to
 SLACK_MAIN_CHANNEL if set, otherwise the legacy SLACK_CHANNEL is used.
@@ -28,15 +28,15 @@ FALLBACK_CHANNEL_ENV = "SLACK_CHANNEL"  # Legacy fallback
 #: ``ai_assistant.advisors.all_advisors()``; ``tests/test_slack_channels.py``
 #: pins the two together so a roster change cannot silently drift.
 ADVISOR_KEYS = (
-    "weather",
     "morning_operations",
     "communications_calendar",
+    "meeting_prep",
     "career_development",
     "market_intelligence",
+    "complaint_radar",
     "data_analyst",
     "ai_innovation",
     "kids_development",
-    "anka_bridge",
     "executive_coaching",
     "work_analyst",
     "operations_director",

@@ -73,16 +73,20 @@ def no_config(monkeypatch):
 #: The roster after the 20 -> 10 consolidation, plus the two analysis-engine
 #: personas (data analyst, operations director) and the SRE watchdog, in
 #: registration order.
+#:
+#: PHASE 1C: ``weather`` and ``anka_bridge`` left the live roster (their modules
+#: stay on disk, and the tests below still exercise them directly), and
+#: ``meeting_prep`` + ``complaint_radar`` joined it — so the count is unchanged.
 EXPECTED_ADVISOR_KEYS = [
-    "weather",
     "morning_operations",
     "communications_calendar",
+    "meeting_prep",
     "career_development",
     "market_intelligence",
+    "complaint_radar",
     "data_analyst",
     "ai_innovation",
     "kids_development",
-    "anka_bridge",
     "executive_coaching",
     "work_analyst",
     "operations_director",

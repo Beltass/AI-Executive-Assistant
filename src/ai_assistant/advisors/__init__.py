@@ -137,9 +137,10 @@ class Advisor:
         """LLM work to fold into the shared batched call, or ``None``.
 
         ``None`` means "leave me out of the batch": the advisor either does not
-        use an LLM at all (weather, Anka bridge) or cannot run right now (no
-        provider key, missing config). Non-LLM data gathering — Open-Meteo,
-        RSS feeds — always stays outside the batch and runs per advisor.
+        use an LLM at all (the SRE watchdog) or cannot run right now (no
+        provider key, missing config). Non-LLM data gathering — Google Calendar
+        and Drive, RSS feeds — always stays outside the batch and runs per
+        advisor.
         """
         return None
 
@@ -255,8 +256,16 @@ def all_advisors() -> List[Advisor]:
       MorningOperationsAdvisor
     - Their .py files stay on disk so a rollback is a comment change, not a revert
     - Result: the team is down to the TEN advisors of the restructuring plan
+
+    PHASE 1C CONSOLIDATION:
+    - Two advisors retired from the live roster: weather (a phone already tells
+      the user the forecast) and anka_bridge (the bridge is no longer fed)
+    - Two advisors added: MeetingPrepAdvisor (toplantı hazırlık & takip) and
+      ComplaintRadarAdvisor (müşteri şikâyet & itibar radarı)
+    - The retired modules stay on disk, so a rollback is a comment change
     """
-    from .weather import WeatherAdvisor
+    # PHASE 1C: Retired from the live roster (module kept for rollback)
+    # from .weather import WeatherAdvisor
     # PHASE 1A: Replaced by consolidated MorningOperationsAdvisor
     # from .morning_briefing import MorningBriefingAdvisor
     # from .mail_analyst import MailAnalystAdvisor
@@ -266,6 +275,10 @@ def all_advisors() -> List[Advisor]:
     from .communications_calendar import CommunicationsCalendarAdvisor
     from .morning_operations import MorningOperationsAdvisor
     from .executive_coaching import ExecutiveCoachingAdvisor
+
+    # NEW ADVISORS (PHASE 1C): morning meeting prep, sector complaint radar
+    from .meeting_prep import MeetingPrepAdvisor
+    from .complaint_radar import ComplaintRadarAdvisor
 
     # PHASE 1A: Consolidated into ExecutiveCoachingAdvisor
     # from .leadership_coach import LeadershipCoachAdvisor
@@ -301,7 +314,8 @@ def all_advisors() -> List[Advisor]:
     from .data_analyst import DataAnalystAdvisor
     from .operations_director import OperationsDirectorAdvisor
 
-    from .anka_bridge import AnkaBridgeAdvisor
+    # PHASE 1C: Retired from the live roster (module kept for rollback)
+    # from .anka_bridge import AnkaBridgeAdvisor
     # PHASE 1A: Consolidated into ExecutiveCoachingAdvisor
     # from .accountability_coach import AccountabilityCoachAdvisor
     from .work_analyst import WorkAnalystAdvisor
@@ -310,25 +324,29 @@ def all_advisors() -> List[Advisor]:
     from .sre_watchdog import SreWatchdogAdvisor
 
     return [
-        # Position 1: Weather briefing
-        WeatherAdvisor(),
-        # Position 2: Morning operations (PHASE 1A consolidation)
+        # Position 1: Morning operations (PHASE 1A consolidation)
         MorningOperationsAdvisor(),
-        # Position 3: Communications and calendar (PHASE 1A consolidation)
+        # Position 2: Communications and calendar (PHASE 1A consolidation)
         CommunicationsCalendarAdvisor(),
+        # Position 3: Meeting prep — morning preparation, so it sits with the
+        # other two "before the day starts" sections rather than in the middle
+        # of the intelligence block.
+        MeetingPrepAdvisor(),
         # Position 4: Career development (PHASE 1B consolidation)
         CareerDevelopmentAdvisor(),
         # Position 5: Market intelligence (PHASE 1B consolidation)
         MarketIntelligenceAdvisor(),
-        # Position 6: The operation's OWN numbers, read by the analysis engine.
+        # Position 6: Complaint & reputation radar — the same outside-in view
+        # as the market intelligence above it, read from the customer's side.
+        ComplaintRadarAdvisor(),
+        # Position 7: The operation's OWN numbers, read by the analysis engine.
         # Registered right after the market view: outside-in first, then
         # inside-out, which is the order a director reads a morning pack in.
         DataAnalystAdvisor(),
-        # Position 7: AI mastery + innovation ideas (PHASE 1B consolidation)
+        # Position 8: AI mastery + innovation ideas (PHASE 1B consolidation)
         AiInnovationAdvisor(),
         # Other advisors (unchanged)
         KidsDevelopmentAdvisor(),
-        AnkaBridgeAdvisor(),
         # Executive coaching (PHASE 1A consolidation of Leadership + Accountability)
         ExecutiveCoachingAdvisor(),
         # Work Analyst: consolidates the SYSTEM's health after everyone ran.

@@ -139,12 +139,12 @@ def test_dry_run_creates_absolutely_nothing():
 
 
 def test_dry_run_reports_which_channels_already_exist():
-    api = FakeApi(existing={"ai-hava-durumu": "C111"})
+    api = FakeApi(existing={"ai-sabah-operasyon": "C111"})
     result = slack_setup.provision(api, apply=False, env={})
 
     by_name = {o.spec.name: o for o in result.outcomes}
-    assert by_name["ai-hava-durumu"].action == "would-reuse"
-    assert by_name["ai-hava-durumu"].channel_id == "C111"
+    assert by_name["ai-sabah-operasyon"].action == "would-reuse"
+    assert by_name["ai-sabah-operasyon"].channel_id == "C111"
     assert by_name["ai-asistan-genel"].action == "would-create"
     assert api.methods("conversations.create") == []
 
@@ -226,26 +226,26 @@ def test_rerunning_creates_nothing_new(capsys):
 def test_an_id_already_in_the_environment_is_never_recreated():
     """Idempotency the other way: .env is already filled in."""
     api = FakeApi()
-    env = {"SLACK_MAIN_CHANNEL": "CPINNED", "SLACK_CHANNEL_WEATHER": "CWPINNED"}
+    env = {"SLACK_MAIN_CHANNEL": "CPINNED", "SLACK_CHANNEL_MORNING_OPERATIONS": "CWPINNED"}
 
     result = slack_setup.provision(api, apply=True, env=env)
 
     created = [p["name"] for p in api.methods("conversations.create")]
     assert "ai-asistan-genel" not in created
-    assert "ai-hava-durumu" not in created
+    assert "ai-sabah-operasyon" not in created
     by_key = {o.spec.env_key: o for o in result.outcomes}
     assert by_key["SLACK_MAIN_CHANNEL"].channel_id == "CPINNED"
-    assert by_key["SLACK_CHANNEL_WEATHER"].channel_id == "CWPINNED"
+    assert by_key["SLACK_CHANNEL_MORNING_OPERATIONS"].channel_id == "CWPINNED"
 
 
 def test_existing_channel_is_adopted_not_duplicated():
-    api = FakeApi(existing={"ai-anka-koprusu": "CEXIST"})
+    api = FakeApi(existing={"ai-cocuk-gelisim": "CEXIST"})
     result = slack_setup.provision(api, apply=True, env={})
 
-    outcome = next(o for o in result.outcomes if o.spec.name == "ai-anka-koprusu")
+    outcome = next(o for o in result.outcomes if o.spec.name == "ai-cocuk-gelisim")
     assert outcome.action == "exists"
     assert outcome.channel_id == "CEXIST"
-    assert "ai-anka-koprusu" not in [p["name"] for p in api.methods("conversations.create")]
+    assert "ai-cocuk-gelisim" not in [p["name"] for p in api.methods("conversations.create")]
     # ...and it is still described and joined, so an adopted channel is usable.
     assert {"channel": "CEXIST"} in api.methods("conversations.join")
 
@@ -256,8 +256,8 @@ def test_name_taken_race_is_recovered_by_looking_again(monkeypatch):
     real_create = api.call
 
     def racy(method, payload=None):
-        if method == "conversations.create" and payload["name"] == "ai-hava-durumu":
-            api.channels["ai-hava-durumu"] = "CRACE"
+        if method == "conversations.create" and payload["name"] == "ai-sabah-operasyon":
+            api.channels["ai-sabah-operasyon"] = "CRACE"
             api.calls.append((method, dict(payload)))
             raise slack_setup.SlackApiError(method, "name_taken", "zaten var")
         return real_create(method, payload)
@@ -265,7 +265,7 @@ def test_name_taken_race_is_recovered_by_looking_again(monkeypatch):
     monkeypatch.setattr(api, "call", racy)
     result = slack_setup.provision(api, apply=True, env={})
 
-    outcome = next(o for o in result.outcomes if o.spec.name == "ai-hava-durumu")
+    outcome = next(o for o in result.outcomes if o.spec.name == "ai-sabah-operasyon")
     assert outcome.action == "exists"
     assert outcome.channel_id == "CRACE"
 
@@ -354,7 +354,7 @@ def test_write_env_appends_to_a_file_that_has_no_slack_keys(tmp_path):
 def test_write_env_replaces_in_place_and_never_duplicates_a_key(tmp_path):
     env_file = tmp_path / ".env"
     env_file.write_text(
-        "SLACK_BOT_TOKEN=xoxb-x\nSLACK_CHANNEL_WEATHER=COLD\n", encoding="utf-8"
+        "SLACK_BOT_TOKEN=xoxb-x\nSLACK_CHANNEL_MORNING_OPERATIONS=COLD\n", encoding="utf-8"
     )
 
     api = FakeApi()
@@ -365,7 +365,7 @@ def test_write_env_replaces_in_place_and_never_duplicates_a_key(tmp_path):
     lines = env_file.read_text(encoding="utf-8").splitlines()
     keys = [line.split("=")[0] for line in lines if "=" in line]
     assert len(keys) == len(set(keys)), "a rerun must not duplicate a key"
-    assert "SLACK_CHANNEL_WEATHER=COLD" not in lines
+    assert "SLACK_CHANNEL_MORNING_OPERATIONS=COLD" not in lines
     assert "SLACK_BOT_TOKEN=xoxb-x" in lines
 
 
@@ -403,7 +403,7 @@ def test_cli_end_to_end_apply_and_write_env(monkeypatch, tmp_path, capsys):
     assert code == 0
     out = capsys.readouterr().out
     assert "UYGULAMA" in out
-    assert "SLACK_CHANNEL_WEATHER=C" in out
+    assert "SLACK_CHANNEL_MORNING_OPERATIONS=C" in out
     body = env_file.read_text(encoding="utf-8")
     assert "SLACK_MAIN_CHANNEL=C" in body
-    assert body.count("SLACK_CHANNEL_WEATHER=") == 1
+    assert body.count("SLACK_CHANNEL_MORNING_OPERATIONS=") == 1
