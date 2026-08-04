@@ -280,6 +280,9 @@ def all_advisors() -> List[Advisor]:
     from .meeting_prep import MeetingPrepAdvisor
     from .complaint_radar import ComplaintRadarAdvisor
 
+    # LinkedIn İmaj Koçu (LinkedIn profile & content management)
+    from .linkedin_coach import LinkedInCoach
+
     # PHASE 1A: Consolidated into ExecutiveCoachingAdvisor
     # from .leadership_coach import LeadershipCoachAdvisor
 
@@ -339,11 +342,13 @@ def all_advisors() -> List[Advisor]:
         # Position 6: Complaint & reputation radar — the same outside-in view
         # as the market intelligence above it, read from the customer's side.
         ComplaintRadarAdvisor(),
-        # Position 7: The operation's OWN numbers, read by the analysis engine.
+        # Position 7: LinkedIn İmaj Koçu — Professional image & content management
+        LinkedInCoach(),
+        # Position 9: The operation's OWN numbers, read by the analysis engine.
         # Registered right after the market view: outside-in first, then
         # inside-out, which is the order a director reads a morning pack in.
         DataAnalystAdvisor(),
-        # Position 8: AI mastery + innovation ideas (PHASE 1B consolidation)
+        # Position 10: AI mastery + innovation ideas (PHASE 1B consolidation)
         AiInnovationAdvisor(),
         # Other advisors (unchanged)
         KidsDevelopmentAdvisor(),
