@@ -132,10 +132,9 @@ def _google_news_rss(query: str) -> str:
 #
 # SAFETY: only NON-SECRET configuration lives here. API keys and tokens are
 # never defaulted, so a missing LLM key still yields a ``skipped`` briefing and
-# a zero exit code. The Anka bridge is deliberately absent too: its endpoint is
-# user-specific and must never be invented.
+# a zero exit code. User-specific values (a private endpoint, a brand list) are
+# deliberately absent too: they must never be invented.
 DEFAULT_SETTINGS: Dict[str, str] = {
-    "WEATHER_CITY": "Istanbul",
     "USER_SECTOR": "banka çağrı merkezleri",
     "JOB_KEYWORDS": "çağrı merkezi müdürü, müşteri deneyimi yöneticisi, operasyon müdürü",
     "JOB_LOCATION": "İstanbul",
@@ -172,6 +171,22 @@ DEFAULT_SETTINGS: Dict[str, str] = {
     "CX_RESEARCH_RSS_URL": _google_news_rss(
         '"müşteri deneyimi" OR "çağrı merkezi" OR "müşteri memnuniyeti"'
     ),
+    # Müşteri Şikâyet & İtibar Radarı. Without at least one of these two the
+    # advisor's ``_configured()`` is False and the section is `skipped` on every
+    # real run, so both ship with a real Google News search feed: the first one
+    # is the brand/complaint desk, the second the sector desk.
+    "COMPLAINT_RADAR_RSS_URL": _google_news_rss(
+        '"banka şikayet" OR "bankacılık müşteri şikayeti" OR "müşteri şikayeti" banka'
+    ),
+    "COMPLAINT_RADAR_SECTOR_RSS_URL": _google_news_rss(
+        'bankacılık şikayet OR "tüketici hakem heyeti" OR BDDK şikayet'
+    ),
+    # NOT defaulted on purpose: COMPLAINT_RADAR_BRANDS and
+    # COMPLAINT_RADAR_COMPETITORS name REAL institutions, and inventing either
+    # would put made-up brands into the briefing. Both are optional in the
+    # advisor: an empty brand list simply drops the "own brands" line from the
+    # prompt, and an empty competitor list makes the model compare only the
+    # institutions actually named in the feed (see complaint_radar._user_prompt).
     # Findings ledger — what the team has ALREADY told the user, so the extra
     # daily runs only report genuinely new material. Like the accountability
     # state it is committed back by the workflow to survive the runner.

@@ -89,10 +89,6 @@ jobs:
 
       - name: Build and send daily digest
         env:
-          # Weather advisor (Open-Meteo, no key required). An unset secret is an
-          # empty string, which falls back to the built-in default ("Istanbul").
-          WEATHER_CITY: ${{ secrets.WEATHER_CITY }}
-          WEATHER_COUNTRY: ${{ secrets.WEATHER_COUNTRY }}
           # LLM provider — either key activates the persona advisors.
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -105,7 +101,7 @@ jobs:
           # model fallback chain and again with the per-advisor path, so an
           # exhausted free-tier quota could otherwise stretch this job past an
           # hour. When the budget is spent the remaining sections fail fast and
-          # the digest still goes out (weather + real RSS headlines included).
+          # the digest still goes out (real RSS headlines included).
           LLM_TIME_BUDGET_SECONDS: "600"
           # Space out any remaining sequential Gemini calls (the per-advisor
           # fallback path) so the free-tier quota window doesn't 429 them.
@@ -131,31 +127,33 @@ jobs:
           SLACK_CHANNEL: ${{ secrets.SLACK_CHANNEL }}
           # The main channel: it carries the SUMMARY only.
           SLACK_MAIN_CHANNEL: ${{ secrets.SLACK_MAIN_CHANNEL }}
-          # One sub-channel per advisor of the CURRENT ten-advisor roster
-          # (`ai_assistant.integrations.channel_config.ADVISOR_KEYS`). Create
+          # One sub-channel per advisor of the CURRENT thirteen-advisor roster
+          # (`ai_assistant.integrations.channel_config.ADVISOR_KEYS`; the env
+          # var name is always SLACK_CHANNEL_<ADVISOR_KEY_UPPERCASE>). Create
           # them all with:
           #   python -m ai_assistant.integrations.slack_setup --apply
           # An unset secret is not an error: that advisor falls back to the
           # main channel.
-          SLACK_CHANNEL_WEATHER: ${{ secrets.SLACK_CHANNEL_WEATHER }}
           SLACK_CHANNEL_MORNING_OPERATIONS: ${{ secrets.SLACK_CHANNEL_MORNING_OPERATIONS }}
           SLACK_CHANNEL_COMMUNICATIONS_CALENDAR: ${{ secrets.SLACK_CHANNEL_COMMUNICATIONS_CALENDAR }}
+          SLACK_CHANNEL_MEETING_PREP: ${{ secrets.SLACK_CHANNEL_MEETING_PREP }}
           SLACK_CHANNEL_CAREER_DEVELOPMENT: ${{ secrets.SLACK_CHANNEL_CAREER_DEVELOPMENT }}
           SLACK_CHANNEL_MARKET_INTELLIGENCE: ${{ secrets.SLACK_CHANNEL_MARKET_INTELLIGENCE }}
+          SLACK_CHANNEL_COMPLAINT_RADAR: ${{ secrets.SLACK_CHANNEL_COMPLAINT_RADAR }}
+          SLACK_CHANNEL_DATA_ANALYST: ${{ secrets.SLACK_CHANNEL_DATA_ANALYST }}
           SLACK_CHANNEL_AI_INNOVATION: ${{ secrets.SLACK_CHANNEL_AI_INNOVATION }}
           SLACK_CHANNEL_KIDS_DEVELOPMENT: ${{ secrets.SLACK_CHANNEL_KIDS_DEVELOPMENT }}
-          SLACK_CHANNEL_ANKA_BRIDGE: ${{ secrets.SLACK_CHANNEL_ANKA_BRIDGE }}
           SLACK_CHANNEL_EXECUTIVE_COACHING: ${{ secrets.SLACK_CHANNEL_EXECUTIVE_COACHING }}
           SLACK_CHANNEL_WORK_ANALYST: ${{ secrets.SLACK_CHANNEL_WORK_ANALYST }}
+          SLACK_CHANNEL_OPERATIONS_DIRECTOR: ${{ secrets.SLACK_CHANNEL_OPERATIONS_DIRECTOR }}
+          SLACK_CHANNEL_SRE_WATCHDOG: ${{ secrets.SLACK_CHANNEL_SRE_WATCHDOG }}
           # Phase 2 advisors — all optional; a missing secret falls back to the
-          # built-in default (except ANKA_*, which has none by design).
+          # built-in default.
           JOB_KEYWORDS: ${{ secrets.JOB_KEYWORDS }}
           JOB_LOCATION: ${{ secrets.JOB_LOCATION }}
           USER_SECTOR: ${{ secrets.USER_SECTOR }}
           AI_NEWS_RSS_URL: ${{ secrets.AI_NEWS_RSS_URL }}
           SECTOR_NEWS_RSS_URL: ${{ secrets.SECTOR_NEWS_RSS_URL }}
-          ANKA_WEBHOOK_URL: ${{ secrets.ANKA_WEBHOOK_URL }}
-          ANKA_API_KEY: ${{ secrets.ANKA_API_KEY }}
           # Phase 3 advisors — all optional, all with built-in defaults.
           # Banking & contact-center project expert: news feed for real links.
           BANKING_NEWS_RSS_URL: ${{ secrets.BANKING_NEWS_RSS_URL }}
@@ -168,6 +166,15 @@ jobs:
           CX_RESEARCH_RSS_URL: ${{ secrets.CX_RESEARCH_RSS_URL }}
           # Free certification hunter: announcements feed.
           FREE_CERTS_RSS_URL: ${{ secrets.FREE_CERTS_RSS_URL }}
+          # Müşteri Şikayet & İtibar Radarı. Both feeds have built-in defaults
+          # (Turkish Google News searches), so an unset secret still produces a
+          # section. BRANDS/COMPETITORS have NO default — they name real
+          # institutions — and an unset one simply drops that part of the
+          # prompt; give them as comma-separated lists to enable it.
+          COMPLAINT_RADAR_RSS_URL: ${{ secrets.COMPLAINT_RADAR_RSS_URL }}
+          COMPLAINT_RADAR_SECTOR_RSS_URL: ${{ secrets.COMPLAINT_RADAR_SECTOR_RSS_URL }}
+          COMPLAINT_RADAR_BRANDS: ${{ secrets.COMPLAINT_RADAR_BRANDS }}
+          COMPLAINT_RADAR_COMPETITORS: ${{ secrets.COMPLAINT_RADAR_COMPETITORS }}
           # Findings ledger — what the team has ALREADY reported, so the extra
           # runs only bring new material. Leave this secret UNSET so the
           # built-in default (.assistant_state/findings.json) is used; that is
@@ -192,6 +199,15 @@ jobs:
           # These only bound how much recent mail is read.
           OPS_BRIEFING_MAX_EMAILS: ${{ secrets.OPS_BRIEFING_MAX_EMAILS }}
           OPS_BRIEFING_EMAIL_WINDOW: ${{ secrets.OPS_BRIEFING_EMAIL_WINDOW }}
+          # Drive root folder: where reports are archived, and the fallback
+          # folder the meeting-prep advisor looks for past meeting notes in.
+          GOOGLE_DRIVE_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
+          # Toplantı Hazırlık & Takip (Calendar + Drive; same Google OAuth as
+          # above). All three are optional: unset means 3 days ahead, at most
+          # 3 matched notes, and GOOGLE_DRIVE_FOLDER_ID as the notes folder.
+          MEETING_PREP_LOOKAHEAD_DAYS: ${{ secrets.MEETING_PREP_LOOKAHEAD_DAYS }}
+          MEETING_PREP_NOTES_FOLDER_ID: ${{ secrets.MEETING_PREP_NOTES_FOLDER_ID }}
+          MEETING_PREP_MAX_NOTES: ${{ secrets.MEETING_PREP_MAX_NOTES }}
         run: python -m ai_assistant.notifiers.slack_notifier
 
       # NOTE: there used to be a second step here, "Distribute digest to
