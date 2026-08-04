@@ -13,8 +13,12 @@ düşer. Bu yüzden ÜÇ şey diske yazılır:
 * ``templates`` — isimle kaydedilmiş rapor tarifleri.
 
 Dosya yolu ``CHAT_STATE_FILE`` ile değiştirilir; varsayılan
-``.assistant_state/chat_state.json``. Yazma iş akışında commit edilerek
-kalıcılaştırılır (bkz. ``.github/workflows/slack-chat.yml``).
+``.assistant_state/chat_state.json``. Runner'ın diski atıldığı için bu dosya
+her yoklamanın sonunda depoya COMMİT EDİLEREK kalıcılaştırılır (bkz.
+``.github/workflows/chat-poller.yml``, "Sohbet durumunu kalıcılaştır" adımı ve
+``.gitignore`` içindeki ``!.assistant_state/chat_state.json`` istisnası).
+Commit edilmezse imleç her koşuda boş görünür, EN SON insan mesajı yeniden
+işlenir ve kullanıcı sonsuza kadar birinci adımda kalır.
 
 Hiçbir işlem istisna fırlatmaz: okunamayan/bozuk dosya BOŞ durum sayılır, çünkü
 sohbeti çökertmektense baştan başlatmak daha iyidir.

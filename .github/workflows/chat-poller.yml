@@ -24,6 +24,14 @@ on:
 # sonuncusu eski imleçleri atlar — bu sorun değil, bu tasarım. Ama kısa süreli
 # bir kapanış ortasında oturumsallık çok önemli, öyleyse içeri almanın yerine
 # kuyruğa al.
+#
+# BU GRUP YALNIZCA KENDİ İŞ AKIŞINI SIRAYA SOKAR. `daily-briefing` de `main`e
+# yazar ve AYRI bir grupta durur — bilerek: beş dakikada bir koşan yoklayıcı
+# ile günlük brifingi aynı gruba koymak, brifingi yoklamanın arkasında
+# bekletirdi. İki iş akışının aynı anda push etmesi ihtimaline karşı çare
+# kilit değil, aşağıdaki REBASE + YENİDEN DENEME döngüsüdür (daily-briefing
+# de aynısını yapar): iki taraf da farklı dosyalara dokunduğu için rebase
+# çakışmasız ilerler.
 concurrency:
   group: chat-poller
   cancel-in-progress: false
@@ -31,14 +39,20 @@ concurrency:
 jobs:
   poller:
     runs-on: ubuntu-latest
+    # Sohbet durumu (imleç + açık oturumlar) koşu sonunda `main`e commit
+    # edilir; runner'ın diski atıldığı için bunu kalıcı kılan tek şey budur.
+    # `contents: read` olduğu sürece imleç HİÇ yazılmaz ve kullanıcı her
+    # yoklamada birinci adıma düşer.
     permissions:
-      contents: read
+      contents: write
     steps:
       - name: Depo çıkışı
         uses: actions/checkout@v4
         with:
+          # Durum dosyasını ayrık bir HEAD'e değil varsayılan dala yaz; push
+          # edebilmek için token çıkışta kalsın.
           ref: main
-          persist-credentials: false
+          persist-credentials: true
 
       - name: Python kurulumu
         uses: actions/setup-python@v5
@@ -67,12 +81,76 @@ jobs:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          # Paylaşılan Google OAuth. Bunlar olmadan Drive listesi BOŞ döner:
+          # birinci adımda hiçbir dosya görünmez ve "toplantı notlarını özetle"
+          # isteği kimlik yok diye kibarca reddedilir.
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
+          # Tablo dosyalarının klasörü (yoksa GOOGLE_DRIVE_FOLDER_ID kullanılır).
+          CHAT_DATA_FOLDER_ID: ${{ secrets.CHAT_DATA_FOLDER_ID }}
+          GOOGLE_DRIVE_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
+          # Toplantı notlarının klasörü (yoksa GOOGLE_DRIVE_FOLDER_ID).
+          MEETING_PREP_NOTES_FOLDER_ID: ${{ secrets.MEETING_PREP_NOTES_FOLDER_ID }}
+          # Elle çalıştırmada verilen kanal; zamanlanmış koşuda boştur ve
+          # yoklayıcı SLACK_ANALYST_CHANNEL'a düşer. Kabuk enjeksiyonuna yer
+          # kalmasın diye girdi doğrudan komuta değil, ortama konur.
+          DISPATCH_CHANNEL: ${{ inputs.channel }}
         run: |
           set -e
           echo "Sohbet kanalı yoklaması başlanıyor..."
-          python -m ai_assistant.chat.poller
+          python -m ai_assistant.chat.poller --channel "${DISPATCH_CHANNEL:-}"
           echo "Sohbet kanalı yoklaması tamamlandı."
         continue-on-error: true
+
+      # Runner'ın diski atılır. İMLECİ VE AÇIK OTURUMLARI KALICI KILAN TEK ŞEY
+      # bu adımdır: `.assistant_state/chat_state.json` commit edilmezse bir
+      # sonraki yoklama imleci boş görür, EN SON insan mesajını yeniden işler
+      # ve menünün birinci adımını sonsuza kadar yeniden gönderir — kullanıcı
+      # ikinci adıma hiç ulaşamaz.
+      #
+      # `daily-briefing.yml` ile AYNI deyim: değişmediyse sessizce çık, hata
+      # olsa da işi düşürme, `main` bu arada oynadıysa rebase edip yeniden
+      # dene. Bir yoklamayı kaçırmak katlanılabilir; kırmızı yanan bir cron
+      # düzeltilmeyen bir cron olur.
+      - name: Sohbet durumunu kalıcılaştır
+        if: always()
+        continue-on-error: true
+        env:
+          STATE_PATHS: ".assistant_state/chat_state.json"
+        run: |
+          set -u
+          PRESENT=""
+          for path in $STATE_PATHS; do
+            if [ -e "$path" ]; then
+              PRESENT="$PRESENT $path"
+            else
+              echo "$path yok — atlanıyor."
+            fi
+          done
+          if [ -z "$PRESENT" ]; then
+            echo "Kalıcılaştırılacak bir şey yok."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A -- $PRESENT
+          if git diff --cached --quiet -- $PRESENT; then
+            echo "Sohbet durumu değişmedi — commit yok."
+            exit 0
+          fi
+          git commit -m "chore: persist chat cursor and sessions" -- $PRESENT
+          # Günlük brifing de `main`e yazar; araya girmiş olabilir.
+          for attempt in 1 2 3; do
+            if git push origin HEAD:main; then
+              echo "Sohbet durumu $attempt. denemede gönderildi."
+              exit 0
+            fi
+            echo "Push başarısız ($attempt. deneme); origin/main üzerine rebase ediliyor."
+            git pull --rebase --autostash origin main || break
+            sleep $((attempt * 5))
+          done
+          echo "Sohbet durumu yazılamadı; bir sonraki yoklama son commit edilen imleçten devam eder."
 
       - name: Hata günlüğü
         if: failure()

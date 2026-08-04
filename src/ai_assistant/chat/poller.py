@@ -124,7 +124,15 @@ def run_once(
 
     state = store or ChatStore()
     state.prune_sessions(now)
-    brain = engine or SessionEngine(store=state, now=now)
+    # Motor ağa çıkmaz; ama uzun süren bir iş (not özeti tek bir model çağrısı
+    # alır) başlamadan önce kanala "bakıyorum" yazabilmesi için Slack'e yazan
+    # tek satırlık bir geri çağrı verilir. Beş dakikalık yoklamada kullanıcının
+    # isteğinin düştüğünü hemen görmesi budur.
+    brain = engine or SessionEngine(
+        store=state,
+        now=now,
+        notifier=lambda text: _post(api, target, report, text),
+    )
     runner = deliver or delivery_mod.run
 
     cursor = state.cursor(target)

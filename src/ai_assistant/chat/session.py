@@ -29,6 +29,7 @@ from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional
 
 from ..analysis.dataset import Dataset, DatasetError, load_any, load_text
+from . import ask as ask_mod
 from . import intent as intent_mod
 from . import sources as sources_mod
 from . import templates as templates_mod
@@ -269,12 +270,17 @@ class SessionEngine:
         source_lister: Optional[Callable[[], List[Any]]] = None,
         renderer: Optional[Renderer] = None,
         now: Optional[datetime] = None,
+        notifier: Optional[Callable[[str], None]] = None,
     ):
         self.store = store or ChatStore()
         self.loader = loader or default_loader
         self.source_lister = source_lister or sources_mod.list_recent_sources
         self.renderer = renderer or TextRenderer()
         self._now = now
+        #: Uzun bir işten ÖNCE tek satır yazmanın yolu. Motor ağa çıkmaz; bunu
+        #: veren (yoklayıcı) kanala koyar. Verilmezse hiçbir şey yazılmaz ve
+        #: cevaplar her zamanki gibi turun sonunda toplu gider.
+        self.notifier = notifier
 
     # --- genel giriş --------------------------------------------------------
 
@@ -320,6 +326,13 @@ class SessionEngine:
             if result.spec is not None:
                 return Turn(messages=result.messages, spec=result.spec)
             return Turn(messages=result.messages)
+
+        # Toplantı notu özeti de sohbet açmadan, kendi içinde çalışır.
+        answer = ask_mod.handle(
+            body, self.store, user, channel=channel, notify=self.notifier, now=self._now
+        )
+        if answer.handled:
+            return Turn(messages=answer.messages)
 
         conv = Conversation(channel=channel, user=user, step=STEP_SOURCE)
         messages: List[str] = []
