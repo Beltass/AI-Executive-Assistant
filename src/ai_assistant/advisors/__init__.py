@@ -344,7 +344,7 @@ def all_advisors() -> List[Advisor]:
         # Registered right after the market view: outside-in first, then
         # inside-out, which is the order a director reads a morning pack in.
         DataAnalystAdvisor(),
-        # Position 9: AI mastery + innovation ideas (PHASE 1B consolidation)
+        # Position 8: AI mastery + innovation ideas (PHASE 1B consolidation)
         AiInnovationAdvisor(),
         # Other advisors (unchanged)
         KidsDevelopmentAdvisor(),
