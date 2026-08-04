@@ -119,8 +119,9 @@ def _names(name: str) -> List[str]:
 
 
 class ComplaintRadarAdvisor(Advisor):
+    """Expanded comprehensive analysis advisor covering market, sentiment, and competition."""
     key = "complaint_radar"
-    title = "Müşteri Şikayet & İtibar Radarı"
+    title = "Pazar Trendleri & Kapsamlı Analiz Danışmanı"
 
     #: Şikâyet akışları iki çalıştırma arasında gerçekten YENİ madde üretir.
     incremental_source = True
