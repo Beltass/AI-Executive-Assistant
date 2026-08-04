@@ -234,7 +234,6 @@ def test_private_key_list_matches_the_rosters_private_flags():
 
     assert private == {
         "communications_calendar",
-        "meeting_prep",
         "data_analyst",
         "ai_innovation",
         "executive_coaching",

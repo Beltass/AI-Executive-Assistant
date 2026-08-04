@@ -278,7 +278,6 @@ def all_advisors() -> List[Advisor]:
     from .executive_coaching import ExecutiveCoachingAdvisor
 
     # NEW ADVISORS (PHASE 1C): morning meeting prep, sector complaint radar
-    from .meeting_prep import MeetingPrepAdvisor
     from .complaint_radar import ComplaintRadarAdvisor
 
     # LinkedIn İmaj Koçu (LinkedIn profile & content management)
@@ -327,6 +326,10 @@ def all_advisors() -> List[Advisor]:
     # 7/24 teknik nöbetçi (ai_assistant.watchdog) — brifinge bağlayan sarmalayıcı.
     from .sre_watchdog import SreWatchdogAdvisor
 
+    # NEW PERSONAL ADVISORS (PHASE 1D): personal life management & DM routing
+    from .social_media_coach import SocialMediaCoachAdvisor
+    from .personal_assistant import PersonalAssistantAdvisor
+
     return [
         # Position 1: Morning operations (PHASE 1A consolidation)
         MorningOperationsAdvisor(),
@@ -335,7 +338,6 @@ def all_advisors() -> List[Advisor]:
         # Position 3: Meeting prep — morning preparation, so it sits with the
         # other two "before the day starts" sections rather than in the middle
         # of the intelligence block.
-        MeetingPrepAdvisor(),
         # Position 4: Career development (PHASE 1B consolidation)
         CareerDevelopmentAdvisor(),
         # Position 5: Market intelligence (PHASE 1B consolidation)
@@ -345,7 +347,11 @@ def all_advisors() -> List[Advisor]:
         ComplaintRadarAdvisor(),
         # Position 7: LinkedIn coach
         LinkedInCoach(),
-        # Position 8: The operation's OWN numbers, read by the analysis engine.
+        # Position 8: Social media coach (Instagram, Twitter, personal branding)
+        SocialMediaCoachAdvisor(),
+        # Position 9: Personal assistant (calendar, tasks, goals, networking)
+        PersonalAssistantAdvisor(),
+        # Position 10: The operation's OWN numbers, read by the analysis engine.
         # Registered right after the market view: outside-in first, then
         # inside-out, which is the order a director reads a morning pack in.
         DataAnalystAdvisor(),
