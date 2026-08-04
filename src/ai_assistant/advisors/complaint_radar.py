@@ -90,21 +90,21 @@ SYSTEM_PROMPT = (
 )
 
 CAVEAT = (
-    "📌 Kaynak notu: Buradaki temalar ve hacim yorumu YALNIZCA tanımlı "
-    "beslemelerden okunan başlıklara dayanır; şikâyet platformlarının tamamını "
-    "temsil etmez ve resmî bir şikâyet istatistiği değildir. Bir toplantıda "
-    "kullanmadan önce kendi şikâyet kayıtlarınızla karşılaştırın.\n"
-    "⚖️ Rakip kıyası, kamuya açık başlıklardan çıkarılmış bir izlenimdir; "
-    "rakip hakkında karar veya iddia üretmeden önce doğrulayın.\n"
-    "🔎 Bağlantıları açılışta doğrulayın."
+    "📌 Kaynak notu: Buradaki tüm temalar, trendler ve yorumlar YALNIZCA tanımlı "
+    "beslemelerden okunan başlıklara dayanır; pazar istatistiğinin tamamını "
+    "temsil etmez ve resmî bir pazar raporu değildir. Bir karar vermeden önce "
+    "kendi verileriniz, şikâyet kayıtlarınız ve pazar araştırmanızla karşılaştırın.\n"
+    "⚖️ Rakip değerlendirmesi, kamuya açık başlıklardan çıkarılmış bir izlenimdir; "
+    "rakip stratejisi hakkında sonuç üretmeden önce doğrulayın.\n"
+    "🔎 Tüm bağlantıları açılışta doğrulayın; başlıklar zamanla yer değiştirebilir."
 )
 
 #: Hiç besleme tanımlı değilken verilen Türkçe açıklama.
 NO_FEED_HELP = (
-    "missing env var(s): COMPLAINT_RADAR_RSS_URL — şikâyet radarı için "
-    "okunacak bir besleme tanımlı değil. Bir şikâyet/itibar RSS adresi "
-    "(ve istenirse COMPLAINT_RADAR_SECTOR_RSS_URL) tanımlandığında bu bölüm "
-    "dolar."
+    "missing env var(s): COMPLAINT_RADAR_RSS_URL — kapsamlı analiz için "
+    "okunacak bir müşteri şikâyeti RSS akışı tanımlı değil. Bir şikâyet/itibar "
+    "RSS adresi (ve istenirse COMPLAINT_RADAR_SECTOR_RSS_URL) tanımlandığında "
+    "bu bölüm pazar trendleri, müşteri sentimenti ve rekabet analizi içerir."
 )
 
 
