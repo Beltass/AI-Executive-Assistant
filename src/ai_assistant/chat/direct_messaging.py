@@ -1,18 +1,25 @@
 """Slack Doğrudan Mesajlaşma — danışmanların DM yoluyla erişilebilmesi.
 
 Kullanıcı bota doğrudan bir mesaj gönderirse, bot:
-1. İçeriği analiz eder (niyeti algılar)
-2. Uygun danışmana yönlendirir
-3. Danışmanın cevabını geri gönderir
-4. Mobil bildirim gönderir
+1. Dialog durumunu kontrol eder (aktif dialog var mı?)
+2. İçeriği analiz eder (niyeti algılar)
+3. Uygun danışmana yönlendirir
+4. Danışmanın cevabını geri gönderir
+5. Mobil bildirim gönderir
+
+Dialog Sistemi:
+  - AdvisorDialog: Veri Analisti, Sosyal Medya Koçu, Kişisel Asistan
+  - Multi-turn konuşma: Geçmiş bağlamı hatırla
+  - State persistence: Dialog durumunu diskte sakla
 
 Örnek:
-  Kullanıcı: "İnstagram profilimi analiz et"
-  Bot: Detect sosyal medya koçu → cevap üret → DM'ye gönder
+  Kullanıcı: "Veri analizi yap"
+  Bot: Menüyü göster → dialog oluştur → input bekle → analiz → rapor
 
 Configuration:
     SLACK_NOTIFICATION_METHOD  "push" (varsayılan), "email", veya "sms"
     DIRECT_MESSAGE_TIMEOUT     Timeout süresi saniyecinsinden (varsayılan: 30)
+    ADVISOR_DIALOG_ENABLED     Dialog sistemi aktif mi? (varsayılan: true)
 """
 
 from __future__ import annotations
@@ -32,6 +39,9 @@ NOTIFICATION_SMS = "sms"
 
 TIMEOUT_ENV = "DIRECT_MESSAGE_TIMEOUT"
 DEFAULT_TIMEOUT = 30
+
+ADVISOR_DIALOG_ENABLED_ENV = "ADVISOR_DIALOG_ENABLED"
+DEFAULT_ADVISOR_DIALOG_ENABLED = True
 
 
 @dataclass
@@ -54,29 +64,35 @@ class DirectMessageResponse:
 
 
 class DirectMessenger:
-    """Slack DM yoluyla danışmanlara erişim."""
+    """Slack DM yoluyla danışmanlara erişim — Dialog sistemi ile."""
 
     # Basit anahtar kelime -> danışman eşlemesi
     ADVISOR_KEYWORDS = {
         "sosyal": "social_media_coach",
         "instagram": "social_media_coach",
         "twitter": "social_media_coach",
-        "linkedin": "linkedin_coach",
-        "profil": "linkedin_coach",
+        "linkedin": "social_media_coach",
+        "profil": "social_media_coach",
         "veri": "data_analyst",
         "analiz": "data_analyst",
+        "verileri": "data_analyst",
         "hedef": "personal_assistant",
         "görev": "personal_assistant",
         "takvim": "personal_assistant",
-        "toplantı": "meeting_prep",
-        "iş": "operations_director",
-        "karar": "operations_director",
+        "toplantı": "personal_assistant",
+        "gün": "personal_assistant",
+        "özet": "personal_assistant",
     }
 
     def __init__(self):
         """DirectMessenger'ı başlat."""
         self.timeout = self._get_timeout()
         self.notification_method = self._get_notification_method()
+        self.dialog_enabled = self._is_dialog_enabled()
+        self.dialog_flow = None
+        if self.dialog_enabled:
+            from .advisor_dialog import AdvisorDialogFlow
+            self.dialog_flow = AdvisorDialogFlow()
 
     def _get_timeout(self) -> int:
         """Yapılandırılan timeout'u al."""
@@ -95,6 +111,14 @@ class DirectMessenger:
             return method
         return NOTIFICATION_PUSH
 
+    def _is_dialog_enabled(self) -> bool:
+        """Dialog sistemi etkin mi?"""
+        import os
+        value = (os.getenv(ADVISOR_DIALOG_ENABLED_ENV) or "").strip().lower()
+        if value in ["false", "no", "0"]:
+            return False
+        return DEFAULT_ADVISOR_DIALOG_ENABLED
+
     async def route_to_advisor(self, message: DirectMessage) -> Optional[DirectMessageResponse]:
         """Bir DM'yi uygun danışmana yönlendir.
 
@@ -105,6 +129,11 @@ class DirectMessenger:
             Danışmanın yanıtı veya None
         """
         try:
+            # Dialog sistemi etkinse ve aktif dialog varsa, onu kullan
+            if self.dialog_enabled and self.dialog_flow:
+                return await self._route_with_dialog(message)
+
+            # Fallback: eski sistem
             advisor_key = self._detect_advisor(message.text)
             if not advisor_key:
                 return await self._unknown_intent_response()
@@ -118,6 +147,79 @@ class DirectMessenger:
         except Exception as exc:
             logger.exception("DM yönlendirme başarısız")
             return None
+
+    async def _route_with_dialog(self, message: DirectMessage) -> Optional[DirectMessageResponse]:
+        """Dialog sistemi ile yönlendir.
+
+        Args:
+            message: Doğrudan mesaj
+
+        Returns:
+            Danışmanın yanıtı
+        """
+        try:
+            user_id = message.user_id
+            text = message.text.strip()
+
+            # Menü seçimi kontrolü: danışman seçilmedi mi?
+            if self._is_menu_selection(text):
+                advisor_key, response_dict = self.dialog_flow.handle_advisor_selection(user_id, text)
+                if advisor_key:
+                    return DirectMessageResponse(
+                        advisor_key=advisor_key,
+                        response_text=self._format_blocks_as_text(response_dict),
+                        generated_at=datetime.now().isoformat(),
+                        sources=[]
+                    )
+                else:
+                    return DirectMessageResponse(
+                        advisor_key="system",
+                        response_text=response_dict.get("text", "Seçim anlaşılamadı."),
+                        generated_at=datetime.now().isoformat(),
+                        sources=[]
+                    )
+
+            # Hangi advisor'a ait dialog'u kontrol et
+            advisor_key = self._detect_advisor(text)
+            if not advisor_key:
+                # Menü göster
+                response_dict = self.dialog_flow.show_advisor_menu(user_id)
+                return DirectMessageResponse(
+                    advisor_key="system",
+                    response_text=self._format_blocks_as_text(response_dict),
+                    generated_at=datetime.now().isoformat(),
+                    sources=[]
+                )
+
+            # Advisora yönlendir
+            response_dict = self.dialog_flow.handle_advisor_input(advisor_key, user_id, text)
+            return DirectMessageResponse(
+                advisor_key=advisor_key,
+                response_text=response_dict.get("text", ""),
+                generated_at=datetime.now().isoformat(),
+                sources=[]
+            )
+
+        except Exception as exc:
+            logger.exception("Dialog yönlendirme başarısız")
+            return None
+
+    @staticmethod
+    def _is_menu_selection(text: str) -> bool:
+        """Menü seçimi mi (1, 2, 3)?"""
+        text = text.strip().lower()
+        return text in ["1", "2", "3", "veri", "sosyal", "asistan"]
+
+    @staticmethod
+    def _format_blocks_as_text(response_dict: Dict[str, Any]) -> str:
+        """Block Kit formatını metne çevir."""
+        text = response_dict.get("text", "")
+        if response_dict.get("blocks"):
+            # Blokları ekle
+            for block in response_dict["blocks"]:
+                if block.get("type") == "section" and block.get("text"):
+                    text += f"\n{block['text'].get('text', '')}"
+        return text
 
     def _detect_advisor(self, text: str) -> Optional[str]:
         """Mesaj içeriğinden danışman türünü algıla."""
