@@ -332,11 +332,9 @@ def all_advisors() -> List[Advisor]:
         MorningOperationsAdvisor(),
         # Position 2: Communications and calendar (PHASE 1A consolidation)
         CommunicationsCalendarAdvisor(),
-        # Position 3: Meeting prep — morning preparation, so it sits with the
-        # other two "before the day starts" sections rather than in the middle
-        # of the intelligence block.
-        MeetingPrepAdvisor(),
-        # Position 4: Career development (PHASE 1B consolidation)
+        # PHASE 1C: Meeting prep retired from the live roster (module kept for rollback)
+        # MeetingPrepAdvisor(),
+        # Position 3: Career development (PHASE 1B consolidation)
         CareerDevelopmentAdvisor(),
         # Position 5: Market intelligence (PHASE 1B consolidation)
         MarketIntelligenceAdvisor(),
