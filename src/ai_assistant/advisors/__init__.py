@@ -336,8 +336,7 @@ def all_advisors() -> List[Advisor]:
         CareerDevelopmentAdvisor(),
         # Position 4: Market intelligence (PHASE 1B consolidation)
         MarketIntelligenceAdvisor(),
-        # Position 5: Comprehensive market analysis &sentiment (Complaint & reputation radar — the same outside-in view
-        # as the market intelligence above it, read from the customer's side.
+        # Position 5: Comprehensive market & sentiment analysis (expanded)
         ComplaintRadarAdvisor(),
         # Position 6: LinkedIn coach
         LinkedInCoach(),
