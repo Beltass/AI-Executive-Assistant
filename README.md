@@ -306,9 +306,12 @@ each meeting to past notes in Drive by TITLE tokens and ATTENDEE names, with
 Turkish letters folded so *Şikayet* and *sikayet* are the same word. The notes
 folder is `MEETING_PREP_NOTES_FOLDER_ID`, falling back to
 `GOOGLE_DRIVE_FOLDER_ID`; `MEETING_PREP_LOOKAHEAD_DAYS` (default 3) and
-`MEETING_PREP_MAX_NOTES` (default 3) bound the work. Because the shared scope
-only sees file *metadata*, an unreadable note body is normal: the section is then
-written at title level and the model is told to say so. Its output separates
+`MEETING_PREP_MAX_NOTES` (default 3) bound the work. Reading a note *body*
+needs the `drive.readonly` scope; with an older refresh token (see
+[Re-consent after a scope change](#re-consent-after-a-scope-change)) the shared
+credential still only sees file *metadata*, so an unreadable note body is
+normal: the section is then written at title level and the model is told to say
+so. Its output separates
 **your** open items from **the team's**, proposes an agenda with the carried-over
 items first, and ends with one 15-30 minute preparation task. It is `private`:
 calendar entries and note content never reach the public dashboard. Missing
@@ -709,7 +712,8 @@ cp .env.example .env
 ## Google OAuth login
 
 Gmail, Google Calendar and Google Drive authenticate through a single shared
-Google OAuth 2.0 flow (read-only scopes). You log in **once**:
+Google OAuth 2.0 flow (read-only scopes: `gmail.readonly`, `calendar.readonly`,
+`drive.metadata.readonly` and `drive.readonly`). You log in **once**:
 
 1. In the [Google Cloud console](https://console.cloud.google.com/), create an
    OAuth client of type **Desktop app** and enable the Gmail, Calendar and
@@ -736,6 +740,24 @@ Google OAuth 2.0 flow (read-only scopes). You log in **once**:
 
 If no Google client credentials, no `GOOGLE_REFRESH_TOKEN` and no token file are
 present, the three Google checks simply report **SKIPPED**.
+
+### Re-consent after a scope change
+
+**A refresh token keeps the scopes it was issued with.** `drive.readonly` was
+added to the list above so that meeting-note *content* can be read
+(`files.export` / `files.get_media`); `drive.metadata.readonly` on its own only
+permits *listing*. A token minted before that change therefore keeps failing
+every content read with a 403 — nothing you can retry your way out of. To pick
+the new scope up:
+
+1. delete `GOOGLE_TOKEN_FILE` (default `.google_token.json`),
+2. run `python -m ai_assistant.integrations.google_auth` again and consent,
+3. copy the **new** refresh token into `GOOGLE_REFRESH_TOKEN` (and into the
+   GitHub secret of the same name).
+
+Until then nothing breaks: listing keeps working, the meeting-prep section falls
+back to title level, and the Slack summary answers with a Turkish message that
+names this exact problem instead of an empty answer.
 
 ## Run the connection check
 

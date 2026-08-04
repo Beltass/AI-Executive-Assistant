@@ -53,10 +53,27 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from google.oauth2.credentials import Credentials
 
 # Read-only scopes: this assistant only ever *reads* from Google services.
+#
+# A STALE REFRESH TOKEN KEEPS ITS OLD SCOPES. Adding a scope to this list does
+# NOT widen an existing credential: scopes are frozen into the token at consent
+# time. `drive.readonly` was added here so that meeting-note CONTENT can be read
+# (`files.export` / `files.get_media`); `drive.metadata.readonly` alone permits
+# only `files.list`, so with an older token every content read fails with a 403
+# that surfaces as `DrivePermissionError`. To actually gain the new scope you
+# must RE-CONSENT:
+#
+#   1. delete GOOGLE_TOKEN_FILE (default `.google_token.json`),
+#   2. run `python -m ai_assistant.integrations.google_auth` again,
+#   3. copy the NEW refresh token into GOOGLE_REFRESH_TOKEN (and into the
+#      GitHub secret of the same name).
+#
+# Until that is done nothing breaks: listing keeps working and every content
+# read degrades to a message that names this exact problem.
 SCOPES = [
     "https://www.googleapis.com/auth/gmail.readonly",
     "https://www.googleapis.com/auth/calendar.readonly",
     "https://www.googleapis.com/auth/drive.metadata.readonly",
+    "https://www.googleapis.com/auth/drive.readonly",
 ]
 
 DEFAULT_TOKEN_FILE = ".google_token.json"

@@ -84,6 +84,59 @@ class RateLimitError(DriveError):
     """Raised when we hit the Drive API rate limit."""
 
 
+class DrivePermissionError(DriveError):
+    """Raised when the credential may LIST a file but not read its CONTENT.
+
+    This is the normal state of this project, not an exotic failure: the
+    shared OAuth consent (:data:`ai_assistant.integrations.google_auth.SCOPES`)
+    used to request only ``drive.metadata.readonly``, which authorises
+    ``files.list`` but neither ``files.export`` nor ``files.get_media``. A
+    refresh token minted under the old consent keeps the old scopes even after
+    the scope list here grows, so callers must be able to tell "this document
+    is empty" from "I am not allowed to open it" and say so to the user.
+    """
+
+
+#: Substrings that mark an API error as "not authorised to read the content"
+#: rather than a transient failure. Drive reports the missing scope as a 403
+#: with ``insufficientPermissions`` / ``ACCESS_TOKEN_SCOPE_INSUFFICIENT``.
+_PERMISSION_MARKERS = (
+    "insufficientpermissions",
+    "insufficient permission",
+    "insufficient authentication scopes",
+    "access_token_scope_insufficient",
+    "forbidden",
+    "api error 403",
+    "api error 401",
+)
+
+
+def _is_permission_error(exc: Exception) -> bool:
+    """True when ``exc`` says "not allowed", not "try again"."""
+    status = getattr(getattr(exc, "resp", None), "status", None)
+    if status in (401, 403):
+        return True
+    text = str(exc).lower()
+    return any(marker in text for marker in _PERMISSION_MARKERS)
+
+
+def _read_with_retry(call):
+    """Execute a read, retrying transient failures but NEVER a "not allowed".
+
+    A missing scope does not heal by waiting, so the retry ladder (and its
+    sleeps) is skipped entirely for it and the caller gets an actionable
+    :class:`DrivePermissionError` at once. Reads are idempotent GETs, so
+    handing the same callable to :func:`_retry_with_backoff` afterwards is
+    safe.
+    """
+    try:
+        return call()
+    except Exception as exc:
+        if _is_permission_error(exc):
+            raise DrivePermissionError(str(exc)) from exc
+    return _retry_with_backoff(call)
+
+
 def _retry_with_backoff(
     func,
     *args,
@@ -220,6 +273,78 @@ class DriveClient:
             raise DriveError(
                 f"Failed to list documents in folder {folder_id}: {exc}"
             ) from exc
+
+    def read_file_text(
+        self,
+        file_id: str,
+        mime_type: Optional[str] = None,
+        max_chars: int = 0,
+    ) -> str:
+        """Read a document's CONTENT as plain text.
+
+        Google-native documents (Docs, Sheets, Slides — anything whose MIME
+        type starts with ``application/vnd.google-apps.``) cannot be
+        downloaded; they are exported as ``text/plain``. Everything else is
+        fetched with ``files.get_media`` and decoded as UTF-8, replacing
+        undecodable bytes rather than raising (a note is worth reading even
+        with a mangled character in it).
+
+        Args:
+            file_id: The file to read.
+            mime_type: The file's MIME type, when the caller already listed it.
+                Saves a metadata round-trip; looked up when omitted.
+            max_chars: Truncate the result to this many characters
+                (``0`` = no limit).
+
+        Returns:
+            The document text, stripped. An EMPTY STRING means the document
+            really is empty — a failure is always raised, never swallowed.
+
+        Raises:
+            DrivePermissionError: The credential may list the file but not open
+                it — almost always the ``drive.metadata.readonly`` scope (see
+                the class docstring); the fix is re-consenting, not a retry.
+            RateLimitError: Drive rate limit hit after the retries.
+            DriveError: Any other API or transport failure.
+        """
+        if not file_id:
+            raise DriveError("read_file_text called without a file id")
+
+        try:
+            files = self.service.files()
+
+            mime = str(mime_type or "").strip()
+            if not mime:
+                meta = _read_with_retry(
+                    lambda: files.get(fileId=file_id, fields="mimeType").execute()
+                )
+                mime = str((meta or {}).get("mimeType") or "")
+
+            if mime.startswith("application/vnd.google-apps."):
+                raw = _read_with_retry(
+                    lambda: files.export(
+                        fileId=file_id, mimeType=MIME_TYPE_TEXT
+                    ).execute()
+                )
+            else:
+                raw = _read_with_retry(lambda: files.get_media(fileId=file_id).execute())
+        except DrivePermissionError as exc:
+            raise DrivePermissionError(
+                f"Not permitted to read the content of {file_id}: {exc}"
+            ) from exc
+        except RateLimitError:
+            raise
+        except Exception as exc:
+            if _is_permission_error(exc):
+                raise DrivePermissionError(
+                    f"Not permitted to read the content of {file_id}: {exc}"
+                ) from exc
+            raise DriveError(f"Failed to read file {file_id}: {exc}") from exc
+
+        if isinstance(raw, bytes):
+            raw = raw.decode("utf-8", errors="replace")
+        text = str(raw or "").strip()
+        return text[:max_chars] if max_chars > 0 else text
 
     def upload_report(
         self,

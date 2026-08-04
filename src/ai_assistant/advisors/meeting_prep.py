@@ -13,10 +13,11 @@ NE YAPAR
    :class:`~ai_assistant.integrations.google_drive.DriveClient` ile listeler ve
    yaklaşan toplantıya BAŞLIK, KATILIMCI ve TAZELİK üzerinden eşler
    (:func:`score_note`).
-3. Eşleşen notun içeriğini okumayı dener. Paylaşılan OAuth kapsamı
-   ``drive.metadata.readonly`` olduğu için içerik okuma çoğu kurulumda
-   yetkisizdir; o durumda not BAŞLIK ve TARİH düzeyinde kullanılır — bölüm
-   yine üretilir, sadece daha az derinlikle.
+3. Eşleşen notun içeriğini okumayı dener (:func:`read_note`). İçerik okumak
+   ``drive.readonly`` kapsamını ister; kapsam listesi artık onu istiyor ama
+   ESKİ bir refresh token yeni kapsamı kendiliğinden almaz, o yüzden yeniden
+   onay verilene kadar içerik okuma 403 döner. O durumda not BAŞLIK ve TARİH
+   düzeyinde kullanılır — bölüm yine üretilir, sadece daha az derinlikle.
 4. Toplanan gerçekleri ekibin ORTAK toplu çağrısına (``advisors._batch``)
    verir; model geçen toplantının özetini, aksiyon maddelerini (KULLANICININ
    kendi işleri ile EKİBİN işleri ayrı ayrı) ve yeni gündem önerisini yazar.
@@ -218,6 +219,10 @@ class Note:
     link: str = ""
     text: str = ""
     score: int = 0
+    #: Drive'ın bildirdiği MIME tipi; içeriği okurken fazladan bir istek
+    #: yapılmasın diye listelemeden taşınır (Google belgeleri export edilir,
+    #: gerisi indirilir).
+    mime_type: str = ""
 
     @property
     def modified_label(self) -> str:
@@ -277,6 +282,114 @@ def score_note(meeting: Meeting, file_name: str) -> int:
         if set(_tokens(local)) & name_tokens:
             score += 3
     return score
+
+
+#: :func:`read_note` sonucundaki sorun etiketleri. "" = sorun yok.
+NOTE_READ_FORBIDDEN = "yetki"
+NOTE_READ_FAILED = "hata"
+
+
+@dataclass
+class NoteText:
+    """Bir notun İÇERİĞİNİ okuma denemesinin sonucu.
+
+    Boş metin ile OKUNAMAYAN metin aynı şey değildir: ilki gerçekten boş bir
+    dosya, ikincisi (neredeyse her zaman) yetersiz OAuth kapsamıdır. Çağıran
+    ikisini ayırt edip kullanıcıya doğru cümleyi söyleyebilsin diye sonuç bir
+    dize değil bu kayıttır.
+    """
+
+    text: str = ""
+    #: "" | :data:`NOTE_READ_FORBIDDEN` | :data:`NOTE_READ_FAILED`
+    problem: str = ""
+    detail: str = ""
+
+    @property
+    def ok(self) -> bool:
+        return not self.problem
+
+
+def read_note(client: Any, note: Note, max_chars: int = MAX_NOTE_CHARS) -> NoteText:
+    """Bir notun metnini okur; ASLA istisna fırlatmaz.
+
+    İçeriği getirmek :meth:`~ai_assistant.integrations.google_drive.DriveClient.read_file_text`
+    işidir; burada yalnızca hatanın TÜRÜ ayrıştırılır. Paylaşılan OAuth
+    kapsamı ``drive.metadata.readonly`` ile verilmiş (ya da eski kapsamla
+    üretilmiş bir refresh token kullanılıyor) ise içerik okuma 403 döner ve
+    sonuç :data:`NOTE_READ_FORBIDDEN` olur — bu bir çökme değil, beklenen
+    ve kullanıcıya söylenebilir bir durumdur.
+    """
+    if not getattr(note, "id", ""):
+        return NoteText(problem=NOTE_READ_FAILED, detail="dosya kimliği yok")
+
+    from ..integrations.google_drive import DrivePermissionError
+
+    try:
+        text = client.read_file_text(
+            note.id, mime_type=getattr(note, "mime_type", ""), max_chars=max_chars
+        )
+    except DrivePermissionError as exc:
+        logger.info("not içeriği yetki nedeniyle okunamadı (%s): %s", note.name, exc)
+        return NoteText(problem=NOTE_READ_FORBIDDEN, detail=str(exc))
+    except Exception as exc:
+        logger.info("not içeriği okunamadı (%s): %s", note.name, exc)
+        return NoteText(problem=NOTE_READ_FAILED, detail=str(exc))
+    return NoteText(text=str(text or "").strip())
+
+
+def find_notes(
+    client: Any,
+    meetings: Sequence[Meeting],
+    folder_id: str,
+    limit: int = DEFAULT_MAX_NOTES,
+) -> tuple[Dict[int, List[Note]], str]:
+    """Her toplantı için Drive'daki en iyi eşleşen geçmiş notları bulur ve okur.
+
+    Saf bir fonksiyon: hiçbir şeyi bir nesnenin üstünde biriktirmez, bulduğunu
+    döner. İkinci dönüş değeri, hiçbir notun İÇERİĞİ okunamadıysa sorunun türü
+    (:data:`NOTE_READ_FORBIDDEN` / :data:`NOTE_READ_FAILED`), okunduysa ``""``.
+    """
+    if not folder_id:
+        return {}, ""
+
+    files = client.list_documents_in_folder(folder_id, max_results=100) or []
+
+    matched: Dict[int, List[Note]] = {}
+    problem = ""
+    for index, meeting in enumerate(meetings):
+        scored = [
+            note
+            for note in (
+                _note_from_item(meeting, item) for item in files if isinstance(item, dict)
+            )
+            if note is not None
+        ]
+        scored.sort(key=lambda note: note.score, reverse=True)
+        picked = scored[:limit]
+        for note in picked:
+            result = read_note(client, note)
+            note.text = result.text
+            if result.problem and not problem:
+                problem = result.problem
+        if picked:
+            matched[index] = picked
+    return matched, problem
+
+
+def _note_from_item(meeting: Meeting, item: Dict[str, Any]) -> Optional[Note]:
+    """Bir Drive dosyasını, toplantıya yetecek kadar benziyorsa nota çevirir."""
+    name = str(item.get("name") or "")
+    score = score_note(meeting, name)
+    if score < MIN_NOTE_SCORE:
+        return None
+    return Note(
+        id=str(item.get("id") or ""),
+        name=name,
+        modified=str(item.get("modifiedTime") or ""),
+        link=str(item.get("webViewLink") or ""),
+        mime_type=str(item.get("mimeType") or ""),
+        score=score,
+    )
 
 
 class MeetingPrepAdvisor(Advisor):
@@ -389,7 +502,12 @@ class MeetingPrepAdvisor(Advisor):
         return list(result.get("items") or [])
 
     def _fetch_notes(self, meetings: Sequence[Meeting]) -> Dict[int, List[Note]]:
-        """Her toplantı için Drive'daki en iyi eşleşen geçmiş notlar."""
+        """Her toplantı için Drive'daki en iyi eşleşen geçmiş notlar.
+
+        Bulma/okuma işi modül düzeyindeki :func:`find_notes` içindedir (sohbet
+        katmanı da onu kullanır); burada kalan tek şey klasörü ve istemciyi
+        vermek ve içerik okunamadıysa bunu bölümde işaretlemek.
+        """
         folder = notes_folder_id()
         if not folder:
             return {}
@@ -397,61 +515,25 @@ class MeetingPrepAdvisor(Advisor):
         from ..integrations.google_drive import DriveClient
 
         client = DriveClient()
-        files = client.list_documents_in_folder(folder, max_results=100) or []
         limit = _int_setting("MEETING_PREP_MAX_NOTES", DEFAULT_MAX_NOTES)
-
-        matched: Dict[int, List[Note]] = {}
-        for index, meeting in enumerate(meetings):
-            scored: List[Note] = []
-            for item in files:
-                if not isinstance(item, dict):
-                    continue
-                name = str(item.get("name") or "")
-                score = score_note(meeting, name)
-                if score < MIN_NOTE_SCORE:
-                    continue
-                scored.append(
-                    Note(
-                        id=str(item.get("id") or ""),
-                        name=name,
-                        modified=str(item.get("modifiedTime") or ""),
-                        link=str(item.get("webViewLink") or ""),
-                        score=score,
-                    )
-                )
-            scored.sort(key=lambda note: note.score, reverse=True)
-            picked = scored[:limit]
-            for note in picked:
-                note.text = self._read_note(client, note)
-            if picked:
-                matched[index] = picked
+        matched, problem = find_notes(client, meetings, folder, limit=limit)
+        if problem:
+            self._metadata_only = True
         return matched
 
     def _read_note(self, client: Any, note: Note) -> str:
-        """Notun metnini okumayı dener; yetki yetmezse boş dize döner.
+        """Notun metnini okumayı dener; okunamazsa boş dize döner.
 
-        Paylaşılan OAuth kapsamı (``google_auth.SCOPES``) Drive tarafında
-        yalnızca DOSYA BİLGİSİ okur, bu yüzden burası çoğu kurulumda boş döner
-        ve bölüm başlık düzeyinde çalışır. Kapsam genişletildiğinde aynı kod
-        içeriği de getirir; hata durumu asla yukarı taşınmaz.
+        Paylaşılan OAuth kapsamı (``google_auth.SCOPES``) Drive tarafında eski
+        bir refresh token ile yalnızca DOSYA BİLGİSİ okuyabilir, bu yüzden
+        burası çoğu kurulumda boş döner ve bölüm başlık düzeyinde çalışır.
+        Kapsam yenilendiğinde aynı kod içeriği de getirir; hata durumu asla
+        yukarı taşınmaz — yalnızca ``_metadata_only`` işaretlenir.
         """
-        if not note.id:
-            return ""
-        try:
-            files = client.service.files()
-            meta = files.get(fileId=note.id, fields="mimeType").execute()
-            mime = str((meta or {}).get("mimeType") or "")
-            if mime.startswith("application/vnd.google-apps."):
-                raw = files.export(fileId=note.id, mimeType="text/plain").execute()
-            else:
-                raw = files.get_media(fileId=note.id).execute()
-        except Exception as exc:
-            logger.info("not içeriği okunamadı (%s): %s", note.name, exc)
+        result = read_note(client, note)
+        if result.problem:
             self._metadata_only = True
-            return ""
-        if isinstance(raw, bytes):
-            raw = raw.decode("utf-8", errors="replace")
-        return str(raw or "").strip()[:MAX_NOTE_CHARS]
+        return result.text
 
     # -- prompt ----------------------------------------------------------
     def _meeting_block(self, index: int, meeting: Meeting) -> str:
@@ -524,14 +606,20 @@ __all__ = [
     "CAVEAT",
     "DEFAULT_LOOKAHEAD_DAYS",
     "MAX_MEETINGS",
+    "MAX_NOTE_CHARS",
     "Meeting",
     "MeetingPrepAdvisor",
     "Note",
     "NOTES_FOLDER_ENV",
+    "NOTE_READ_FAILED",
+    "NOTE_READ_FORBIDDEN",
+    "NoteText",
     "SKIP_NO_GOOGLE",
     "SKIP_NO_LLM",
     "SKIP_NO_MEETING",
+    "find_notes",
     "notes_folder_id",
     "parse_event",
+    "read_note",
     "score_note",
 ]
