@@ -132,20 +132,6 @@ ADVISOR_CHANNELS: Tuple[ChannelSpec, ...] = (
         advisor_key="communications_calendar",
     ),
     ChannelSpec(
-        env_key=advisor_channel_env("meeting_prep"),
-        name="ai-toplanti-hazirlik",
-        label="Toplantı Hazırlık & Takip",
-        purpose=(
-            "Toplantı Hazırlık & Takip ajanının kanalı. Yaklaşan toplantı "
-            "öncesi hazırlık notu: geçen sefer ne konuşuldu, kimin üstünde ne "
-            "kaldı, bu sefer gündem ne olsun. TAKVİM VE DOKÜMAN İÇERİĞİ "
-            "taşır; panoya yazılmaz."
-        ),
-        topic="🗓️ Toplantı öncesi hazırlık ve aksiyon takibi · 🔒 kişisel",
-        private=True,
-        advisor_key="meeting_prep",
-    ),
-    ChannelSpec(
         env_key=advisor_channel_env("career_development"),
         name="ai-kariyer-gelisim",
         label="Kariyer Gelişimi",
@@ -169,15 +155,26 @@ ADVISOR_CHANNELS: Tuple[ChannelSpec, ...] = (
     ),
     ChannelSpec(
         env_key=advisor_channel_env("complaint_radar"),
-        name="ai-sikayet-radari",
-        label="Müşteri Şikayet & İtibar Radarı",
+        name="ai-kapsamli-analiz",
+        label="Kapsamlı Pazar & Sentiment Analizi",
         purpose=(
-            "Müşteri Şikayet & İtibar Radarı ajanının kanalı. Sektördeki "
-            "şikâyet gündemi, temalara göre gruplama, kurumların çözüm "
-            "yaklaşımı, hacim değişimi ve rakip kıyası."
+            "Kapsamlı Pazar & Sentiment Analizi ajanının kanalı. Müşteri "
+            "şikâyetleri, pazar trendleri, rakip hareketleri ve risk/fırsat "
+            "sinyalleri."
         ),
-        topic="📣 Şikâyet temaları · hacim · rakip kıyası",
+        topic="📊 Müşteri sentiment · pazar trendleri · rakip · risk/fırsat",
         advisor_key="complaint_radar",
+    ),
+    ChannelSpec(
+        env_key=advisor_channel_env("linkedin_coach"),
+        name="ai-linkedin-imaj",
+        label="LinkedIn İmaj Koçu",
+        purpose=(
+            "LinkedIn İmaj Koçu ajanının kanalı. Profesyonel imaj, kimlik "
+            "yönetimi ve içerik stratejisi."
+        ),
+        topic="💼 LinkedIn profili · profesyonel imaj · içerik",
+        advisor_key="linkedin_coach",
     ),
     ChannelSpec(
         env_key=advisor_channel_env("data_analyst"),
