@@ -258,10 +258,11 @@ def all_advisors() -> List[Advisor]:
     - Result: the team is down to the TEN advisors of the restructuring plan
 
     PHASE 1C CONSOLIDATION:
-    - Two advisors retired from the live roster: weather (a phone already tells
-      the user the forecast) and anka_bridge (the bridge is no longer fed)
-    - Two advisors added: MeetingPrepAdvisor (toplantı hazırlık & takip) and
-      ComplaintRadarAdvisor (müşteri şikâyet & itibar radarı)
+    - Three advisors retired from the live roster: weather (a phone already tells
+      the user the forecast), anka_bridge (the bridge is no longer fed), and
+      meeting_prep (functionality consolidated into scheduling advisors)
+    - ComplaintRadarAdvisor expanded to comprehensive market & sentiment analysis
+    - LinkedInCoach added for professional image & content management
     - The retired modules stay on disk, so a rollback is a comment change
     """
     # PHASE 1C: Retired from the live roster (module kept for rollback)
@@ -276,11 +277,8 @@ def all_advisors() -> List[Advisor]:
     from .morning_operations import MorningOperationsAdvisor
     from .executive_coaching import ExecutiveCoachingAdvisor
 
-    # NEW ADVISORS (PHASE 1C): morning meeting prep, sector complaint radar
-    from .meeting_prep import MeetingPrepAdvisor
+    # PHASE 1C ADVISORS: comprehensive market analysis, professional image
     from .complaint_radar import ComplaintRadarAdvisor
-
-    # LinkedIn İmaj Koçu (LinkedIn profile & content management)
     from .linkedin_coach import LinkedInCoach
 
     # PHASE 1A: Consolidated into ExecutiveCoachingAdvisor
@@ -331,24 +329,19 @@ def all_advisors() -> List[Advisor]:
         MorningOperationsAdvisor(),
         # Position 2: Communications and calendar (PHASE 1A consolidation)
         CommunicationsCalendarAdvisor(),
-        # Position 3: Meeting prep — morning preparation, so it sits with the
-        # other two "before the day starts" sections rather than in the middle
-        # of the intelligence block.
-        MeetingPrepAdvisor(),
-        # Position 4: Career development (PHASE 1B consolidation)
+        # Position 3: Career development (PHASE 1B consolidation)
         CareerDevelopmentAdvisor(),
-        # Position 5: Market intelligence (PHASE 1B consolidation)
+        # Position 4: Market intelligence (PHASE 1B consolidation)
         MarketIntelligenceAdvisor(),
-        # Position 6: Complaint & reputation radar — the same outside-in view
-        # as the market intelligence above it, read from the customer's side.
+        # Position 5: Comprehensive market & sentiment analysis (expanded)
         ComplaintRadarAdvisor(),
-        # Position 7: LinkedIn İmaj Koçu — Professional image & content management
+        # Position 6: LinkedIn coach
         LinkedInCoach(),
-        # Position 9: The operation's OWN numbers, read by the analysis engine.
+        # Position 7: The operation's OWN numbers, read by the analysis engine.
         # Registered right after the market view: outside-in first, then
         # inside-out, which is the order a director reads a morning pack in.
         DataAnalystAdvisor(),
-        # Position 10: AI mastery + innovation ideas (PHASE 1B consolidation)
+        # Position 8: AI mastery + innovation ideas (PHASE 1B consolidation)
         AiInnovationAdvisor(),
         # Other advisors (unchanged)
         KidsDevelopmentAdvisor(),

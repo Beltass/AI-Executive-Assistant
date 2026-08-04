@@ -74,16 +74,17 @@ def no_config(monkeypatch):
 #: personas (data analyst, operations director) and the SRE watchdog, in
 #: registration order.
 #:
-#: PHASE 1C: ``weather`` and ``anka_bridge`` left the live roster (their modules
-#: stay on disk, and the tests below still exercise them directly), and
-#: ``meeting_prep`` + ``complaint_radar`` joined it — so the count is unchanged.
+#: PHASE 1C: ``weather``, ``anka_bridge``, and ``meeting_prep`` left the live roster
+#: (their modules stay on disk, and the tests below still exercise them directly).
+#: ``complaint_radar`` was expanded to comprehensive market analysis, and
+#: ``linkedin_coach`` joined it — so the count is unchanged at 13 advisors.
 EXPECTED_ADVISOR_KEYS = [
     "morning_operations",
     "communications_calendar",
-    "meeting_prep",
     "career_development",
     "market_intelligence",
     "complaint_radar",
+    "linkedin_coach",
     "data_analyst",
     "ai_innovation",
     "kids_development",

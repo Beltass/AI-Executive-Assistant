@@ -70,15 +70,14 @@ Stil:
 - Her post muhakkak kişisel perspektif ve değer sunmalı
 """
 
-USER_PROMPT_TEMPLATE = """
-Bugün için LinkedIn postları oluştur. Aşağıdaki sector news + tech developments
+USER_PROMPT_TEMPLATE = """Bugün için LinkedIn postları oluştur. Aşağıdaki sector news + tech developments
 göz önüne alan 1-2 post hazırla:
 
 ## Sector News
-{sector_news}
+{{sector_news}}
 
 ## Tech Developments
-{tech_news}
+{{tech_news}}
 
 Her post şunları içermeli:
 - Başlık: kötü olmayı davet eden, kliğe çekmekten kaçınan
@@ -86,14 +85,14 @@ Her post şunları içermeli:
 - Hashtag: 3-5 sektörel, trend
 - CTA: Engagement-driving soru veya davet
 
-Çıktı JSON:
+Çıktı JSON (sadece JSON array, yoksa açıklama):
 [
-  {
+  {{
     "headline": "...",
     "body": "...",
     "hashtags": ["..."],
     "cta": "..."
-  }
+  }}
 ]
 """
 
