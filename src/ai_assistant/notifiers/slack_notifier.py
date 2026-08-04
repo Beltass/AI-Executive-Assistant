@@ -45,7 +45,6 @@ from __future__ import annotations
 
 import logging
 import os
-import re
 import sys
 import time
 from datetime import datetime
@@ -63,6 +62,25 @@ from ..integrations import (
 from ..integrations._common import failed, http_post, ok, skipped_reason
 from ..reports import Publication, PublishedReport
 from ..status_report import ISTANBUL
+from .slack_blocks import (  # noqa: F401 - re-exported for callers
+    DASHBOARD_BASE_URL_ENV,
+    DEFAULT_DASHBOARD_BASE_URL,
+    MAX_BLOCKS,
+    MAX_FALLBACK_CHARS,
+    MAX_HEADER_CHARS,
+    MAX_SECTION_CHARS,
+    TRUNCATION_NOTE,
+    chunks as _chunks,
+    clip,
+    context as _context,
+    dashboard_base_url,
+    divider as _divider,
+    fit_blocks,
+    header as _header_block,
+    report_url,
+    section as _section,
+    to_mrkdwn,
+)
 
 WEBHOOK_ENV = "SLACK_WEBHOOK_URL"
 BOT_TOKEN_ENV = "SLACK_BOT_TOKEN"
@@ -78,11 +96,9 @@ NAME = "Slack Notifier"
 
 # --- Block Kit limits -------------------------------------------------------
 # Slack rejects the whole message if any of these is exceeded, and a rejected
-# briefing is a lost briefing, so every builder below clamps itself.
-MAX_BLOCKS = 45  # Slack's hard limit is 50; leave room for the footer.
-MAX_SECTION_CHARS = 2900  # Slack's hard limit is 3000.
-MAX_HEADER_CHARS = 145  # Slack's hard limit is 150.
-MAX_FALLBACK_CHARS = 300  # The notification preview; short on purpose.
+# briefing is a lost briefing, so every builder clamps itself. The limits and
+# the block builders themselves live in :mod:`slack_blocks`, shared with the
+# per-advisor fan-out so both formats can never drift apart again.
 #: How many chunks one private section may occupy before it is cut short.
 MAX_PRIVATE_CHUNKS = 3
 
@@ -160,78 +176,6 @@ def send_message(text: str, blocks: Optional[list] = None) -> CheckResult:
 # --- the compact index ------------------------------------------------------
 
 
-def dashboard_base_url() -> str:
-    """Public base URL of the dashboard, always with a trailing slash."""
-    raw = (os.getenv(DASHBOARD_BASE_URL_ENV) or "").strip() or DEFAULT_DASHBOARD_BASE_URL
-    return raw if raw.endswith("/") else raw + "/"
-
-
-def report_url(report: PublishedReport, base: str = "") -> str:
-    """Deep link to one advisor's document on the dashboard."""
-    return (base or dashboard_base_url()) + report.route
-
-
-_MD_BOLD = re.compile(r"\*\*(.+?)\*\*", re.DOTALL)
-_MD_HEADING = re.compile(r"^\s{0,3}#{1,6}\s*", re.MULTILINE)
-_MD_LINK = re.compile(r"\[([^\]]*)\]\((https?://[^)\s]+)\)")
-
-
-def to_mrkdwn(text: str) -> str:
-    """Translate the advisors' Markdown into Slack's ``mrkdwn`` dialect.
-
-    Slack uses ``*bold*`` (not ``**bold**``), ``<url|label>`` links and has no
-    headings at all. Everything else (bullets, ``_italic_``, ``code``) already
-    matches closely enough.
-    """
-    out = _MD_LINK.sub(r"<\2|\1>", str(text or ""))
-    out = _MD_BOLD.sub(r"*\1*", out)
-    out = _MD_HEADING.sub("", out)
-    return out.strip()
-
-
-def _escape_header(text: str) -> str:
-    """Header blocks are plain_text: no markup, and a hard length cap."""
-    flat = " ".join(str(text or "").split())
-    return flat[: MAX_HEADER_CHARS - 1] + "…" if len(flat) > MAX_HEADER_CHARS else flat
-
-
-def _section(text: str) -> dict:
-    return {
-        "type": "section",
-        "text": {"type": "mrkdwn", "text": text[:MAX_SECTION_CHARS]},
-    }
-
-
-def _context(text: str) -> dict:
-    return {
-        "type": "context",
-        "elements": [{"type": "mrkdwn", "text": text[:MAX_SECTION_CHARS]}],
-    }
-
-
-def _chunks(text: str, size: int = MAX_SECTION_CHARS) -> List[str]:
-    """Split a long body on paragraph boundaries so no block exceeds ``size``."""
-    body = str(text or "").strip()
-    if not body:
-        return []
-    parts: List[str] = []
-    current = ""
-    for paragraph in body.split("\n\n"):
-        candidate = f"{current}\n\n{paragraph}" if current else paragraph
-        if len(candidate) <= size:
-            current = candidate
-            continue
-        if current:
-            parts.append(current)
-        while len(paragraph) > size:
-            parts.append(paragraph[:size])
-            paragraph = paragraph[size:]
-        current = paragraph
-    if current:
-        parts.append(current)
-    return parts
-
-
 def _links_line(parts: List[str]) -> str:
     return " · ".join(p for p in parts if p)
 
@@ -243,7 +187,7 @@ def _report_line(report: PublishedReport, base: str, channel_link: str = "") -> 
     message when Slack gave us a permalink, at the channel otherwise. It is
     omitted when that advisor has no sub-channel of its own.
     """
-    headline = to_mrkdwn(report.headline) or "_(özet çıkarılamadı)_"
+    headline = clip(to_mrkdwn(report.headline), 400) or "_(özet çıkarılamadı)_"
     links = _links_line(
         [
             f"<{report_url(report, base)}|📄 Tam rapor>",
@@ -251,7 +195,10 @@ def _report_line(report: PublishedReport, base: str, channel_link: str = "") -> 
             f"~{report.read_minutes} dk okuma",
         ]
     )
-    return _section(f"{report.emoji} *{report.name}*\n{headline}\n{links}")
+    # The headline goes in a quote: on a phone Slack draws a bar down its left
+    # edge, which is what turns a stack of advisors into a scannable list
+    # instead of one undifferentiated wall of text.
+    return _section(f"{report.emoji} *{report.name}*\n>{headline}\n{links}")
 
 
 def _private_line(briefing: Any, channel_link: str) -> dict:
@@ -263,15 +210,16 @@ def _private_line(briefing: Any, channel_link: str) -> dict:
     key = str(getattr(briefing, "key", "") or "")
     meta = reports.ADVISOR_META.get(key, reports.DEFAULT_META)
     title = str(getattr(briefing, "title", "") or key)
-    headline = to_mrkdwn(
-        reports.extract_headline(str(getattr(briefing, "text", "") or ""))
+    headline = clip(
+        to_mrkdwn(reports.extract_headline(str(getattr(briefing, "text", "") or ""))),
+        400,
     ) or "_(özet çıkarılamadı)_"
     tail = (
         f"<{channel_link}|💬 Kendi kanalında tam bölüm>"
         if channel_link
         else "_Tam bölüm kendi kanalında._"
     )
-    return _section(f"{meta['emoji']} *{title}* 🔒\n{headline}\n{tail}")
+    return _section(f"{meta['emoji']} *{title}* 🔒\n>{headline}\n{tail}")
 
 
 def _private_blocks(briefing: Any) -> List[dict]:
@@ -354,16 +302,9 @@ def build_index_message(
         summary_bits.append(f"🟰 {len(quiet)} ajanda yeni yok")
 
     blocks: List[dict] = [
-        {
-            "type": "header",
-            "text": {
-                "type": "plain_text",
-                "text": _escape_header(f"{heading} — {day_label}"),
-                "emoji": True,
-            },
-        },
+        _header_block(f"{heading} — {day_label}"),
         _context(" · ".join(summary_bits)),
-        {"type": "divider"},
+        _divider(),
     ]
 
     for report in published:
@@ -391,7 +332,7 @@ def build_index_message(
     for briefing in inlined:
         if len(blocks) >= MAX_BLOCKS - 2:
             break
-        blocks.append({"type": "divider"})
+        blocks.append(_divider())
         for block in _private_blocks(briefing):
             if len(blocks) >= MAX_BLOCKS - 1:
                 break
@@ -407,11 +348,15 @@ def build_index_message(
             )
         )
 
-    blocks.append({"type": "divider"})
-    blocks.append(_context(f"<{base}|📊 Tüm raporlar ve pano> · rapor arşivi 30 gün"))
+    # The dashboard link is the tail: `fit_blocks` trims the BODY to Slack's
+    # block limit and never the way out to the full reports.
+    footer = [
+        _divider(),
+        _context(f"<{base}|📊 Tüm raporlar ve pano> · rapor arşivi 30 gün"),
+    ]
 
     fallback = f"{heading} — {day_label}: {len(published)} rapor hazır. {base}"
-    return fallback[:MAX_FALLBACK_CHARS], blocks[:MAX_BLOCKS]
+    return clip(fallback, MAX_FALLBACK_CHARS), fit_blocks(blocks, tail=footer)
 
 
 def send_briefing_index(

@@ -142,29 +142,33 @@ class Distribution:
         )
 
 
-def _dashboard_base_url() -> str:
-    """The dashboard base URL, imported lazily to avoid an import cycle."""
-    from ..notifiers.slack_notifier import dashboard_base_url
+def _blocks_module():
+    """The shared Block Kit presenter, imported lazily to avoid an import cycle.
 
-    return dashboard_base_url()
+    The formatting itself lives in :mod:`ai_assistant.notifiers.slack_blocks`
+    so the main-channel summary and this fan-out can never drift apart again.
+    """
+    from ..notifiers import slack_blocks
+
+    return slack_blocks
+
+
+def _dashboard_base_url() -> str:
+    """The dashboard base URL, from the shared presenter."""
+    return _blocks_module().dashboard_base_url()
 
 
 def _to_mrkdwn(text: str) -> str:
-    """Markdown -> Slack mrkdwn, imported lazily to avoid an import cycle."""
-    from ..notifiers.slack_notifier import to_mrkdwn
-
-    return to_mrkdwn(text)
+    """Markdown -> Slack mrkdwn, from the shared presenter."""
+    return _blocks_module().to_mrkdwn(text)
 
 
 def _section(text: str) -> dict:
-    return {"type": "section", "text": {"type": "mrkdwn", "text": text[:MAX_SECTION_CHARS]}}
+    return _blocks_module().section(text)
 
 
 def _context(text: str) -> dict:
-    return {
-        "type": "context",
-        "elements": [{"type": "mrkdwn", "text": text[:MAX_SECTION_CHARS]}],
-    }
+    return _blocks_module().context(text)
 
 
 class SlackChannelNotifier:
@@ -203,15 +207,21 @@ class SlackChannelNotifier:
         report: PublishedReport,
         channel_id: str,
         base_url: str = "",
+        new_findings: int = 0,
     ) -> ChannelPost:
-        """Post a PUBLISHED report: headline + deep link to the full document."""
+        """Post a PUBLISHED report as a scannable Block Kit card.
+
+        Never the whole body: the card carries the headline, the metric strip,
+        a few bullets and the deep link to the full document on the dashboard.
+        """
         post = ChannelPost(key=advisor_key, title=advisor_title, channel=channel_id)
         guard = self._guard(post)
         if guard is not None:
             return guard
         try:
-            text = f"{report.emoji} {report.name}"
-            blocks = self._report_blocks(report, base_url)
+            text, blocks = _blocks_module().build_report_message(
+                report, base_url=base_url, new_findings=new_findings
+            )
         except Exception as exc:  # pragma: no cover - defensive only
             logger.error(f"Blok oluşturulamadı ({advisor_title}): {exc}")
             post.result = failed(NAME, f"{advisor_title}: {exc}")
@@ -232,8 +242,9 @@ class SlackChannelNotifier:
         if guard is not None:
             return guard
         try:
-            text = f"{emoji} {advisor_title}"
-            blocks = self._briefing_blocks(advisor_title, briefing, emoji)
+            text, blocks = _blocks_module().build_briefing_message(
+                advisor_title, briefing, emoji=emoji, max_body_blocks=MAX_BODY_CHUNKS
+            )
         except Exception as exc:  # pragma: no cover - defensive only
             logger.error(f"Blok oluşturulamadı ({advisor_title}): {exc}")
             post.result = failed(NAME, f"{advisor_title}: {exc}")
@@ -243,36 +254,14 @@ class SlackChannelNotifier:
     # --- block builders -----------------------------------------------------
 
     def _report_blocks(self, report: PublishedReport, base_url: str = "") -> list:
-        """Blocks for a published report: title, headline, link, reading time."""
-        base = base_url or _dashboard_base_url()
-        url = base + report.route
-        headline = _to_mrkdwn(report.headline) or "_(özet çıkarılamadı)_"
-
-        blocks = [
-            _section(f"{report.emoji} *{report.name}*"),
-            _section(headline),
-        ]
-        excerpt = _to_mrkdwn(str(getattr(report, "excerpt", "") or "").strip())
-        if excerpt and excerpt != headline:
-            blocks.append(_section(excerpt))
-        blocks.append(
-            _context(f"<{url}|📄 Tam rapor> · ~{report.read_minutes} dk okuma")
-        )
-        return blocks
+        """Blocks for a published report — see :mod:`notifiers.slack_blocks`."""
+        return _blocks_module().report_blocks(report, base_url=base_url)
 
     def _briefing_blocks(self, advisor_title: str, briefing: Any, emoji: str) -> list:
         """Blocks for a private section: the whole body, chunked to fit Slack."""
-        body = _to_mrkdwn(str(getattr(briefing, "text", "") or "").strip())
-        blocks = [
-            _section(f"{emoji} *{advisor_title}*"),
-            _context("🔒 Kişisel veri — panoya yazılmaz, yalnızca bu kanalda."),
-        ]
-        parts = _chunks(body) or ["_(bu çalıştırmada içerik üretilmedi)_"]
-        for part in parts[:MAX_BODY_CHUNKS]:
-            blocks.append(_section(part))
-        if len(parts) > MAX_BODY_CHUNKS:
-            blocks.append(_context("… bölümün kalanı uzunluk sınırı nedeniyle kısaltıldı."))
-        return blocks
+        return _blocks_module().briefing_blocks(
+            advisor_title, briefing, emoji=emoji, max_body_blocks=MAX_BODY_CHUNKS
+        )
 
     # --- delivery -----------------------------------------------------------
 
@@ -340,25 +329,7 @@ class SlackChannelNotifier:
 
 def _chunks(text: str, size: int = MAX_SECTION_CHARS) -> List[str]:
     """Split a long body on paragraph boundaries so no block exceeds ``size``."""
-    body = str(text or "").strip()
-    if not body:
-        return []
-    parts: List[str] = []
-    current = ""
-    for paragraph in body.split("\n\n"):
-        candidate = f"{current}\n\n{paragraph}" if current else paragraph
-        if len(candidate) <= size:
-            current = candidate
-            continue
-        if current:
-            parts.append(current)
-        while len(paragraph) > size:
-            parts.append(paragraph[:size])
-            paragraph = paragraph[size:]
-        current = paragraph
-    if current:
-        parts.append(current)
-    return parts
+    return _blocks_module().chunks(text, size)
 
 
 def _advisor_emoji(key: str) -> str:
@@ -428,7 +399,14 @@ def distribute(
 
         report = reports_by_key.get(key)
         if report is not None:
-            post = sender.post_report(key, title, report, channel, base_url=base)
+            post = sender.post_report(
+                key,
+                title,
+                report,
+                channel,
+                base_url=base,
+                new_findings=int(getattr(briefing, "new_findings", 0) or 0),
+            )
         else:
             post = sender.post_briefing(
                 key, title, briefing, channel, emoji=_advisor_emoji(key)
