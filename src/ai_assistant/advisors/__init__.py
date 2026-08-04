@@ -276,8 +276,7 @@ def all_advisors() -> List[Advisor]:
     from .morning_operations import MorningOperationsAdvisor
     from .executive_coaching import ExecutiveCoachingAdvisor
 
-    # NEW ADVISORS (PHASE 1C): morning meeting prep, sector complaint radar
-    from .meeting_prep import MeetingPrepAdvisor
+    # NEW ADVISORS (PHASE 1C): sector complaint radar (expanded)
     from .complaint_radar import ComplaintRadarAdvisor
 
     # PHASE 1A: Consolidated into ExecutiveCoachingAdvisor
@@ -328,22 +327,19 @@ def all_advisors() -> List[Advisor]:
         MorningOperationsAdvisor(),
         # Position 2: Communications and calendar (PHASE 1A consolidation)
         CommunicationsCalendarAdvisor(),
-        # Position 3: Meeting prep — morning preparation, so it sits with the
-        # other two "before the day starts" sections rather than in the middle
-        # of the intelligence block.
-        MeetingPrepAdvisor(),
-        # Position 4: Career development (PHASE 1B consolidation)
+        # Position 3: Career development (PHASE 1B consolidation)
         CareerDevelopmentAdvisor(),
-        # Position 5: Market intelligence (PHASE 1B consolidation)
+        # Position 4: Market intelligence (PHASE 1B consolidation)
         MarketIntelligenceAdvisor(),
-        # Position 6: Complaint & reputation radar — the same outside-in view
-        # as the market intelligence above it, read from the customer's side.
+        # Position 5: Comprehensive market & sentiment analysis — expanded from
+        # Complaint Radar to include market trends, sentiment analysis, competitive
+        # landscape, and risk/opportunity identification.
         ComplaintRadarAdvisor(),
-        # Position 7: The operation's OWN numbers, read by the analysis engine.
+        # Position 6: The operation's OWN numbers, read by the analysis engine.
         # Registered right after the market view: outside-in first, then
         # inside-out, which is the order a director reads a morning pack in.
         DataAnalystAdvisor(),
-        # Position 8: AI mastery + innovation ideas (PHASE 1B consolidation)
+        # Position 7: AI mastery + innovation ideas (PHASE 1B consolidation)
         AiInnovationAdvisor(),
         # Other advisors (unchanged)
         KidsDevelopmentAdvisor(),
