@@ -115,6 +115,11 @@ ADVISOR_META: Dict[str, Dict[str, str]] = {
         "emoji": "📊",
         "category": CATEGORY_SECTOR,
     },
+    "linkedin_coach": {
+        "title": "LinkedIn İmaj Koçu (Profil · Post · Engagement)",
+        "emoji": "💼",
+        "category": CATEGORY_GROWTH,
+    },
     "data_analyst": {
         "title": "Veri Analisti (Çağrı Merkezi Operasyonu)",
         "emoji": "🔬",
