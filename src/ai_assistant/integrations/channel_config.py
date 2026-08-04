@@ -30,10 +30,10 @@ FALLBACK_CHANNEL_ENV = "SLACK_CHANNEL"  # Legacy fallback
 ADVISOR_KEYS = (
     "morning_operations",
     "communications_calendar",
-    "meeting_prep",
     "career_development",
     "market_intelligence",
     "complaint_radar",
+    "linkedin_coach",
     "data_analyst",
     "ai_innovation",
     "kids_development",

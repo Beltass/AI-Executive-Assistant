@@ -277,8 +277,11 @@ def all_advisors() -> List[Advisor]:
     from .morning_operations import MorningOperationsAdvisor
     from .executive_coaching import ExecutiveCoachingAdvisor
 
-    # PHASE 1C ADVISORS: comprehensive market analysis, professional image
+    # NEW ADVISORS (PHASE 1C): morning meeting prep, sector complaint radar
+    from .meeting_prep import MeetingPrepAdvisor
     from .complaint_radar import ComplaintRadarAdvisor
+
+    # LinkedIn İmaj Koçu (LinkedIn profile & content management)
     from .linkedin_coach import LinkedInCoach
 
     # PHASE 1A: Consolidated into ExecutiveCoachingAdvisor
@@ -329,7 +332,11 @@ def all_advisors() -> List[Advisor]:
         MorningOperationsAdvisor(),
         # Position 2: Communications and calendar (PHASE 1A consolidation)
         CommunicationsCalendarAdvisor(),
-        # Position 3: Career development (PHASE 1B consolidation)
+        # Position 3: Meeting prep — morning preparation, so it sits with the
+        # other two "before the day starts" sections rather than in the middle
+        # of the intelligence block.
+        MeetingPrepAdvisor(),
+        # Position 4: Career development (PHASE 1B consolidation)
         CareerDevelopmentAdvisor(),
         # Position 4: Market intelligence (PHASE 1B consolidation)
         MarketIntelligenceAdvisor(),
