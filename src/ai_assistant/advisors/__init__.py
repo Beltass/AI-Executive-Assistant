@@ -338,17 +338,18 @@ def all_advisors() -> List[Advisor]:
         MeetingPrepAdvisor(),
         # Position 4: Career development (PHASE 1B consolidation)
         CareerDevelopmentAdvisor(),
-        # Position 4: Market intelligence (PHASE 1B consolidation)
+        # Position 5: Market intelligence (PHASE 1B consolidation)
         MarketIntelligenceAdvisor(),
-        # Position 5: Comprehensive market & sentiment analysis (expanded)
+        # Position 6: Complaint & reputation radar — the same outside-in view
+        # as the market intelligence above it, read from the customer's side.
         ComplaintRadarAdvisor(),
-        # Position 6: LinkedIn coach
+        # Position 7: LinkedIn coach
         LinkedInCoach(),
-        # Position 7: The operation's OWN numbers, read by the analysis engine.
+        # Position 8: The operation's OWN numbers, read by the analysis engine.
         # Registered right after the market view: outside-in first, then
         # inside-out, which is the order a director reads a morning pack in.
         DataAnalystAdvisor(),
-        # Position 8: AI mastery + innovation ideas (PHASE 1B consolidation)
+        # Position 9: AI mastery + innovation ideas (PHASE 1B consolidation)
         AiInnovationAdvisor(),
         # Other advisors (unchanged)
         KidsDevelopmentAdvisor(),
