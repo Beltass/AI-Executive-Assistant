@@ -1,7 +1,7 @@
 """Configuration settings for the Content Creation Platform."""
 
 from pydantic_settings import BaseSettings
-from typing import Optional, List
+from typing import List
 import os
 
 
@@ -14,8 +14,8 @@ class Settings(BaseSettings):
     DEBUG: bool = False
 
     # Database
-    DATABASE_URL: str = (
-        os.getenv("DATABASE_URL", "postgresql://user:password@localhost/content_creation")
+    DATABASE_URL: str = os.getenv(
+        "DATABASE_URL", "postgresql://user:password@localhost/content_creation"
     )
 
     # Google OAuth

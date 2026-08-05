@@ -271,8 +271,12 @@ def test_module_level_helpers_use_one_shared_ledger(tmp_path, monkeypatch):
     assert memory.is_new("ai_news", memory.url_fingerprint("https://example.org/a")) is False
 
 
-def test_memory_file_path_honours_the_env_var(monkeypatch):
+def test_memory_file_path_honours_the_env_var(monkeypatch, tmp_path):
     monkeypatch.delenv(memory.MEMORY_FILE_ENV, raising=False)
     assert memory.memory_file_path() == memory.DEFAULT_MEMORY_FILE
-    monkeypatch.setenv(memory.MEMORY_FILE_ENV, "  /tmp/custom.json ")
-    assert memory.memory_file_path() == "/tmp/custom.json"
+    # The point of the surrounding spaces is that they get trimmed; the path
+    # itself only has to be a plausible absolute path, so it comes from tmp_path
+    # rather than a hardcoded POSIX-only /tmp.
+    custom = tmp_path / "custom.json"
+    monkeypatch.setenv(memory.MEMORY_FILE_ENV, f"  {custom} ")
+    assert memory.memory_file_path() == str(custom)

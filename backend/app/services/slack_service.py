@@ -19,7 +19,9 @@ class SlackService:
         self.signing_secret = settings.SLACK_SIGNING_SECRET
         self.base_url = "https://slack.com/api"
 
-    async def send_message(self, channel: str, text: str, blocks: Optional[list] = None) -> bool:
+    async def send_message(
+        self, channel: str, text: str, blocks: Optional[list] = None
+    ) -> bool:
         """
         Send message to Slack channel.
 
@@ -103,7 +105,9 @@ class SlackService:
             },
         ]
 
-        return await self.send_message(channel, f"Content {content_id} ready for review", blocks)
+        return await self.send_message(
+            channel, f"Content {content_id} ready for review", blocks
+        )
 
     async def send_engagement_summary(
         self, channel: str, content_id: int, metrics: Dict[str, Any]
@@ -163,9 +167,7 @@ class SlackService:
             logger.error(f"Error looking up user: {e}")
             return None
 
-    async def open_modal(
-        self, trigger_id: str, view: Dict[str, Any]
-    ) -> bool:
+    async def open_modal(self, trigger_id: str, view: Dict[str, Any]) -> bool:
         """Open a modal in Slack."""
         try:
             response = requests.post(
@@ -208,4 +210,5 @@ class SlackService:
     def _get_current_time(self) -> int:
         """Get current Unix timestamp."""
         import time
+
         return int(time.time())

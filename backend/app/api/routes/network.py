@@ -2,7 +2,7 @@
 
 import logging
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
@@ -22,9 +22,9 @@ async def list_network(
     """List user's LinkedIn network contacts."""
     user_id = 1  # Placeholder
 
-    networks = db.query(LinkedInNetwork).filter(
-        LinkedInNetwork.user_id == user_id
-    ).all()
+    networks = (
+        db.query(LinkedInNetwork).filter(LinkedInNetwork.user_id == user_id).all()
+    )
 
     return [
         {
@@ -45,8 +45,6 @@ async def sync_network(
     current_user: dict = Depends(get_current_user),
 ):
     """Sync LinkedIn network from LinkedIn API."""
-    user_id = 1  # Placeholder
-
     # TODO: Integrate with LinkedIn API to fetch and sync contacts
 
     return {"message": "Network sync started"}
@@ -73,7 +71,9 @@ async def get_job_changes(
         {
             "id": n.id,
             "name": n.name,
-            "previous_company": n.extra_metadata.get("previous_company") if n.extra_metadata else None,
+            "previous_company": (
+                n.extra_metadata.get("previous_company") if n.extra_metadata else None
+            ),
             "new_company": n.company,
             "new_title": n.current_title,
             "change_date": n.job_change_date,

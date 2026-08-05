@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import json
 import logging
+import os
+import tempfile
 from dataclasses import dataclass, asdict, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
@@ -328,12 +330,25 @@ class TaskTracker:
             latest = sorted(task_files, key=lambda x: x.get('modifiedTime', ''))[-1]
             file_id = latest['id']
 
-            # Download and parse
-            temp_file = "/tmp/tasks_sync.csv"
-            if manager.download_file(file_id, temp_file):
-                self._load_from_csv(temp_file)
-                self.logger.info("Loaded tasks from Drive")
-                return True
+            # Download and parse. The destination used to be the fixed path
+            # /tmp/tasks_sync.csv: two concurrent syncs would overwrite each
+            # other's download mid-parse, any local user could pre-create the
+            # file, and /tmp does not exist on Windows at all. A per-call
+            # temporary file removes all three.
+            handle, temp_file = tempfile.mkstemp(prefix="tasks_sync_", suffix=".csv")
+            os.close(handle)
+            try:
+                if manager.download_file(file_id, temp_file):
+                    self._load_from_csv(temp_file)
+                    self.logger.info("Loaded tasks from Drive")
+                    return True
+            finally:
+                # The download is scratch space, not state; it never outlives
+                # the call, even when parsing raises.
+                try:
+                    os.unlink(temp_file)
+                except OSError:
+                    pass
 
         except Exception as e:
             self.logger.error(f"Failed to load tasks from Drive: {e}")

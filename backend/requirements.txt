@@ -5,6 +5,9 @@ psycopg2-binary==2.9.9
 pydantic==2.5.0
 pydantic-settings==2.1.0
 email-validator==2.1.0
+# JWT verification in app/security.py. Without this the auth dependency
+# cannot check a signature at all.
+PyJWT==2.8.0
 google-generativeai==0.3.0
 google-auth-httplib2==0.2.0
 google-auth-oauthlib==1.2.0
@@ -13,4 +16,7 @@ requests==2.31.0
 python-dotenv==1.0.0
 redis==5.0.1
 aioredis==2.0.1
-httpx==0.25.2
+# Kok pyproject.toml `httpx>=0.27.0` istiyor; buradaki ==0.25.2 pin'i onu
+# sessizce DUSURUYORDU. Ust sinir starlette 0.27 (fastapi 0.104.1) icin:
+# httpx 0.28 `Client(app=...)` kisayolunu kaldirdi ve TestClient kiriliyor.
+httpx>=0.27.0,<0.28.0

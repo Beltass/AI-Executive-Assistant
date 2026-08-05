@@ -7,6 +7,7 @@ from pydantic import BaseModel, EmailStr
 
 class UserBase(BaseModel):
     """Base user schema."""
+
     email: EmailStr
     name: str
     language: str = "en"
@@ -17,11 +18,13 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     """Schema for creating user."""
+
     google_token: Optional[str] = None
 
 
 class UserUpdate(BaseModel):
     """Schema for updating user."""
+
     name: Optional[str] = None
     language: Optional[str] = None
     linkedin_profile_url: Optional[str] = None
@@ -30,6 +33,7 @@ class UserUpdate(BaseModel):
 
 class User(UserBase):
     """User response schema."""
+
     id: int
     created_at: datetime
     updated_at: datetime
@@ -41,6 +45,7 @@ class User(UserBase):
 
 class UserResponse(BaseModel):
     """User API response schema."""
+
     id: int
     email: str
     name: str

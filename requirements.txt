@@ -27,16 +27,18 @@ google-cloud-secret-manager==2.16.4
 # Authentication & Security
 google-auth==2.25.2
 google-auth-oauthlib==1.1.0
-pyjwt==2.8.1
+pyjwt==2.8.0
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 cryptography==41.0.7
 
 # Testing
-pytest==7.4.3
+# Kok pyproject.toml: pytest>=8.0.0,<10 (61 test @pytest.mark.asyncio
+# kullaniyor; pytest 10 bilinmeyen mark'i HATA sayiyor).
+pytest>=8.0.0,<10
 pytest-cov==4.1.0
 pytest-asyncio==0.21.1
-httpx==0.25.2
+httpx>=0.27.0,<0.28.0
 faker==20.1.0
 
 # Security & Quality

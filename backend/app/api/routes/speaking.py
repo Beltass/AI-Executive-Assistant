@@ -23,9 +23,7 @@ async def list_opportunities(
     """List speaking opportunities."""
     user_id = 1  # Placeholder
 
-    query = db.query(SpeakingOpportunity).filter(
-        SpeakingOpportunity.user_id == user_id
-    )
+    query = db.query(SpeakingOpportunity).filter(SpeakingOpportunity.user_id == user_id)
 
     if status:
         query = query.filter(SpeakingOpportunity.status == status)

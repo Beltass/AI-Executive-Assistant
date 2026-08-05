@@ -7,7 +7,11 @@ from sqlalchemy.orm import Session
 
 from app.db.database import get_db
 from app.db.models import Template
-from app.schemas.template import Template as TemplateSchema, TemplateCreate, TemplateUpdate
+from app.schemas.template import (
+    Template as TemplateSchema,
+    TemplateCreate,
+    TemplateUpdate,
+)
 from app.dependencies import get_current_user
 
 logger = logging.getLogger(__name__)

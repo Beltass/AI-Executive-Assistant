@@ -1,37 +1,61 @@
 """Shared dependencies for the application."""
 
+from typing import Any, Dict
+
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
+
 from app.db.database import get_db
-from app.config import settings
+from app.db.models import User
+from app.security import decode_access_token
 
 security = HTTPBearer()
+
+_UNAUTHENTICATED_HEADERS = {"WWW-Authenticate": "Bearer"}
 
 
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db),
-):
-    """
-    Verify JWT token and return current user.
+) -> Dict[str, Any]:
+    """Verify the bearer JWT and return the authenticated user.
 
-    In production, integrate with Google OAuth or JWT validation.
-    """
-    token = credentials.credentials
+    The token's signature and `exp` are checked against the configured secret,
+    then the `sub` claim is resolved to a real, active row in `users`. A token
+    that is unsigned, expired, tampered with, or points at a user who no longer
+    exists gets a 401 — there is no path through this function that trusts an
+    unverified token.
 
-    # TODO: Implement actual JWT verification
-    # For now, this is a placeholder that validates token exists
-    if not token:
+    Returns:
+        A dict with the resolved ``user_id``, the ``user`` row, and the decoded
+        JWT ``claims``.
+    """
+    payload = decode_access_token(credentials.credentials)
+
+    subject = payload.get("sub")
+    if subject is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication credentials",
-            headers={"WWW-Authenticate": "Bearer"},
+            headers=_UNAUTHENTICATED_HEADERS,
         )
 
-    # In production, decode JWT token and validate
-    # user = db.query(User).filter(User.id == user_id).first()
-    # if not user:
-    #     raise HTTPException(status_code=404, detail="User not found")
+    try:
+        user_id = int(subject)
+    except (TypeError, ValueError):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials",
+            headers=_UNAUTHENTICATED_HEADERS,
+        )
 
-    return {"token": token}
+    user = db.query(User).filter(User.id == user_id).first()
+    if user is None or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials",
+            headers=_UNAUTHENTICATED_HEADERS,
+        )
+
+    return {"user_id": user.id, "user": user, "claims": payload}

@@ -141,7 +141,7 @@ class TestDriveFolderManager:
         assert month_folder == 'existing_month_123'
 
     @pytest.mark.asyncio
-    async def test_upload_advisor_output(self, folder_manager, mock_drive_manager):
+    async def test_upload_advisor_output(self, folder_manager, mock_drive_manager, tmp_path):
         """Test uploading advisor output files."""
         # Pre-initialize
         folder_manager.folder_cache[AdvisorType.DATA_ANALYST] = {
@@ -151,8 +151,8 @@ class TestDriveFolderManager:
         }
 
         files = {
-            "report": "/tmp/report.pdf",
-            "data": "/tmp/data.xlsx"
+            "report": str(tmp_path / "report.pdf"),
+            "data": str(tmp_path / "data.xlsx"),
         }
 
         links = await folder_manager.upload_advisor_output(
@@ -167,7 +167,7 @@ class TestDriveFolderManager:
         assert links["data"] == "https://drive.google.com/file/d/file_123/view"
 
     @pytest.mark.asyncio
-    async def test_upload_advisor_output_creates_folder_hierarchy(self, folder_manager, mock_drive_manager):
+    async def test_upload_advisor_output_creates_folder_hierarchy(self, folder_manager, mock_drive_manager, tmp_path):
         """Test folder hierarchy creation during upload."""
         folder_manager.folder_cache[AdvisorType.PERSONAL_ASSISTANT] = {
             'root': 'root_123',
@@ -175,7 +175,7 @@ class TestDriveFolderManager:
             'config': DriveFolderManager.FOLDER_STRUCTURE[AdvisorType.PERSONAL_ASSISTANT]
         }
 
-        files = {"summary": "/tmp/summary.txt"}
+        files = {"summary": str(tmp_path / "summary.txt")}
 
         await folder_manager.upload_advisor_output(
             advisor_type=AdvisorType.PERSONAL_ASSISTANT,
@@ -187,7 +187,7 @@ class TestDriveFolderManager:
         assert mock_drive_manager.create_folder.called
 
     @pytest.mark.asyncio
-    async def test_create_version(self, folder_manager, mock_drive_manager):
+    async def test_create_version(self, folder_manager, mock_drive_manager, tmp_path):
         """Test creating versioned copies of files."""
         folder_manager.folder_cache[AdvisorType.DATA_ANALYST] = {
             'root': 'root_123',
@@ -200,14 +200,14 @@ class TestDriveFolderManager:
         link = await folder_manager.create_version(
             advisor_type=AdvisorType.DATA_ANALYST,
             output_name="Sales Report",
-            file_path="/tmp/report.pdf"
+            file_path=str(tmp_path / "report.pdf"),
         )
 
         assert link == "https://drive.google.com/file/d/file_123/view"
         mock_drive_manager.upload_file.assert_called()
 
     @pytest.mark.asyncio
-    async def test_create_version_increments(self, folder_manager, mock_drive_manager):
+    async def test_create_version_increments(self, folder_manager, mock_drive_manager, tmp_path):
         """Test version number incrementation."""
         folder_manager.folder_cache[AdvisorType.DATA_ANALYST] = {
             'root': 'root_123',
@@ -224,7 +224,7 @@ class TestDriveFolderManager:
         await folder_manager.create_version(
             advisor_type=AdvisorType.DATA_ANALYST,
             output_name="Report",
-            file_path="/tmp/report.pdf"
+            file_path=str(tmp_path / "report.pdf"),
         )
 
         # Verify that upload was called with v3
@@ -429,14 +429,14 @@ class TestErrorHandling:
         return DriveFolderManager(mock_drive_manager, "root_folder_123")
 
     @pytest.mark.asyncio
-    async def test_upload_with_missing_root_folder(self, folder_manager, mock_drive_manager):
+    async def test_upload_with_missing_root_folder(self, folder_manager, mock_drive_manager, tmp_path):
         """Test handling missing root folder ID."""
         # Don't initialize, so folder_cache is empty
         with pytest.raises(Exception):
             await folder_manager.upload_advisor_output(
                 advisor_type=AdvisorType.DATA_ANALYST,
                 output_name="Test",
-                files={"file": "/tmp/test.txt"}
+                files={"file": str(tmp_path / "test.txt")}
             )
 
     @pytest.mark.asyncio
@@ -497,7 +497,7 @@ class TestConcurrentOperations:
         return DriveFolderManager(mock_drive_manager, "root_folder_123")
 
     @pytest.mark.asyncio
-    async def test_concurrent_uploads(self, folder_manager, mock_drive_manager):
+    async def test_concurrent_uploads(self, folder_manager, mock_drive_manager, tmp_path):
         """Test concurrent file uploads."""
         folder_manager.folder_cache[AdvisorType.DATA_ANALYST] = {
             'root': 'root_123',
@@ -511,7 +511,7 @@ class TestConcurrentOperations:
             task = folder_manager.upload_advisor_output(
                 advisor_type=AdvisorType.DATA_ANALYST,
                 output_name=f"Report_{i}",
-                files={f"file_{i}": f"/tmp/file_{i}.txt"}
+                files={f"file_{i}": str(tmp_path / f"file_{i}.txt")}
             )
             tasks.append(task)
 
@@ -567,14 +567,17 @@ class TestIntegration:
         return DriveFolderManager(mock_drive_manager, "root_folder_123")
 
     @pytest.mark.asyncio
-    async def test_complete_workflow(self, folder_manager, mock_drive_manager):
+    async def test_complete_workflow(self, folder_manager, mock_drive_manager, tmp_path):
         """Test complete workflow: init, upload, version, stats."""
         # Initialize structure
         await folder_manager.initialize_folder_structure()
         assert len(folder_manager.folder_cache) == 5
 
         # Upload advisor output
-        files = {"report": "/tmp/report.pdf", "data": "/tmp/data.xlsx"}
+        files = {
+            "report": str(tmp_path / "report.pdf"),
+            "data": str(tmp_path / "data.xlsx"),
+        }
         links = await folder_manager.upload_advisor_output(
             advisor_type=AdvisorType.DATA_ANALYST,
             output_name="Sales Report",

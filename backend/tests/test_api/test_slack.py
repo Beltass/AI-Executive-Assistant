@@ -20,11 +20,14 @@ def slack_test_config():
 def create_slack_signature(timestamp: str, body: str, secret: str) -> str:
     """Create valid Slack signature for testing."""
     basestring = f"v0:{timestamp}:{body}"
-    return "v0=" + hmac.new(
-        secret.encode(),
-        basestring.encode(),
-        hashlib.sha256,
-    ).hexdigest()
+    return (
+        "v0="
+        + hmac.new(
+            secret.encode(),
+            basestring.encode(),
+            hashlib.sha256,
+        ).hexdigest()
+    )
 
 
 class TestSlackEvents:
@@ -34,7 +37,9 @@ class TestSlackEvents:
         """Test URL verification challenge."""
         timestamp = str(int(time.time()))
         body = json.dumps({"type": "url_verification", "challenge": "test_challenge"})
-        signature = create_slack_signature(timestamp, body, slack_test_config["signing_secret"])
+        signature = create_slack_signature(
+            timestamp, body, slack_test_config["signing_secret"]
+        )
 
         response = client.post(
             "/api/slack/events",
@@ -50,16 +55,20 @@ class TestSlackEvents:
     def test_app_mention_event(self, client: TestClient, slack_test_config):
         """Test app mention event."""
         timestamp = str(int(time.time()))
-        body = json.dumps({
-            "type": "event_callback",
-            "event": {
-                "type": "app_mention",
-                "user": "U123",
-                "text": "<@U456> generate content about AI",
-                "channel": "C123",
-            },
-        })
-        signature = create_slack_signature(timestamp, body, slack_test_config["signing_secret"])
+        body = json.dumps(
+            {
+                "type": "event_callback",
+                "event": {
+                    "type": "app_mention",
+                    "user": "U123",
+                    "text": "<@U456> generate content about AI",
+                    "channel": "C123",
+                },
+            }
+        )
+        signature = create_slack_signature(
+            timestamp, body, slack_test_config["signing_secret"]
+        )
 
         response = client.post(
             "/api/slack/events",
@@ -88,7 +97,9 @@ class TestSlackActions:
             ],
         }
         body = f"payload={json.dumps(payload)}"
-        signature = create_slack_signature(timestamp, body, slack_test_config["signing_secret"])
+        signature = create_slack_signature(
+            timestamp, body, slack_test_config["signing_secret"]
+        )
 
         response = client.post(
             "/api/slack/actions",
@@ -114,7 +125,9 @@ class TestSlackActions:
             ],
         }
         body = f"payload={json.dumps(payload)}"
-        signature = create_slack_signature(timestamp, body, slack_test_config["signing_secret"])
+        signature = create_slack_signature(
+            timestamp, body, slack_test_config["signing_secret"]
+        )
 
         response = client.post(
             "/api/slack/actions",
@@ -135,7 +148,9 @@ class TestSlackCommands:
         """Test /content-generate command."""
         timestamp = str(int(time.time()))
         body = "token=test&command=%2Fcontent-generate&text=AI+in+business&user_id=U123&channel_id=C123"
-        signature = create_slack_signature(timestamp, body, slack_test_config["signing_secret"])
+        signature = create_slack_signature(
+            timestamp, body, slack_test_config["signing_secret"]
+        )
 
         response = client.post(
             "/api/slack/commands",
@@ -148,11 +163,15 @@ class TestSlackCommands:
         )
         assert response.status_code in [200, 401]
 
-    def test_speaking_opportunities_command(self, client: TestClient, slack_test_config):
+    def test_speaking_opportunities_command(
+        self, client: TestClient, slack_test_config
+    ):
         """Test /speaking-opportunities command."""
         timestamp = str(int(time.time()))
         body = "token=test&command=%2Fspeaking-opportunities&text=&user_id=U123&channel_id=C123"
-        signature = create_slack_signature(timestamp, body, slack_test_config["signing_secret"])
+        signature = create_slack_signature(
+            timestamp, body, slack_test_config["signing_secret"]
+        )
 
         response = client.post(
             "/api/slack/commands",

@@ -7,7 +7,15 @@ from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import StaticPool
 
 from app.main import app
+from app.config import settings
 from app.db.database import Base, get_db
+
+# The suite configures its own signing secret instead of inheriting whatever is
+# in the ambient environment. app/security.py refuses to verify tokens against
+# the placeholder secret shipped in config.py, so without this the whole API
+# would answer 500 "authentication is not configured" and the auth tests below
+# would be measuring the wrong failure.
+TEST_SECRET_KEY = "test-only-secret-not-for-production"
 
 
 # Test database
@@ -52,6 +60,14 @@ def db():
 def client():
     """Test client fixture."""
     return TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def jwt_secret(monkeypatch):
+    """Give every test a real (non-placeholder) JWT signing secret."""
+    monkeypatch.setattr(settings, "SECRET_KEY", TEST_SECRET_KEY)
+    monkeypatch.setattr(settings, "ALGORITHM", "HS256")
+    return TEST_SECRET_KEY
 
 
 @pytest.fixture

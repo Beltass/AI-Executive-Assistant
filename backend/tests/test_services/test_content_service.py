@@ -137,6 +137,7 @@ class TestContentUpdate:
         db.commit()
 
         from app.schemas.content import ContentUpdate
+
         update = ContentUpdate(title="Updated")
         updated = await content_service.update_content(test_user.id, content.id, update)
         assert updated.title == "Updated"
@@ -147,6 +148,7 @@ class TestContentUpdate:
     ):
         """Test updating non-existent content returns None."""
         from app.schemas.content import ContentUpdate
+
         update = ContentUpdate(title="Updated")
         result = await content_service.update_content(test_user.id, 999, update)
         assert result is None

@@ -369,9 +369,11 @@ class TestTaskCommandParser:
     """Test Slack task commands."""
 
     @pytest.fixture
-    def parser(self):
+    def parser(self, tmp_path):
         """Create a TaskCommandParser instance."""
-        task_tracker = TaskTracker(state_dir="/tmp/test_tasks")
+        # tmp_path, not a fixed /tmp/test_tasks: that directory survived between
+        # runs, so tasks written by one run were still on disk for the next.
+        task_tracker = TaskTracker(state_dir=str(tmp_path / "tasks"))
         manager = NotificationManager()
         return TaskCommandParser(task_tracker, manager)
 
@@ -624,10 +626,10 @@ class TestIntegration:
     """Integration tests combining multiple components."""
 
     @pytest.mark.asyncio
-    async def test_full_workflow(self):
+    async def test_full_workflow(self, tmp_path):
         """Test complete workflow: create task, check deadline, send alert."""
         # Initialize components
-        task_tracker = TaskTracker(state_dir="/tmp/test_workflow")
+        task_tracker = TaskTracker(state_dir=str(tmp_path / "workflow"))
         notification_manager = NotificationManager(slack_token="test")
         command_parser = TaskCommandParser(task_tracker, notification_manager)
         deadline_tracker = DeadlineTracker(notification_manager, "UTC")
