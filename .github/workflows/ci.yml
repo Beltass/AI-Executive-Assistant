@@ -49,10 +49,10 @@ jobs:
           # `|| true` kaldırıldı: bu kurulum gerçekten çalışıyor (doğrulandı,
           # exit 0). Kurulumun sessizce başarısız olabilmesi, sonraki adımların
           # eksik araçlarla koşmasına ve "yeşil" görünmesine yol açıyordu.
-          # NOT: backend/requirements-dev.txt pytest'i 7.4.3'e, httpx'i
-          # 0.25.2'ye DÜŞÜRÜYOR; pip bunun için bir uyarı basıyor (exit 0).
-          # Kök suite her iki sürümle de geçiyor, ama pin'ler bir gün
-          # hizalanmalı.
+          # Pin çakışması ARTIK YOK: backend/requirements-dev.txt pytest'i
+          # `>=8.0.0,<10`, backend/requirements.txt httpx'i `>=0.27.0,<0.28.0`
+          # istiyor — ikisi de kök pyproject.toml ile aynı. Bu satır artık
+          # hiçbir şeyi düşürmüyor.
           pip install -r backend/requirements-dev.txt
 
       - name: Check JavaScript syntax
@@ -64,23 +64,22 @@ jobs:
             node --check frontend/charts.js
           fi
 
-      # 41 dosyanın 17'si black'e uyumsuz. Bunları tek seferde formatlamak
-      # kaynak kodun yarısına dokunan, incelenemez bir diff üretirdi; bu yüzden
-      # otomatik format YAPILMADI. `|| true` yerine `continue-on-error`:
-      # ikisi de suite'i kırmaz, ama continue-on-error adımı GitHub arayüzünde
-      # sarı işaretler — `|| true` ise hatayı tamamen görünmez kılıyordu.
+      # continue-on-error KALDIRILDI: backend/ artık black'e tam uyumlu
+      # (43 dosya, `black --check backend/` exit 0). Adım bastırılmadığı için
+      # bundan sonra formatı bozan bir PR CI'ı gerçekten kırar.
       - name: Lint with black
-        continue-on-error: true
         run: |
           black --check backend/
 
-      # `--exit-zero` zaten çıkış kodunu bastırıyor, `|| true` ikinci kez aynı
-      # işi yapıyordu. Fazlalık olan `|| true` kaldırıldı; adım hâlâ yalnızca
-      # rapor amaçlı (şu an 109 uyarı, çoğu E501 — black'in 88 karakterlik
-      # satır sınırıyla flake8'in 79'u çeliştiği için).
+      # `--exit-zero` KALDIRILDI. Daha önce 109, en son 20 uyarı vardı ve
+      # hepsi temizlendi (14 F401, 4 E501, 1 E712 — bkz. 35fe99e); şimdi
+      # `flake8 backend/` sıfır bulguyla exit 0 dönüyor.
+      # Kapsam bilinçli olarak backend/: src/ ve tests/ hiç black'ten
+      # geçmedi ve repo genelinde hâlâ ~2000 E501 var. Onları da bu kapıya
+      # sokmak, gerçek bulguları gömen bir gürültü yığını demek olurdu.
       - name: Lint with flake8
         run: |
-          flake8 backend/ --count --exit-zero --max-complexity=10
+          flake8 backend/ --count --max-complexity=10
 
       - name: Run main tests
         run: pytest -q
@@ -91,17 +90,12 @@ jobs:
       # Python attribute'ları `extra_metadata` oldu, DB kolon adı `metadata`
       # kaldı — schema.sql'e dokunmaya gerek yok.
       #
-      # continue-on-error HÂLÂ BURADA, çünkü 105 testin 16'sı düşüyor ve
-      # bunların hiçbiri o rename'den kaynaklanmıyor:
-      #   - 12'si `tests/conftest.py`'deki fixture sırası yüzünden. `db`
-      #     fixture'ı her testten sonra `Base.metadata.drop_all` çağırıyor;
-      #     sadece `client` isteyen bir test sonra çalışınca tablolar yok
-      #     ("no such table: contents/templates/speaking_opportunities").
-      #   - 4'ü `app/dependencies.py`'deki auth'un hâlâ bir yer tutucu olması:
-      #     testler 401/403 bekliyor, uç nokta 200/500 döndürüyor.
-      # Bu ikisi düzeltilince continue-on-error silinmeli.
+      # continue-on-error ARTIK YOK: daha önce düşen 16 testin ikisi de
+      # düzeltildi (fixture sırası + `app/dependencies.py`'deki yer tutucu
+      # auth'un JWT ile değiştirilmesi). Suite şimdi 122 test, hepsi geçiyor.
+      # Bu adım CI'da bir postgres service'ine bağlı; yerelde `.env` olmadan
+      # aynı komutla doğrulandı (exit 0).
       - name: Run backend tests
-        continue-on-error: true
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
         run: |
