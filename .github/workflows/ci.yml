@@ -85,15 +85,21 @@ jobs:
       - name: Run main tests
         run: pytest -q
 
-      # Backend suite ŞU AN TAMAMEN KIRIK: tek bir test bile koşmuyor.
-      # backend/tests/conftest.py, app.main'i import ediyor ve
-      # backend/app/db/models.py:87'deki `Content` modeli SQLAlchemy Declarative
-      # API'sinde ayrılmış olan `metadata` adını kolon adı olarak kullanıyor:
-      #   InvalidRequestError: Attribute name 'metadata' is reserved
-      # Bu bir collection hatası (pytest exit 4), yani 0 test toplandı.
-      # `|| true` KALDIRILMADI-ama-DEĞİŞTİRİLDİ: hata düzeltilene kadar suite'i
-      # kırmamak için continue-on-error, ama artık en azından kırmızı/sarı
-      # görünüyor. Model düzeltilince bu satır da silinmeli.
+      # Backend suite ARTIK KOŞUYOR. Daha önce collection aşamasında çöküyordu
+      # (pytest exit 4, 0 test): `metadata` SQLAlchemy Declarative Base'de
+      # ayrılmış bir addır ve beş model onu kolon adı olarak kullanıyordu.
+      # Python attribute'ları `extra_metadata` oldu, DB kolon adı `metadata`
+      # kaldı — schema.sql'e dokunmaya gerek yok.
+      #
+      # continue-on-error HÂLÂ BURADA, çünkü 105 testin 16'sı düşüyor ve
+      # bunların hiçbiri o rename'den kaynaklanmıyor:
+      #   - 12'si `tests/conftest.py`'deki fixture sırası yüzünden. `db`
+      #     fixture'ı her testten sonra `Base.metadata.drop_all` çağırıyor;
+      #     sadece `client` isteyen bir test sonra çalışınca tablolar yok
+      #     ("no such table: contents/templates/speaking_opportunities").
+      #   - 4'ü `app/dependencies.py`'deki auth'un hâlâ bir yer tutucu olması:
+      #     testler 401/403 bekliyor, uç nokta 200/500 döndürüyor.
+      # Bu ikisi düzeltilince continue-on-error silinmeli.
       - name: Run backend tests
         continue-on-error: true
         env:

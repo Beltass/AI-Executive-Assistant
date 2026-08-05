@@ -73,7 +73,7 @@ async def get_job_changes(
         {
             "id": n.id,
             "name": n.name,
-            "previous_company": n.metadata.get("previous_company") if n.metadata else None,
+            "previous_company": n.extra_metadata.get("previous_company") if n.extra_metadata else None,
             "new_company": n.company,
             "new_title": n.current_title,
             "change_date": n.job_change_date,

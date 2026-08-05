@@ -99,7 +99,11 @@ class Content(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     published_at = Column(DateTime)
     platforms = Column(JSON, default=[])
-    metadata = Column(JSON, default={})
+    # ``metadata`` is reserved on SQLAlchemy's Declarative Base (it holds the
+    # MetaData registry), so a mapped attribute of that name makes the whole
+    # module fail to import and takes the entire test suite down with it.
+    # The Python attribute is renamed; the DB column keeps its old name.
+    extra_metadata = Column("metadata", JSON, default={})
 
     # Relationships
     user = relationship("User", back_populates="contents")
@@ -125,7 +129,11 @@ class ContentVariation(Base):
     tone = Column(String(100))
     language = Column(String(5), default="en")
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    metadata = Column(JSON, default={})
+    # ``metadata`` is reserved on SQLAlchemy's Declarative Base (it holds the
+    # MetaData registry), so a mapped attribute of that name makes the whole
+    # module fail to import and takes the entire test suite down with it.
+    # The Python attribute is renamed; the DB column keeps its old name.
+    extra_metadata = Column("metadata", JSON, default={})
 
     # Relationships
     content = relationship("Content", back_populates="variations")
@@ -174,7 +182,11 @@ class LinkedInNetwork(Base):
     last_contacted = Column(DateTime)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    metadata = Column(JSON, default={})
+    # ``metadata`` is reserved on SQLAlchemy's Declarative Base (it holds the
+    # MetaData registry), so a mapped attribute of that name makes the whole
+    # module fail to import and takes the entire test suite down with it.
+    # The Python attribute is renamed; the DB column keeps its old name.
+    extra_metadata = Column("metadata", JSON, default={})
 
     # Relationships
     user = relationship("User", back_populates="networks")
@@ -200,7 +212,11 @@ class SpeakingOpportunity(Base):
     url = Column(String(500))
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    metadata = Column(JSON, default={})
+    # ``metadata`` is reserved on SQLAlchemy's Declarative Base (it holds the
+    # MetaData registry), so a mapped attribute of that name makes the whole
+    # module fail to import and takes the entire test suite down with it.
+    # The Python attribute is renamed; the DB column keeps its old name.
+    extra_metadata = Column("metadata", JSON, default={})
 
     # Relationships
     user = relationship("User", back_populates="opportunities")
@@ -225,7 +241,11 @@ class IndustryReport(Base):
     summary = Column(Text)
     relevance_score = Column(Float, default=0.0)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    metadata = Column(JSON, default={})
+    # ``metadata`` is reserved on SQLAlchemy's Declarative Base (it holds the
+    # MetaData registry), so a mapped attribute of that name makes the whole
+    # module fail to import and takes the entire test suite down with it.
+    # The Python attribute is renamed; the DB column keeps its old name.
+    extra_metadata = Column("metadata", JSON, default={})
 
     __table_args__ = (
         Index("idx_report_topic", "topic"),

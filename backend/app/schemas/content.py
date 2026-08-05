@@ -35,7 +35,7 @@ class ContentVariationBase(BaseModel):
     text: str
     tone: Optional[str] = None
     language: str = "en"
-    metadata: Optional[dict] = None
+    extra_metadata: Optional[dict] = None
 
 
 class ContentVariationCreate(ContentVariationBase):
@@ -60,7 +60,7 @@ class ContentBase(BaseModel):
     content_type: ContentTypeEnum
     main_content: Optional[str] = None
     platforms: List[str] = []
-    metadata: Optional[dict] = None
+    extra_metadata: Optional[dict] = None
 
 
 class ContentCreate(ContentBase):
@@ -76,7 +76,7 @@ class ContentUpdate(BaseModel):
     main_content: Optional[str] = None
     status: Optional[ContentStatusEnum] = None
     platforms: Optional[List[str]] = None
-    metadata: Optional[dict] = None
+    extra_metadata: Optional[dict] = None
 
 
 class Content(ContentBase):
