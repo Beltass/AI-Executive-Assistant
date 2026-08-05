@@ -1,7 +1,7 @@
 """Pydantic schemas for content-related endpoints."""
 
 from datetime import datetime
-from typing import List, Optional, Any
+from typing import List, Optional
 from enum import Enum
 from pydantic import BaseModel, Field
 

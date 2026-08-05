@@ -1,7 +1,6 @@
 """Service for Slack integration."""
 
 import logging
-import json
 from typing import Optional, Dict, Any
 import requests
 

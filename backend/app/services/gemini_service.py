@@ -2,8 +2,7 @@
 
 import json
 import logging
-from typing import List, Dict, Optional
-from datetime import datetime
+from typing import Dict, Optional
 
 from app.config import settings
 
@@ -208,7 +207,9 @@ Return as JSON:
     def _mock_generate_variations(self, topic: str, platform: str) -> Dict[str, any]:
         """Generate mock content variations for testing."""
         return {
-            "main_content": f"High-quality content about {topic} optimized for {platform}",
+            "main_content": (
+                f"High-quality content about {topic} optimized for {platform}"
+            ),
             "variations": [
                 {
                     "variation_1": {

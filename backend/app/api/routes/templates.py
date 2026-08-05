@@ -27,7 +27,7 @@ async def list_templates(
     current_user: dict = Depends(get_current_user),
 ):
     """List available templates."""
-    query = db.query(Template).filter(Template.is_active == True)
+    query = db.query(Template).filter(Template.is_active.is_(True))
 
     if language:
         query = query.filter(Template.language == language)

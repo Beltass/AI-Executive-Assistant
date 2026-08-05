@@ -147,7 +147,10 @@ class TestSlackCommands:
     def test_generate_command(self, client: TestClient, slack_test_config):
         """Test /content-generate command."""
         timestamp = str(int(time.time()))
-        body = "token=test&command=%2Fcontent-generate&text=AI+in+business&user_id=U123&channel_id=C123"
+        body = (
+            "token=test&command=%2Fcontent-generate"
+            "&text=AI+in+business&user_id=U123&channel_id=C123"
+        )
         signature = create_slack_signature(
             timestamp, body, slack_test_config["signing_secret"]
         )
@@ -168,7 +171,10 @@ class TestSlackCommands:
     ):
         """Test /speaking-opportunities command."""
         timestamp = str(int(time.time()))
-        body = "token=test&command=%2Fspeaking-opportunities&text=&user_id=U123&channel_id=C123"
+        body = (
+            "token=test&command=%2Fspeaking-opportunities"
+            "&text=&user_id=U123&channel_id=C123"
+        )
         signature = create_slack_signature(
             timestamp, body, slack_test_config["signing_secret"]
         )

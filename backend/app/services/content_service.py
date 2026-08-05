@@ -14,7 +14,6 @@ from app.db.models import (
 )
 from app.services.gemini_service import GeminiService
 from app.schemas.content import (
-    ContentCreate,
     ContentUpdate,
     ContentStatusEnum,
     VariationTypeEnum,

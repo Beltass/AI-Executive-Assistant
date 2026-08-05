@@ -1,12 +1,11 @@
 """Service for analytics and metrics."""
 
 import logging
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
-from sqlalchemy import func
 
-from app.db.models import EngagementMetric, Content, ScheduledPost
+from app.db.models import EngagementMetric, Content
 
 logger = logging.getLogger(__name__)
 
