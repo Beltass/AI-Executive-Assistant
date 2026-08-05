@@ -1,39 +1,39 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-08-05T12:54:39+00:00",
-  "generated_at_istanbul": "05.08.2026 15:54",
+  "generated_at": "2026-08-05T16:44:06+00:00",
+  "generated_at_istanbul": "05.08.2026 19:44",
   "run": {
     "conclusion": "ok",
     "total": 15,
-    "ok": 2,
+    "ok": 1,
     "failed": 0,
-    "skipped": 13,
-    "duration_seconds": 56.1,
+    "skipped": 14,
+    "duration_seconds": 54.4,
     "batch": {
       "enabled": true,
-      "attempted": true,
-      "used": true,
-      "sections_requested": 2,
-      "sections_produced": 2,
+      "attempted": false,
+      "used": false,
+      "sections_requested": 1,
+      "sections_produced": 0,
       "model": "gemini-2.5-flash",
       "provider": "gemini",
-      "prompt_chars_total": 17663,
-      "guide_saved_chars": 3762
+      "prompt_chars_total": 0,
+      "guide_saved_chars": 0
     },
     "tokens": {
       "called": true,
-      "prompt": 6046,
-      "output": 4858,
-      "thoughts": 2743,
-      "total": 13647,
-      "latency_seconds": 49.38,
+      "prompt": 4609,
+      "output": 1747,
+      "thoughts": 6441,
+      "total": 12797,
+      "latency_seconds": 50.35,
       "retries": 0,
       "fallback_used": false
     },
     "mode": "incremental",
     "mode_label": "artımlı",
     "new_findings": 4,
-    "nothing_new_count": 13
+    "nothing_new_count": 14
   },
   "slack": {
     "status": "ok",
@@ -77,23 +77,23 @@
       "id": "market_intelligence",
       "name": "Pazar İstihbaratı (Sektör · YZ · CX · Bankacılık)",
       "status": "ok",
-      "content_length": 12010,
+      "content_length": 6976,
       "detail": "",
       "emoji": "📊",
       "category": "sektör",
-      "new_findings": 3,
+      "new_findings": 4,
       "nothing_new": false
     },
     {
       "id": "complaint_radar",
       "name": "Pazar Trendleri & Kapsamlı Analiz Danışmanı",
-      "status": "ok",
-      "content_length": 7213,
-      "detail": "",
+      "status": "skipped",
+      "content_length": 0,
+      "detail": "yeni bulgu yok",
       "emoji": "📊",
       "category": "sektör",
-      "new_findings": 1,
-      "nothing_new": false
+      "new_findings": 0,
+      "nothing_new": true
     },
     {
       "id": "linkedin_coach",
@@ -233,7 +233,7 @@
     "urgent_count": 0,
     "action_items": 0,
     "vip_emails": 0,
-    "last_update": "2026-08-05T12:54:39+00:00",
+    "last_update": "2026-08-05T16:44:06+00:00",
     "last_fetch_error": null
   },
   "calendar": {
@@ -247,7 +247,7 @@
       "duration_minutes": null
     },
     "available_slots": [],
-    "last_update": "2026-08-05T12:54:39+00:00",
+    "last_update": "2026-08-05T16:44:06+00:00",
     "last_fetch_error": null
   },
   "integrations": {
@@ -282,11 +282,11 @@
   },
   "performance": {
     "daily_metrics": {
-      "completion_rate": 13.3,
-      "deadline_adherence": 13.3,
+      "completion_rate": 6.7,
+      "deadline_adherence": 6.7,
       "success_rate": 100.0,
-      "token_efficiency": 2429.0,
-      "last_update": "2026-08-05T12:54:39+00:00"
+      "token_efficiency": 1747.0,
+      "last_update": "2026-08-05T16:44:06+00:00"
     },
     "work_status": {
       "meeting_hours": 0.0,
@@ -302,16 +302,16 @@
         100.0,
         100.0,
         100.0,
-        13.3
+        6.7
       ],
       "deadline_7d": [
-        23.1,
         76.9,
         76.9,
         15.4,
         15.4,
         73.3,
-        13.3
+        13.3,
+        6.7
       ],
       "success_7d": [
         100.0,
@@ -327,17 +327,6 @@
     "feedback": ""
   },
   "history": [
-    {
-      "at": "2026-07-30T15:11:51+00:00",
-      "at_istanbul": "30.07.2026 18:11",
-      "conclusion": "ok",
-      "ok": 11,
-      "failed": 0,
-      "skipped": 2,
-      "total": 13,
-      "duration_seconds": 145.0,
-      "slack": "ok"
-    },
     {
       "at": "2026-07-30T18:10:49+00:00",
       "at_istanbul": "30.07.2026 21:10",
@@ -730,6 +719,20 @@
       "mode": "incremental",
       "new_findings": 4,
       "total_tokens": 13647
+    },
+    {
+      "at": "2026-08-05T16:44:06+00:00",
+      "at_istanbul": "05.08.2026 19:44",
+      "conclusion": "ok",
+      "ok": 1,
+      "failed": 0,
+      "skipped": 14,
+      "total": 15,
+      "duration_seconds": 54.4,
+      "slack": "ok",
+      "mode": "incremental",
+      "new_findings": 4,
+      "total_tokens": 12797
     }
   ]
 }
