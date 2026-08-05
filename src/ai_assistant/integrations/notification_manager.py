@@ -132,8 +132,8 @@ class NotificationManager:
             except Exception as e:
                 logger.error(f"Failed to initialize Twilio client: {e}")
 
-    async def send_alert(self, alert: AlertMessage) -> Dict[str, bool]:
-        """Send alert across multiple channels.
+    def send_alert_sync(self, alert: AlertMessage) -> Dict[str, bool]:
+        """Send alert across multiple channels (synchronous).
 
         Args:
             alert: AlertMessage to send
@@ -141,46 +141,37 @@ class NotificationManager:
         Returns:
             Dictionary mapping channel names to success status
         """
-        tasks = []
         results = {}
 
         if "slack" in alert.channels and self.slack_client:
-            tasks.append(
-                self._send_slack_alert(alert).then(
-                    lambda r: results.update({"slack": r})
-                )
-            )
+            results["slack"] = self._send_slack_alert(alert)
 
         if "email" in alert.channels and self.gmail_service:
-            tasks.append(
-                self._send_email_alert(alert).then(
-                    lambda r: results.update({"email": r})
-                )
-            )
+            results["email"] = self._send_email_alert(alert)
 
         if (
             "sms" in alert.channels
             and self.twilio_client
             and alert.level in [AlertLevel.HIGH, AlertLevel.CRITICAL]
         ):
-            tasks.append(
-                self._send_sms_alert(alert).then(lambda r: results.update({"sms": r}))
-            )
-
-        # Execute all tasks concurrently
-        if tasks:
-            await asyncio.gather(*[self._wrap_task(t) for t in tasks])
+            results["sms"] = self._send_sms_alert(alert)
 
         return results
 
-    async def _wrap_task(self, coro) -> None:
-        """Wrap coroutine to handle exceptions."""
-        try:
-            await coro
-        except Exception as e:
-            logger.error(f"Alert delivery error: {e}")
+    async def send_alert(self, alert: AlertMessage) -> Dict[str, bool]:
+        """Send alert across multiple channels (async wrapper).
 
-    async def _send_slack_alert(self, alert: AlertMessage) -> bool:
+        Args:
+            alert: AlertMessage to send
+
+        Returns:
+            Dictionary mapping channel names to success status
+        """
+        # Run synchronous operations in thread pool
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, self.send_alert_sync, alert)
+
+    def _send_slack_alert(self, alert: AlertMessage) -> bool:
         """Send alert to Slack with interactive buttons.
 
         Args:
@@ -270,7 +261,7 @@ class NotificationManager:
             logger.error(f"Slack alert error: {e}")
             return False
 
-    async def _send_email_alert(self, alert: AlertMessage) -> bool:
+    def _send_email_alert(self, alert: AlertMessage) -> bool:
         """Send email alert via Gmail.
 
         Args:
@@ -321,7 +312,7 @@ class NotificationManager:
             logger.error(f"Email alert error: {e}")
             return False
 
-    async def _send_sms_alert(self, alert: AlertMessage) -> bool:
+    def _send_sms_alert(self, alert: AlertMessage) -> bool:
         """Send SMS alert via Twilio (critical alerts only).
 
         Args:

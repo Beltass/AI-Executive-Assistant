@@ -214,6 +214,24 @@ jobs:
           LINKEDIN_PROFILE_ID: ${{ secrets.LINKEDIN_PROFILE_ID }}
         run: python -m ai_assistant.notifiers.slack_notifier
 
+      # Check task deadlines and send alerts
+      - name: Check task deadlines and send notifications
+        if: always()
+        continue-on-error: true
+        env:
+          NOTIFICATION_ENABLED: ${{ secrets.NOTIFICATION_ENABLED || 'true' }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
+          TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
+          TWILIO_PHONE_NUMBER: ${{ secrets.TWILIO_PHONE_NUMBER }}
+          GMAIL_SENDER_EMAIL: ${{ secrets.GMAIL_SENDER_EMAIL || 'noreply@ai-assistant.com' }}
+          TASK_TIMEZONE: ${{ secrets.TASK_TIMEZONE || 'Europe/Istanbul' }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
+        run: |
+          python -m ai_assistant.integrations.notification_manager check-deadlines
+
       # NOTE: there used to be a second step here, "Distribute digest to
       # advisor-specific channels", which called `build_digest()` AGAIN. That
       # ran the entire advisor team a second time — a second full set of LLM
