@@ -805,3 +805,77 @@ def test_the_hidden_attribute_is_reset_so_a_display_class_cannot_beat_it(css):
         "[hidden] must use !important — any component class that declares a "
         "display would otherwise defeat the attribute"
     )
+
+
+# --- the metrics history outlives the roster --------------------------------
+#
+# `frontend/metrics.json` is an append-only measurement log, so it keeps rows
+# for advisors that have since been retired (`weather` is the live example) and
+# has no rows at all for advisors added after the last run. Both directions can
+# mislead: a retired agent renders as a slice of the token ring as if it were
+# still on staff, and a new advisor's absence reads as "costs nothing".
+#
+# Deleting the stale runs was the alternative and was rejected — those calls
+# genuinely happened, and dropping them would both destroy real measurements
+# and skew the run-level totals. The dashboard labels instead.
+
+
+def test_a_retired_advisor_is_marked_archive_in_the_agent_charts():
+    """Runs the real `aggregateAgents` under node against the real data files.
+
+    Asserts against the shipped `metrics.json`/`advisors.json` rather than a
+    fixture: the point is that TODAY's data is labelled correctly.
+    """
+    if shutil_which_node() is None:
+        pytest.skip("node is not installed")
+    body = APP.read_text(encoding="utf-8")
+    num = re.search(r"function num\(value\) \{.*?\n  \}\n", body, re.DOTALL)
+    roster = re.search(r"function rosterAdvisorIds\(\) \{.*?\n  \}\n", body, re.DOTALL)
+    agg = re.search(r"function aggregateAgents\(runs\) \{.*?\n  \}\n", body, re.DOTALL)
+    assert num and roster and agg
+
+    metrics = json.loads((FRONTEND / "metrics.json").read_text(encoding="utf-8"))
+    advisors = json.loads((FRONTEND / "advisors.json").read_text(encoding="utf-8"))
+    # EXPERTISE_AREAS as applyAdvisorManifest() builds it: keyed by the hyphen
+    # id, carrying the underscore `advisor_id` that metrics.json agents use.
+    expertise = {
+        row["advisor_id"].replace("_", "-"): {"advisor_id": row["advisor_id"]}
+        for row in advisors["advisors"]
+    }
+
+    script = (
+        "var input = JSON.parse(require('fs').readFileSync(0, 'utf8'));"
+        + "var EXPERTISE_AREAS = input.expertise;"
+        + num.group(0)
+        + roster.group(0)
+        + agg.group(0)
+        + "process.stdout.write(JSON.stringify(aggregateAgents(input.runs)));"
+    )
+    result = subprocess.run(
+        ["node", "-e", script],
+        input=json.dumps({"expertise": expertise, "runs": metrics["runs"]}),
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    assert result.returncode == 0, result.stderr
+    rows = {row["id"]: row for row in json.loads(result.stdout)}
+    assert rows, "the shipped metrics.json produced no agent rows"
+
+    roster_ids = {row["advisor_id"] for row in advisors["advisors"]}
+    for agent_id, row in rows.items():
+        expected = agent_id not in roster_ids
+        assert row["retired"] is expected, f"{agent_id}: retired={row['retired']}"
+        # The label the charts draw carries the marker, so a reader of the ring
+        # never has to cross-check the roster by hand.
+        assert row["label"].endswith(" (arşiv)") is expected, row["label"]
+
+    # The regression this guards: `weather` was retired but still bills tokens
+    # in the most recent full runs, so it is inside the 7-run chart window.
+    assert "weather" in rows and rows["weather"]["retired"] is True
+
+
+def test_the_roster_note_element_exists_and_is_filled_by_the_renderer(html, app):
+    """The stale-data caveat must be rendered, not just present in the HTML."""
+    assert 'id="agents-roster-note"' in html
+    assert 'text($("agents-roster-note")' in app

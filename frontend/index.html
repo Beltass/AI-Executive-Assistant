@@ -703,6 +703,15 @@
             <div class="chart" id="chart-split"></div>
           </div>
 
+          <!-- metrics.json roster'dan BAĞIMSIZ yaşar. Emekliye ayrılan bir ajan
+               (ör. `weather`) geçmiş koşularda durmaya devam eder ve yeni
+               eklenen bir danışmanın henüz hiç ölçümü yoktur. Aşağıdaki üç
+               grafik ölçüm dosyasını olduğu gibi gösterir; bu satır da farkı
+               açıkça yazar. Geçmişi silmek alternatifi değerlendirildi ve
+               reddedildi: o koşular gerçekten yapıldı, silmek ölçümü yok
+               etmek olurdu. Metni renderMetrics() dolduruyor. -->
+          <p class="chart-card__sub" id="agents-roster-note"></p>
+
           <div class="charts charts--2">
             <!-- Part-to-whole: the ring answers "who eats the budget", and the
                  total sits in the middle so the share and the absolute number

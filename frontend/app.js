@@ -2311,7 +2311,7 @@
       charts.donutChart(
         $("chart-agents"),
         agents.map(function (row) {
-          return { name: row.name || row.id, value: num(row.tokens) };
+          return { name: row.label || row.name || row.id, value: num(row.tokens) };
         }),
         {
           aria: "Ajan başına tahmini token dağılımı",
@@ -2331,13 +2331,67 @@
       );
     }
 
+    /* --- ölçüm penceresi ile güncel roster arasındaki fark -----------------
+     * Grafikler ölçüm dosyasını olduğu gibi çizer, ama o dosya roster'dan
+     * bağımsız yaşıyor: emekli ajanlar geçmişte kalır, yeni danışmanların
+     * henüz ölçümü olmaz. İkisini de burada adıyla yazıyoruz — sessiz
+     * bırakmak, panoyu "16 danışmanın tamamı bu" diye okutur.
+     * -------------------------------------------------------------------- */
+    var windowRuns = runs.slice(-7);
+    var measured = {};
+    agents.forEach(function (row) {
+      measured[row.id] = true;
+    });
+    var retiredNames = agents
+      .filter(function (row) {
+        return row.retired;
+      })
+      .map(function (row) {
+        return row.name || row.id;
+      });
+    var unmeasured = Object.keys(rosterAdvisorIds()).filter(function (id) {
+      return !measured[id];
+    });
+
+    var rosterNote = [];
+    if (windowRuns.length) {
+      var firstRun = windowRuns[0];
+      var lastRun = windowRuns[windowRuns.length - 1];
+      rosterNote.push(
+        "Aşağıdaki üç grafik " +
+          (firstRun.at_istanbul || firstRun.at || "?") +
+          " – " +
+          (lastRun.at_istanbul || lastRun.at || "?") +
+          " arasındaki " +
+          windowRuns.length +
+          " çalıştırmanın ölçümüdür."
+      );
+    }
+    if (retiredNames.length) {
+      rosterNote.push(
+        retiredNames.length +
+          " ajan güncel roster'da yok, arşiv olarak işaretlendi: " +
+          retiredNames.join(", ") +
+          "."
+      );
+    }
+    if (unmeasured.length) {
+      rosterNote.push(
+        "Güncel roster'daki " +
+          unmeasured.length +
+          " danışmanın bu pencerede hiç ölçümü yok; grafiklerde yer almamaları " +
+          "0 token harcadıkları anlamına gelmez."
+      );
+    }
+    text($("agents-roster-note"), rosterNote.join(" "));
+
     /* --- the same advisors, ranked ---------------------------------------- */
     if (charts.barChart) {
       charts.barChart(
         $("chart-agent-bars"),
         agents.map(function (row) {
           return {
-            label: row.name || row.id,
+            label: row.label || row.name || row.id,
             value: num(row.tokens),
             note:
               "token payı %" + String(row.token_share).replace(".", ",") +
@@ -2361,7 +2415,7 @@
         agents
           .map(function (row) {
             return {
-              label: row.name || row.id,
+              label: row.label || row.name || row.id,
               value: num(row.tokens) ? Math.round((num(row.chars) / num(row.tokens)) * 1000) : 0,
               note: trNumber(Math.round(num(row.chars))) + " karakter · " +
                 trNumber(Math.round(num(row.tokens))) + " token"
@@ -2393,7 +2447,7 @@
         ],
         agents.map(function (row) {
           return [
-            row.name,
+            row.label || row.name,
             trNumber(row.tokens),
             "%" + String(row.token_share).replace(".", ","),
             "%" + String(row.output_share).replace(".", ","),
@@ -2437,7 +2491,26 @@
     }
   }
 
-  /** Sum the per-run agent estimates into one table, mirroring metrics.py. */
+  /* Güncel roster'daki `advisor_id`'ler (metrics.json'daki `agent.id` ile aynı
+   * yazım). EXPERTISE_AREAS manifestten geldiyse canlı roster, gelemediyse
+   * yedek liste — ikisi de advisor_id taşır, yani bu küme her durumda dolu. */
+  function rosterAdvisorIds() {
+    var ids = {};
+    Object.keys(EXPERTISE_AREAS).forEach(function (key) {
+      var entry = EXPERTISE_AREAS[key];
+      if (entry && entry.advisor_id) ids[entry.advisor_id] = true;
+    });
+    return ids;
+  }
+
+  /** Sum the per-run agent estimates into one table, mirroring metrics.py.
+   *
+   * Ölçüm geçmişi roster'ı takip etmez: bir ajan emekliye ayrıldığında eski
+   * koşulardaki satırları yerinde kalır. Bunlar uydurma değil, gerçekten
+   * yapılmış çağrılar — o yüzden silinmiyor, `retired` ile işaretlenip
+   * etiketine "(arşiv)" ekleniyor. Aksi hâlde grafikteki dilim, panonun
+   * danışman listesinde bulunmayan bir ajanı aktifmiş gibi gösterirdi.
+   */
   function aggregateAgents(runs) {
     var bucket = {};
     runs.slice(-7).forEach(function (run) {
@@ -2461,10 +2534,13 @@
       return acc + row.chars;
     }, 0);
 
+    var roster = rosterAdvisorIds();
     rows.forEach(function (row) {
       row.token_share = tokenTotal ? Math.round((row.tokens / tokenTotal) * 1000) / 10 : 0;
       row.output_share = charTotal ? Math.round((row.chars / charTotal) * 1000) / 10 : 0;
       row.gap = Math.round((row.token_share - row.output_share) * 10) / 10;
+      row.retired = !roster[row.id];
+      row.label = (row.name || row.id) + (row.retired ? " (arşiv)" : "");
     });
     rows.sort(function (a, b) {
       return b.tokens - a.tokens;
