@@ -260,6 +260,50 @@ def _collect_body_text(message: Dict[str, Any]) -> str:
     return html.unescape("\n".join(chunks))
 
 
+def message_subject(message: Dict[str, Any], default: str = "Unknown Meeting") -> str:
+    """Read the Subject of a Gmail message.
+
+    A ``users.messages.get`` payload keeps the subject in
+    ``payload.headers``, not as a top-level key, so a plain
+    ``message.get("subject")`` is empty for every real message. Flattened
+    test/fixture dicts that DO carry a top-level ``subject`` still win.
+    """
+    if not isinstance(message, dict):
+        return default
+
+    direct = message.get("subject")
+    if isinstance(direct, str) and direct.strip():
+        return direct.strip()
+
+    payload = message.get("payload")
+    headers = payload.get("headers") if isinstance(payload, dict) else None
+    if isinstance(headers, list):
+        for header in headers:
+            if not isinstance(header, dict):
+                continue
+            if str(header.get("name", "")).lower() == "subject":
+                value = str(header.get("value") or "").strip()
+                if value:
+                    return value
+    return default
+
+
+def audio_mime_type(source: AudioSource) -> str:
+    """Best MIME type for a source, guessing from the filename if needed.
+
+    Gemini needs a concrete audio MIME type; Gmail happily reports
+    ``application/octet-stream`` for an ordinary .m4a, so fall back to the
+    extension and finally to mp3, the format meeting tools send most often.
+    """
+    mime_type = (source.mime_type or "").split(";")[0].strip().lower()
+    if mime_type.startswith("audio/"):
+        return mime_type
+    guessed, _ = mimetypes.guess_type(source.filename or "")
+    if guessed and guessed.startswith("audio/"):
+        return guessed
+    return "audio/mpeg"
+
+
 def _iter_urls(text: str) -> Iterator[str]:
     """Yield URLs from free text, with trailing sentence punctuation removed."""
     for match in _URL_RE.finditer(text or ""):
@@ -663,7 +707,7 @@ class MeetingNotesPoller:
         """
         try:
             message_id = message.get('id')
-            subject = message.get('subject', 'Unknown Meeting')
+            subject = message_subject(message)
 
             self.logger.info(f"Processing meeting: {subject}")
 
@@ -679,11 +723,30 @@ class MeetingNotesPoller:
             # Transcribe audio if enabled
             transcript = ""
             if auto_transcribe:
-                self.logger.info(f"Transcribing audio from {audio_url}")
-                transcript = await self.agent.transcribe_audio(audio_url)
+                # Download first: the transcriber works on bytes, not on a
+                # locator it has no credentials for.
+                try:
+                    audio_bytes = self._fetch_audio_bytes(audio_source)
+                except Exception as exc:
+                    self.logger.error(
+                        f"Could not download audio from {audio_url}: {exc}"
+                    )
+                    return False
+
+                self.logger.info(
+                    f"Transcribing {len(audio_bytes)} bytes from {audio_url}"
+                )
+                transcript = await self.agent.transcribe_audio(
+                    audio_bytes,
+                    mime_type=audio_mime_type(audio_source),
+                    source_label=audio_url,
+                )
 
                 if not transcript:
-                    self.logger.error("Transcription failed")
+                    reason = getattr(
+                        self.agent, "last_transcription_error", None
+                    ) or "unknown reason"
+                    self.logger.error(f"Transcription produced nothing: {reason}")
                     return False
 
             # Analyze meeting
@@ -744,6 +807,21 @@ class MeetingNotesPoller:
             AudioSource or None
         """
         return extract_audio_source(message)
+
+    def _fetch_audio_bytes(self, source: AudioSource) -> bytes:
+        """Download what an :class:`AudioSource` points at.
+
+        Thin delegate to :func:`fetch_audio_bytes`, wired to this run's Gmail
+        service and Drive manager so attachments and Drive files are pulled
+        with credentials that already exist.
+        """
+        return fetch_audio_bytes(
+            source,
+            gmail_service=self._get_gmail_service()
+            if source.kind == "gmail_attachment"
+            else None,
+            drive_manager=getattr(self, "drive_manager", None),
+        )
 
     def _save_meeting_notes(self, notes: MeetingNotes) -> None:
         """Save meeting notes to persistent storage."""

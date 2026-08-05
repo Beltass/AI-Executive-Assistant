@@ -22,15 +22,18 @@ from unittest.mock import Mock
 
 import pytest
 
+from ai_assistant.advisors.meeting_notes import MeetingNotes
 from ai_assistant.integrations.meeting_notes_poller import (
     MAX_AUDIO_BYTES,
     MAX_MESSAGES_PER_RUN,
     AudioSource,
     MeetingNotesPoller,
+    audio_mime_type,
     extract_audio_source,
     extract_drive_file_id,
     fetch_audio_bytes,
     find_gmail_attachment,
+    message_subject,
     normalise_dropbox_url,
 )
 
@@ -471,6 +474,176 @@ class TestFetchAudioBytes:
     def test_unknown_kind_raises(self):
         with pytest.raises(ValueError, match="Unknown audio source kind"):
             fetch_audio_bytes(AudioSource(kind="carrier_pigeon", identifier="x"))
+
+
+class TestSubjectAndMimeType:
+    """Small readers the pipeline depends on for its inputs."""
+
+    def test_subject_comes_from_the_payload_headers(self):
+        msg = message(
+            {
+                "mimeType": "multipart/mixed",
+                "headers": [
+                    {"name": "From", "value": "notifications@example.com"},
+                    {"name": "Subject", "value": "Q3 Strateji Toplantısı"},
+                ],
+                "parts": [audio_part()],
+            }
+        )
+
+        assert message_subject(msg) == "Q3 Strateji Toplantısı"
+
+    def test_subject_falls_back_to_a_default(self):
+        assert message_subject(message({"mimeType": "text/plain"})) == "Unknown Meeting"
+        assert message_subject(None) == "Unknown Meeting"
+
+    def test_top_level_subject_still_wins_for_flattened_dicts(self):
+        msg = message(None, subject="Flat Subject")
+        assert message_subject(msg) == "Flat Subject"
+
+    def test_mime_type_is_guessed_when_gmail_says_octet_stream(self):
+        source = AudioSource(
+            kind="gmail_attachment",
+            identifier="A",
+            filename="recording.m4a",
+            mime_type="application/octet-stream",
+        )
+
+        # Whatever the stdlib maps .m4a to, it must be an audio/* type and not
+        # the octet-stream Gmail claimed.
+        assert audio_mime_type(source) == "audio/mp4"
+
+    def test_mime_type_defaults_to_mp3_when_nothing_is_known(self):
+        assert audio_mime_type(AudioSource(kind="direct_url", identifier="x")) == "audio/mpeg"
+
+
+class TestProcessMeetingPipeline:
+    """The end-to-end chain: discover -> download -> transcribe."""
+
+    def _poller(self):
+        poller = object.__new__(MeetingNotesPoller)  # __init__ needs live creds
+        poller.logger = logging.getLogger("test")
+        poller.gmail_service = Mock()
+        poller.drive_manager = Mock()
+        poller.task_tracker = Mock()
+        poller.state_dir = Path(tempfile.mkdtemp())
+        poller.agent = Mock()
+        poller.agent.last_transcription_error = None
+        return poller
+
+    def _meeting_message(self):
+        return message(
+            {
+                "mimeType": "multipart/mixed",
+                "headers": [{"name": "Subject", "value": "Haftalık Sync"}],
+                "parts": [audio_part(filename="sync.mp3")],
+            }
+        )
+
+    def test_audio_is_downloaded_and_handed_to_the_transcriber(self, monkeypatch):
+        poller = self._poller()
+        audio = b"\xff\xfb real audio bytes"
+        fetched = {}
+
+        def fake_fetch(source, **kwargs):
+            fetched["source"] = source
+            fetched["kwargs"] = kwargs
+            return audio
+
+        monkeypatch.setattr(
+            "ai_assistant.integrations.meeting_notes_poller.fetch_audio_bytes",
+            fake_fetch,
+        )
+
+        async def fake_transcribe(audio_bytes, **kwargs):
+            fetched["transcribe"] = (audio_bytes, kwargs)
+            return "Konuşmacı 1: bütçe onaylandı."
+
+        poller.agent.transcribe_audio = fake_transcribe
+
+        async def fake_analyze(transcript, **kwargs):
+            fetched["transcript"] = transcript
+            return MeetingNotes(title=kwargs.get("meeting_title", ""))
+
+        poller.agent.analyze_meeting = fake_analyze
+
+        async def fake_create_tasks(items, meeting_id):
+            return []
+
+        poller.agent.create_tasks_in_tracker = fake_create_tasks
+        monkeypatch.setattr(
+            MeetingNotesPoller, "_save_meeting_notes", lambda self, notes: None
+        )
+
+        ok = asyncio.run(
+            poller._process_meeting(self._meeting_message(), generate_reports=False)
+        )
+
+        assert ok is True
+        # The download really happened, for the source that was discovered.
+        assert fetched["source"].kind == "gmail_attachment"
+        assert fetched["source"].filename == "sync.mp3"
+        assert fetched["kwargs"]["gmail_service"] is poller.gmail_service
+        # ...and the BYTES (not a locator) went to the transcriber.
+        assert fetched["transcribe"][0] == audio
+        assert fetched["transcribe"][1]["mime_type"] == "audio/mpeg"
+        assert "gmail://msg_1/ATTACH_1" in fetched["transcribe"][1]["source_label"]
+        # The model's words are what gets analysed.
+        assert fetched["transcript"] == "Konuşmacı 1: bütçe onaylandı."
+
+    def test_a_failed_download_stops_the_meeting(self, monkeypatch):
+        poller = self._poller()
+
+        def boom(source, **kwargs):
+            raise ValueError("Gmail returned no data for attachment ATTACH_1")
+
+        monkeypatch.setattr(
+            "ai_assistant.integrations.meeting_notes_poller.fetch_audio_bytes", boom
+        )
+        poller.agent.transcribe_audio = Mock(
+            side_effect=AssertionError("must not be called")
+        )
+
+        assert (
+            asyncio.run(
+                poller._process_meeting(self._meeting_message(), generate_reports=False)
+            )
+            is False
+        )
+
+    def test_an_empty_transcript_stops_the_meeting(self, monkeypatch):
+        poller = self._poller()
+        monkeypatch.setattr(
+            "ai_assistant.integrations.meeting_notes_poller.fetch_audio_bytes",
+            lambda source, **kwargs: b"audio",
+        )
+
+        async def no_transcript(audio_bytes, **kwargs):
+            return ""
+
+        poller.agent.transcribe_audio = no_transcript
+        poller.agent.last_transcription_error = "transkripsiyon atlandı"
+        poller.agent.analyze_meeting = Mock(
+            side_effect=AssertionError("must not be called")
+        )
+
+        assert (
+            asyncio.run(
+                poller._process_meeting(self._meeting_message(), generate_reports=False)
+            )
+            is False
+        )
+
+    def test_no_audio_source_stops_before_any_download(self, monkeypatch):
+        poller = self._poller()
+        monkeypatch.setattr(
+            "ai_assistant.integrations.meeting_notes_poller.fetch_audio_bytes",
+            Mock(side_effect=AssertionError("must not be called")),
+        )
+
+        msg = message({"mimeType": "text/plain", "body": {"data": b64url("no links")}})
+
+        assert asyncio.run(poller._process_meeting(msg)) is False
 
 
 class TestRunSearchesGmail:
