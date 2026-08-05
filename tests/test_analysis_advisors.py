@@ -90,9 +90,16 @@ def test_data_analyst_is_private():
     assert "data_analyst" in reports.PRIVATE_ADVISOR_KEYS
 
 
-def test_data_analyst_fails_cleanly_on_an_unreadable_source(blank_env, monkeypatch):
+def test_data_analyst_fails_cleanly_on_an_unreadable_source(
+    blank_env, monkeypatch, tmp_path
+):
     """A configured but broken source is ``failed`` with a sentence, not a stack."""
-    monkeypatch.setenv("DATA_ANALYST_SOURCE", "/tmp/kesinlikle-olmayan-dosya.xlsx")
+    # tmp_path is empty by construction, so "this file is missing" is guaranteed
+    # rather than assumed — a stray /tmp/kesinlikle-olmayan-dosya.xlsx would
+    # have quietly turned this into a different test.
+    monkeypatch.setenv(
+        "DATA_ANALYST_SOURCE", str(tmp_path / "kesinlikle-olmayan-dosya.xlsx")
+    )
     briefing = DataAnalystAdvisor().generate_briefing()
     assert briefing.status == STATUS_FAILED
     assert briefing.text

@@ -84,6 +84,7 @@ def no_config(monkeypatch):
 EXPECTED_ADVISOR_KEYS = [
     "morning_operations",
     "communications_calendar",
+    "meeting_prep",
     "career_development",
     "market_intelligence",
     "complaint_radar",
@@ -102,7 +103,7 @@ EXPECTED_ADVISOR_KEYS = [
 
 def test_all_advisors_discovered():
     advisors = all_advisors()
-    assert len(advisors) == 15
+    assert len(advisors) == 16
     assert [a.key for a in advisors] == EXPECTED_ADVISOR_KEYS
 
 

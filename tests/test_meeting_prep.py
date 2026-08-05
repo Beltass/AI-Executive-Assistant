@@ -98,11 +98,11 @@ def _calendar(monkeypatch, events):
 # --- registration and privacy ------------------------------------------------
 
 
-def test_the_advisor_is_not_in_the_live_roster():
-    """Meeting prep has been retired from the live roster (PHASE 1C consolidation)."""
+def test_the_advisor_is_on_the_live_roster():
+    """The manifest marks meeting_prep live, so all_advisors() must build it."""
     from ai_assistant.advisors import all_advisors
 
-    assert "meeting_prep" not in [advisor.key for advisor in all_advisors()]
+    assert "meeting_prep" in [advisor.key for advisor in all_advisors()]
 
 
 def test_the_advisor_declares_itself_private():

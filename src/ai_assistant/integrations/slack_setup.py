@@ -132,6 +132,19 @@ ADVISOR_CHANNELS: Tuple[ChannelSpec, ...] = (
         advisor_key="communications_calendar",
     ),
     ChannelSpec(
+        env_key=advisor_channel_env("meeting_prep"),
+        name="ai-toplanti-hazirlik",
+        label="Toplantı Hazırlık & Takip",
+        purpose=(
+            "Toplantı Hazırlık & Takip ajanının kanalı. Takvimdeki "
+            "toplantılar için hazırlık notu, katılımcı arka planı ve "
+            "sonrasında takip maddeleri. KİŞİSEL VERİ içerir; panoya yazılmaz."
+        ),
+        topic="🤝 Toplantı hazırlığı + takip maddeleri · 🔒 kişisel",
+        private=True,
+        advisor_key="meeting_prep",
+    ),
+    ChannelSpec(
         env_key=advisor_channel_env("career_development"),
         name="ai-kariyer-gelisim",
         label="Kariyer Gelişimi",
