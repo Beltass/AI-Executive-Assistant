@@ -19,10 +19,10 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime
 from pathlib import Path
 
-from googleapiclient.discovery import Resource
+from googleapiclient.discovery import Resource, build
 from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
 
-from .google_auth import get_drive_service
+from .google_auth import get_credentials
 
 logger = logging.getLogger(__name__)
 
@@ -43,12 +43,14 @@ class GoogleDriveManager:
 
     def __init__(self):
         """Initialize the Drive Manager with authenticated service."""
+        self.logger = logging.getLogger(__name__)
         try:
-            self.service = get_drive_service()
-            self.logger = logging.getLogger(__name__)
+            creds = get_credentials()
+            self.service: Resource = build(
+                "drive", "v3", credentials=creds, cache_discovery=False
+            )
             self.logger.info("GoogleDriveManager initialized successfully")
         except Exception as e:
-            self.logger = logging.getLogger(__name__)
             self.logger.error(f"Failed to initialize GoogleDriveManager: {e}")
             raise
 

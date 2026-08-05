@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -20,7 +21,6 @@ from pathlib import Path
 from typing import List, Optional, Dict, Any
 
 from . import Advisor, Briefing
-from ..config import env
 from ..integrations.google_drive_manager import GoogleDriveManager
 from ..integrations.task_tracker import Task, TaskTracker, TaskStatus
 from ..integrations import STATUS_OK, STATUS_FAILED, STATUS_SKIPPED
@@ -179,7 +179,7 @@ class MeetingNotesAgent(Advisor):
             Briefing with status and text
         """
         try:
-            if not env("MEETING_NOTES_ENABLED"):
+            if not os.getenv("MEETING_NOTES_ENABLED", "true").lower() == "true":
                 return self.skipped("toplantı notları aracı devre dışı")
 
             # Get upcoming reminders

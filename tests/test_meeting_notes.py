@@ -456,7 +456,7 @@ class TestMeetingNotesAgent:
         agent.task_tracker.get_overdue_tasks.return_value = []
         agent.task_tracker.get_upcoming_tasks.return_value = []
 
-        with patch('ai_assistant.config.env', return_value=True):
+        with patch('os.getenv', return_value="true"):
             briefing = agent._generate()
 
         assert briefing.status == "skipped"
@@ -477,7 +477,7 @@ class TestMeetingNotesAgent:
         agent.task_tracker.get_overdue_tasks.return_value = []
         agent.task_tracker.get_upcoming_tasks.return_value = [task]
 
-        with patch('ai_assistant.config.env', return_value=True):
+        with patch('os.getenv', return_value="true"):
             briefing = agent._generate()
 
         assert briefing.status == "ok"
@@ -570,10 +570,11 @@ class TestGoogleDriveManager:
     @pytest.fixture
     def manager(self):
         """Provide a GoogleDriveManager with mocked service."""
-        with patch('ai_assistant.integrations.google_drive_manager.get_drive_service'):
-            manager = GoogleDriveManager()
-            manager.service = Mock()
-            return manager
+        with patch('ai_assistant.integrations.google_drive_manager.get_credentials'):
+            with patch('ai_assistant.integrations.google_drive_manager.build'):
+                manager = GoogleDriveManager()
+                manager.service = Mock()
+                return manager
 
     def test_manager_initialization(self, manager: GoogleDriveManager):
         """Test manager initialization."""
