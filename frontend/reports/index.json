@@ -1,14 +1,14 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-08-05T12:38:49+03:00",
+  "generated_at": "2026-08-05T15:54:39+03:00",
   "retention_days": 30,
   "days": [
     {
       "date": "2026-08-05",
       "count": 5,
-      "generated_at": "2026-08-05T12:38:49+03:00",
-      "generated_at_istanbul": "05.08.2026 12:38",
-      "mode": "full"
+      "generated_at": "2026-08-05T15:54:39+03:00",
+      "generated_at_istanbul": "05.08.2026 15:54",
+      "mode": "incremental"
     },
     {
       "date": "2026-08-04",
