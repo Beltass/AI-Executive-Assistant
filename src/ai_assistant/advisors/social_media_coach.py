@@ -82,6 +82,7 @@ Türkçe, yapılandırılmış, somut ve eylem odaklı yaz.
 @dataclass
 class ProfileAnalysis:
     """Sosyal medya profili analiz sonucu."""
+
     platform: str  # "instagram", "twitter", "linkedin"
     handle: str
     analyzed_at: str
@@ -123,7 +124,9 @@ class SocialMediaCoachAdvisor(Advisor):
 
             # LLM ile konsolide tavsiye al
             if not llm.is_configured():
-                return self.skipped("LLM yapılandırılmadı (GEMINI_API_KEY veya OPENAI_API_KEY)")
+                return self.skipped(
+                    "LLM yapılandırılmadı (GEMINI_API_KEY veya OPENAI_API_KEY)"
+                )
 
             briefing_text = self._generate_briefing(profiles, strategy)
 
@@ -146,12 +149,12 @@ class SocialMediaCoachAdvisor(Advisor):
             strengths=[
                 "Tutarlı paylaşım sıklığı (haftada 4 post)",
                 "Yüksek engagement oranı (%4.2)",
-                "Profesyonel gözüküm ve estetik"
+                "Profesyonel gözüküm ve estetik",
             ],
             improvements=[
                 "Bio'da CTA (Call To Action) yok",
                 "Haştag stratejisi rastgele",
-                "Hayran sayfalarına izin vermeme"
+                "Hayran sayfalarına izin vermeme",
             ],
             bio_score=72,
             engagement_trend="up",
@@ -159,8 +162,8 @@ class SocialMediaCoachAdvisor(Advisor):
             content_ideas=[
                 "İşe dönüş sorusu ile pazartesi motivasyon",
                 "Haftalık 'neler öğrendim' paylaşımı",
-                "Sektör haberlerinden kısa yorum"
-            ]
+                "Sektör haberlerinden kısa yorum",
+            ],
         )
 
     def _analyze_twitter(self, handle: str, strategy: str) -> ProfileAnalysis:
@@ -172,12 +175,12 @@ class SocialMediaCoachAdvisor(Advisor):
             analyzed_at=datetime.now().isoformat(),
             strengths=[
                 "Güncel konulara hızlı tepki veriliyor",
-                "Sektör liderlerini takip ve etkileşim"
+                "Sektör liderlerini takip ve etkileşim",
             ],
             improvements=[
                 "Bio'da profesyonel fotoğraf eksik",
                 "Pinned tweet güncel değil",
-                "Retweet fazlalığı (orijinal içerik azlığı)"
+                "Retweet fazlalığı (orijinal içerik azlığı)",
             ],
             bio_score=65,
             engagement_trend="stable",
@@ -185,19 +188,21 @@ class SocialMediaCoachAdvisor(Advisor):
             content_ideas=[
                 "Sabahın ilk haberini kısa analiz ile taşla",
                 "Cuma akşamı haftalık özet",
-                "Sektör etkinliklerinden canlı tweet"
-            ]
+                "Sektör etkinliklerinden canlı tweet",
+            ],
         )
 
     def _generate_briefing(self, profiles: List[ProfileAnalysis], strategy: str) -> str:
         """LLM yardımıyla konsolide bir briefing yarat."""
-        profile_text = "\n\n".join([
-            f"**{p.platform.upper()}** (@{p.handle})\n"
-            f"Skor: {p.bio_score}/100 | Trend: {p.engagement_trend}\n"
-            f"Güçlü: {', '.join(p.strengths[:2])}\n"
-            f"İyileştir: {', '.join(p.improvements[:2])}"
-            for p in profiles
-        ])
+        profile_text = "\n\n".join(
+            [
+                f"**{p.platform.upper()}** (@{p.handle})\n"
+                f"Skor: {p.bio_score}/100 | Trend: {p.engagement_trend}\n"
+                f"Güçlü: {', '.join(p.strengths[:2])}\n"
+                f"İyileştir: {', '.join(p.improvements[:2])}"
+                for p in profiles
+            ]
+        )
 
         user_prompt = f"""Sosyal medya profil analizi:
 
@@ -237,9 +242,12 @@ Sonra: İyileştirme alanları, bu hafta için 3 post fikri (başlık, konu, CTA
         for profile in profiles:
             # Aynı platform/handle'ı eski listeden sil
             existing = [
-                p for p in existing
-                if not (p.get("platform") == profile.platform and
-                       p.get("handle") == profile.handle)
+                p
+                for p in existing
+                if not (
+                    p.get("platform") == profile.platform
+                    and p.get("handle") == profile.handle
+                )
             ]
             existing.append(asdict(profile))
 
@@ -268,7 +276,7 @@ Sonra: İyileştirme alanları, bu hafta için 3 post fikri (başlık, konu, CTA
         user_prompt = USER_PROMPT_TEMPLATE.format(
             platform="instagram" if instagram else "twitter",
             handle=handle,
-            strategy=strategy
+            strategy=strategy,
         )
 
         return BatchSection(

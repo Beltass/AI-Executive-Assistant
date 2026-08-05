@@ -88,7 +88,9 @@ def search_messages(
     if max_results <= 0:
         return []
 
-    messages_api = (service if service is not None else build_service()).users().messages()
+    messages_api = (
+        (service if service is not None else build_service()).users().messages()
+    )
 
     collected: List[Dict[str, Any]] = []
     page_token: Optional[str] = None
@@ -117,9 +119,9 @@ def search_messages(
             if len(collected) >= max_results:
                 break
             try:
-                full = (
-                    messages_api.get(userId="me", id=message_id, format="full").execute()
-                )
+                full = messages_api.get(
+                    userId="me", id=message_id, format="full"
+                ).execute()
             except Exception as exc:  # one bad message must not sink the search
                 logger.warning(
                     "Gmail message %s could not be read, skipping it: %s",

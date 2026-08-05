@@ -40,7 +40,9 @@ def _isolated_env(monkeypatch, tmp_path):
 def _supervision() -> Supervision:
     return Supervision(
         briefings=[
-            Briefing(key="weather", title="Hava Durumu", status=STATUS_OK, text="x" * 120),
+            Briefing(
+                key="weather", title="Hava Durumu", status=STATUS_OK, text="x" * 120
+            ),
             Briefing(
                 key="career_development",
                 title="Kariyer Gelişimi",
@@ -81,7 +83,12 @@ def test_writes_valid_json_with_expected_shape(tmp_path):
     assert (run["ok"], run["failed"], run["skipped"], run["total"]) == (1, 1, 1, 3)
     assert run["conclusion"] == "partial"
     assert run["duration_seconds"] == 12.3
-    assert set(run["batch"]) >= {"used", "sections_requested", "sections_produced", "model"}
+    assert set(run["batch"]) >= {
+        "used",
+        "sections_requested",
+        "sections_produced",
+        "model",
+    }
 
     assert data["slack"]["status"] == STATUS_OK
     assert "accountability" in data
@@ -92,7 +99,9 @@ def test_writes_valid_json_with_expected_shape(tmp_path):
 def test_advisor_entries_carry_name_status_category_and_size(tmp_path):
     target = tmp_path / "status.json"
     status_report.write_status_report(_supervision(), path=str(target), now=FIXED_NOW)
-    advisors = {a["id"]: a for a in json.loads(target.read_text(encoding="utf-8"))["advisors"]}
+    advisors = {
+        a["id"]: a for a in json.loads(target.read_text(encoding="utf-8"))["advisors"]
+    }
 
     weather = advisors["weather"]
     assert weather["name"] == "Hava Durumu"
@@ -109,7 +118,9 @@ def test_advisor_entries_carry_name_status_category_and_size(tmp_path):
 def test_ok_advisor_content_is_never_written(tmp_path):
     secret_text = "Bugün İstanbul'da 31 derece — ÇOK ÖZEL BRİFİNG METNİ"
     supervision = Supervision(
-        briefings=[Briefing(key="weather", title="Hava", status=STATUS_OK, text=secret_text)]
+        briefings=[
+            Briefing(key="weather", title="Hava", status=STATUS_OK, text=secret_text)
+        ]
     )
     target = tmp_path / "status.json"
     status_report.write_status_report(supervision, path=str(target), now=FIXED_NOW)
@@ -160,7 +171,9 @@ def test_retired_advisors_are_marked_retired_rather_than_deleted():
 
 def test_sanitize_redacts_configured_secret_values(monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY", "AIzaSyTOPSECRETVALUE123456")
-    cleaned = status_report.sanitize("gemini hatası: key AIzaSyTOPSECRETVALUE123456 reddedildi")
+    cleaned = status_report.sanitize(
+        "gemini hatası: key AIzaSyTOPSECRETVALUE123456 reddedildi"
+    )
     assert "AIzaSyTOPSECRETVALUE123456" not in cleaned
     assert status_report.REDACTED in cleaned
 
@@ -195,7 +208,9 @@ def test_secrets_never_reach_the_written_file(tmp_path, monkeypatch):
     target = tmp_path / "status.json"
     status_report.write_status_report(
         supervision,
-        slack_result=CheckResult("Slack", STATUS_FAILED, "xoxb-9999999999-zzzzzzzzzz geçersiz"),
+        slack_result=CheckResult(
+            "Slack", STATUS_FAILED, "xoxb-9999999999-zzzzzzzzzz geçersiz"
+        ),
         path=str(target),
         now=FIXED_NOW,
     )
@@ -244,7 +259,9 @@ def test_corrupt_previous_file_is_ignored_not_fatal(tmp_path):
     target = tmp_path / "status.json"
     target.write_text("{not json at all", encoding="utf-8")
 
-    assert status_report.write_status_report(_supervision(), path=str(target), now=FIXED_NOW)
+    assert status_report.write_status_report(
+        _supervision(), path=str(target), now=FIXED_NOW
+    )
     assert json.loads(target.read_text(encoding="utf-8"))["history"]
 
 
@@ -254,7 +271,9 @@ def test_corrupt_previous_file_is_ignored_not_fatal(tmp_path):
 def test_accountability_snapshot_read_from_state_file(tmp_path, monkeypatch):
     state = tmp_path / "accountability.json"
     state.write_text(
-        json.dumps({"streak": 7, "last_date": "2026-07-30", "last_tasks": ["a", "b", "c"]}),
+        json.dumps(
+            {"streak": 7, "last_date": "2026-07-30", "last_tasks": ["a", "b", "c"]}
+        ),
         encoding="utf-8",
     )
     monkeypatch.setenv("ACCOUNTABILITY_STATE_FILE", str(state))
@@ -353,9 +372,12 @@ def test_unwritable_path_returns_none_and_never_raises(tmp_path):
     blocker.write_text("not a directory", encoding="utf-8")
 
     # Writing "inside" a regular file is an OSError at makedirs/open time.
-    assert status_report.write_status_report(
-        _supervision(), path=str(blocker / "deep" / "status.json"), now=FIXED_NOW
-    ) is None
+    assert (
+        status_report.write_status_report(
+            _supervision(), path=str(blocker / "deep" / "status.json"), now=FIXED_NOW
+        )
+        is None
+    )
 
 
 def test_broken_supervision_object_never_raises(tmp_path):
@@ -399,7 +421,9 @@ def test_notifier_writes_the_status_file(tmp_path, monkeypatch):
         monkeypatch.delenv(name, raising=False)
 
     supervision = _supervision()
-    supervision.briefings = [b for b in supervision.briefings if b.status != STATUS_FAILED]
+    supervision.briefings = [
+        b for b in supervision.briefings if b.status != STATUS_FAILED
+    ]
     monkeypatch.setattr(
         slack_notifier,
         "build_digest",

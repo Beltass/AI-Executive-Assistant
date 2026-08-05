@@ -38,7 +38,11 @@ class FakeApi(slack_setup.SlackApi):
         if method in self.fail:
             code = self.fail[method]
             raise slack_setup.SlackApiError(
-                method, code, slack_setup.explain(method, {"error": code, "needed": "channels:manage"})
+                method,
+                code,
+                slack_setup.explain(
+                    method, {"error": code, "needed": "channels:manage"}
+                ),
             )
 
         if method == "auth.test":
@@ -59,7 +63,11 @@ class FakeApi(slack_setup.SlackApi):
             cid = f"C{self._next:09d}"
             self.channels[name] = cid
             return {"ok": True, "channel": {"id": cid, "name": name}}
-        if method in ("conversations.join", "conversations.setPurpose", "conversations.setTopic"):
+        if method in (
+            "conversations.join",
+            "conversations.setPurpose",
+            "conversations.setTopic",
+        ):
             return {"ok": True}
         raise AssertionError(f"unexpected method: {method}")
 
@@ -119,7 +127,9 @@ def test_prefix_option_renames_every_channel():
 
 
 def test_channel_name_normalisation_folds_turkish_letters():
-    assert slack_setup.normalize_channel_name("AI Çocuk Gelişimi") == "ai-cocuk-gelisimi"
+    assert (
+        slack_setup.normalize_channel_name("AI Çocuk Gelişimi") == "ai-cocuk-gelisimi"
+    )
     assert slack_setup.normalize_channel_name("İş Analisti!") == "is-analisti"
 
 
@@ -226,7 +236,10 @@ def test_rerunning_creates_nothing_new(capsys):
 def test_an_id_already_in_the_environment_is_never_recreated():
     """Idempotency the other way: .env is already filled in."""
     api = FakeApi()
-    env = {"SLACK_MAIN_CHANNEL": "CPINNED", "SLACK_CHANNEL_MORNING_OPERATIONS": "CWPINNED"}
+    env = {
+        "SLACK_MAIN_CHANNEL": "CPINNED",
+        "SLACK_CHANNEL_MORNING_OPERATIONS": "CWPINNED",
+    }
 
     result = slack_setup.provision(api, apply=True, env=env)
 
@@ -245,7 +258,9 @@ def test_existing_channel_is_adopted_not_duplicated():
     outcome = next(o for o in result.outcomes if o.spec.name == "ai-cocuk-gelisim")
     assert outcome.action == "exists"
     assert outcome.channel_id == "CEXIST"
-    assert "ai-cocuk-gelisim" not in [p["name"] for p in api.methods("conversations.create")]
+    assert "ai-cocuk-gelisim" not in [
+        p["name"] for p in api.methods("conversations.create")
+    ]
     # ...and it is still described and joined, so an adopted channel is usable.
     assert {"channel": "CEXIST"} in api.methods("conversations.join")
 
@@ -302,7 +317,11 @@ def test_a_failed_purpose_is_only_a_note_not_a_failure():
 def test_explain_names_the_scope_slack_asked_for():
     message = slack_setup.explain(
         "conversations.create",
-        {"error": "missing_scope", "needed": "channels:manage", "provided": "chat:write"},
+        {
+            "error": "missing_scope",
+            "needed": "channels:manage",
+            "provided": "chat:write",
+        },
     )
     assert "channels:manage" in message
     assert "chat:write" in message
@@ -354,7 +373,8 @@ def test_write_env_appends_to_a_file_that_has_no_slack_keys(tmp_path):
 def test_write_env_replaces_in_place_and_never_duplicates_a_key(tmp_path):
     env_file = tmp_path / ".env"
     env_file.write_text(
-        "SLACK_BOT_TOKEN=xoxb-x\nSLACK_CHANNEL_MORNING_OPERATIONS=COLD\n", encoding="utf-8"
+        "SLACK_BOT_TOKEN=xoxb-x\nSLACK_CHANNEL_MORNING_OPERATIONS=COLD\n",
+        encoding="utf-8",
     )
 
     api = FakeApi()

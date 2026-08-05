@@ -173,12 +173,19 @@ class BlockRenderer(Renderer):
         ]
         if prompt.note:
             blocks.append(
-                {"type": "context", "elements": [{"type": "mrkdwn", "text": prompt.note}]}
+                {
+                    "type": "context",
+                    "elements": [{"type": "mrkdwn", "text": prompt.note}],
+                }
             )
         buttons = [
             {
                 "type": "button",
-                "text": {"type": "plain_text", "text": option.label[:75], "emoji": True},
+                "text": {
+                    "type": "plain_text",
+                    "text": option.label[:75],
+                    "emoji": True,
+                },
                 "value": option.value,
                 "action_id": option.action_id(prompt.step),
             }
@@ -186,7 +193,10 @@ class BlockRenderer(Renderer):
         ]
         for start in range(0, len(buttons), self.MAX_ELEMENTS):
             blocks.append(
-                {"type": "actions", "elements": buttons[start : start + self.MAX_ELEMENTS]}
+                {
+                    "type": "actions",
+                    "elements": buttons[start : start + self.MAX_ELEMENTS],
+                }
             )
         return {"text": prompt.title, "blocks": blocks}
 

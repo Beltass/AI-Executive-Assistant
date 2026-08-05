@@ -37,7 +37,6 @@ from ai_assistant.integrations.task_tracker import (
 )
 from ai_assistant.integrations.google_drive_manager import GoogleDriveManager
 
-
 # ============================================================================
 # Analysis helpers
 #
@@ -77,8 +76,10 @@ def mocked_analysis(response: Any, configured: bool = True):
     ``(system_prompt, user_prompt)`` the advisor actually sent — the callable
     form is what lets a test prove the TRANSCRIPT reached the model.
     """
-    generate = Mock(side_effect=response) if callable(response) else Mock(
-        return_value=response
+    generate = (
+        Mock(side_effect=response)
+        if callable(response)
+        else Mock(return_value=response)
     )
     with patch.object(
         meeting_notes_module.llm, "is_configured", return_value=configured
@@ -181,33 +182,33 @@ class TestTask:
 
         data = task.to_dict()
 
-        assert data['id'] == "task_1"
-        assert data['title'] == "Test"
-        assert data['status'] == "pending"
-        assert 'deadline' in data
+        assert data["id"] == "task_1"
+        assert data["title"] == "Test"
+        assert data["status"] == "pending"
+        assert "deadline" in data
 
     def test_task_from_dict(self):
         """Test creating task from dictionary."""
         now = datetime.now(timezone.utc)
         data = {
-            'id': 'task_1',
-            'title': 'Test',
-            'description': 'Desc',
-            'owner': 'Owner',
-            'deadline': now.isoformat(),
-            'status': 'pending',
-            'priority': 3,
-            'created_at': now.isoformat(),
-            'updated_at': now.isoformat(),
-            'completed_at': None,
-            'meeting_id': None,
-            'tags': [],
+            "id": "task_1",
+            "title": "Test",
+            "description": "Desc",
+            "owner": "Owner",
+            "deadline": now.isoformat(),
+            "status": "pending",
+            "priority": 3,
+            "created_at": now.isoformat(),
+            "updated_at": now.isoformat(),
+            "completed_at": None,
+            "meeting_id": None,
+            "tags": [],
         }
 
         task = Task.from_dict(data)
 
-        assert task.id == 'task_1'
-        assert task.title == 'Test'
+        assert task.id == "task_1"
+        assert task.title == "Test"
         assert task.status == TaskStatus.PENDING
 
 
@@ -400,10 +401,10 @@ class TestTaskTracker:
 
         stats = tracker.get_summary_stats()
 
-        assert stats['total'] == 2
-        assert stats['pending'] == 1
-        assert stats['completed'] == 1
-        assert stats['completion_rate'] == 50.0
+        assert stats["total"] == 2
+        assert stats["pending"] == 1
+        assert stats["completed"] == 1
+        assert stats["completion_rate"] == 50.0
 
     def test_tracker_persistence_save_load(self, temp_state_dir: Path):
         """Test that tasks persist across tracker instances."""
@@ -476,10 +477,10 @@ class TestMeetingNotes:
 
         data = notes.to_dict()
 
-        assert data['title'] == "Meeting"
-        assert len(data['attendees']) == 1
-        assert len(data['findings']) == 1
-        assert 'meeting_id' in data
+        assert data["title"] == "Meeting"
+        assert len(data["attendees"]) == 1
+        assert len(data["findings"]) == 1
+        assert "meeting_id" in data
 
 
 class TestMeetingNotesAgent:
@@ -488,8 +489,8 @@ class TestMeetingNotesAgent:
     @pytest.fixture
     def agent(self) -> MeetingNotesAgent:
         """Provide a MeetingNotesAgent instance."""
-        with patch('ai_assistant.advisors.meeting_notes.GoogleDriveManager'):
-            with patch('ai_assistant.advisors.meeting_notes.TaskTracker'):
+        with patch("ai_assistant.advisors.meeting_notes.GoogleDriveManager"):
+            with patch("ai_assistant.advisors.meeting_notes.TaskTracker"):
                 agent = MeetingNotesAgent()
                 # Mock the dependencies
                 agent.drive_manager = Mock()
@@ -507,7 +508,7 @@ class TestMeetingNotesAgent:
         agent.task_tracker.get_overdue_tasks.return_value = []
         agent.task_tracker.get_upcoming_tasks.return_value = []
 
-        with patch('os.getenv', return_value="true"):
+        with patch("os.getenv", return_value="true"):
             briefing = agent._generate()
 
         assert briefing.status == "skipped"
@@ -528,7 +529,7 @@ class TestMeetingNotesAgent:
         agent.task_tracker.get_overdue_tasks.return_value = []
         agent.task_tracker.get_upcoming_tasks.return_value = [task]
 
-        with patch('os.getenv', return_value="true"):
+        with patch("os.getenv", return_value="true"):
             briefing = agent._generate()
 
         assert briefing.status == "ok"
@@ -559,6 +560,7 @@ class TestMeetingNotesAgent:
     def test_agent_analyze_meeting(self, agent: MeetingNotesAgent):
         """Analysis carries the model's answer, field by field, into the notes."""
         import asyncio
+
         transcript = "Alice: Planı Bob hazırlayacak, pazartesiye kadar."
 
         response = analysis_response(
@@ -577,11 +579,13 @@ class TestMeetingNotesAgent:
         )
 
         with mocked_analysis(response):
-            notes = asyncio.run(agent.analyze_meeting(
-                transcript,
-                meeting_title="Planning Meeting",
-                attendees=["Alice", "Bob"],
-            ))
+            notes = asyncio.run(
+                agent.analyze_meeting(
+                    transcript,
+                    meeting_title="Planning Meeting",
+                    attendees=["Alice", "Bob"],
+                )
+            )
 
         assert isinstance(notes, MeetingNotes)
         assert notes.title == "Planning Meeting"
@@ -597,6 +601,7 @@ class TestMeetingNotesAgent:
     def test_agent_generate_report(self, agent: MeetingNotesAgent):
         """Test report generation."""
         import asyncio
+
         agent.drive_manager.get_or_create_folder.return_value = "folder_123"
         agent.drive_manager.create_google_doc.return_value = "doc_123"
 
@@ -615,6 +620,7 @@ class TestMeetingNotesAgent:
     def test_agent_create_tasks_in_tracker(self, agent: MeetingNotesAgent):
         """Test creating tasks in tracker from action items."""
         import asyncio
+
         items = [
             ActionItem(
                 description="Task 1",
@@ -654,8 +660,8 @@ class TestGoogleDriveManager:
     @pytest.fixture
     def manager(self):
         """Provide a GoogleDriveManager with mocked service."""
-        with patch('ai_assistant.integrations.google_drive_manager.get_credentials'):
-            with patch('ai_assistant.integrations.google_drive_manager.build'):
+        with patch("ai_assistant.integrations.google_drive_manager.get_credentials"):
+            with patch("ai_assistant.integrations.google_drive_manager.build"):
                 manager = GoogleDriveManager()
                 manager.service = Mock()
                 return manager
@@ -684,12 +690,12 @@ class TestGoogleDriveManager:
     def test_manager_create_folder_success(self, manager: GoogleDriveManager):
         """Test folder creation."""
         manager.service.files.return_value.create.return_value.execute.return_value = {
-            'id': 'folder_123'
+            "id": "folder_123"
         }
 
         folder_id = manager.create_folder("Test Folder")
 
-        assert folder_id == 'folder_123'
+        assert folder_id == "folder_123"
 
     def test_manager_get_or_create_folder_exists(self, manager: GoogleDriveManager):
         """Test get_or_create returns existing folder."""
@@ -700,7 +706,9 @@ class TestGoogleDriveManager:
         assert folder_id == "existing_folder"
         manager.get_folder_id_by_name.assert_called_once()
 
-    def test_manager_get_or_create_folder_creates_new(self, manager: GoogleDriveManager):
+    def test_manager_get_or_create_folder_creates_new(
+        self, manager: GoogleDriveManager
+    ):
         """Test get_or_create creates new folder when not found."""
         manager.get_folder_id_by_name = Mock(return_value=None)
         manager.create_folder = Mock(return_value="new_folder")
@@ -712,6 +720,7 @@ class TestGoogleDriveManager:
 
 
 # Integration-like tests
+
 
 class TestTaskTrackerIntegration:
     """Integration tests for TaskTracker."""
@@ -762,8 +771,8 @@ class TestTaskTrackerIntegration:
 
         # Get stats
         stats = tracker.get_summary_stats()
-        assert stats['total'] == 2
-        assert stats['in_progress'] == 1
+        assert stats["total"] == 2
+        assert stats["in_progress"] == 1
 
 
 class TestMeetingNotesDeadlineReminders:
@@ -772,8 +781,8 @@ class TestMeetingNotesDeadlineReminders:
     @pytest.fixture
     def agent(self):
         """Provide MeetingNotesAgent with mocked Slack bridge and Google Drive."""
-        with patch('ai_assistant.advisors.meeting_notes.SlackAdvisorBridge'):
-            with patch('ai_assistant.advisors.meeting_notes.GoogleDriveManager'):
+        with patch("ai_assistant.advisors.meeting_notes.SlackAdvisorBridge"):
+            with patch("ai_assistant.advisors.meeting_notes.GoogleDriveManager"):
                 agent = MeetingNotesAgent()
                 return agent
 
@@ -981,8 +990,8 @@ class TestMeetingNotesPipelineEndToEnd:
     @pytest.fixture
     def agent_with_mocks(self):
         """Provide MeetingNotesAgent with appropriate mocks."""
-        with patch('ai_assistant.advisors.meeting_notes.GoogleDriveManager'):
-            with patch('ai_assistant.advisors.meeting_notes.TaskTracker'):
+        with patch("ai_assistant.advisors.meeting_notes.GoogleDriveManager"):
+            with patch("ai_assistant.advisors.meeting_notes.TaskTracker"):
                 agent = MeetingNotesAgent()
                 agent.drive_manager = Mock()
                 agent.task_tracker = Mock()
@@ -1058,16 +1067,14 @@ class TestMeetingNotesPipelineEndToEnd:
         # Spoken Turkish dates become real deadlines.
         assert all(item.deadline is not None for item in meeting_notes.action_items)
         assert all(
-            item.deadline > meeting_notes.date
-            for item in meeting_notes.action_items
+            item.deadline > meeting_notes.date for item in meeting_notes.action_items
         )
 
         # Step 4: Create tasks from action items
         agent_with_mocks.task_tracker.add_task.side_effect = lambda t: t.id
 
         task_ids = await agent_with_mocks.create_tasks_in_tracker(
-            meeting_notes.action_items,
-            meeting_notes.meeting_id
+            meeting_notes.action_items, meeting_notes.meeting_id
         )
 
         assert len(task_ids) == 2
@@ -1143,8 +1150,8 @@ class TestTurkishDateParsingIntegration:
     @pytest.fixture
     def agent(self):
         """Provide agent with mocked dependencies."""
-        with patch('ai_assistant.advisors.meeting_notes.GoogleDriveManager'):
-            with patch('ai_assistant.advisors.meeting_notes.TaskTracker'):
+        with patch("ai_assistant.advisors.meeting_notes.GoogleDriveManager"):
+            with patch("ai_assistant.advisors.meeting_notes.TaskTracker"):
                 agent = MeetingNotesAgent()
                 agent.task_tracker = Mock()
                 agent.task_tracker.add_task.side_effect = lambda t: t.id
@@ -1219,8 +1226,8 @@ class TestActionItemExtraction:
     @pytest.fixture
     def agent(self):
         """Provide agent with mocks."""
-        with patch('ai_assistant.advisors.meeting_notes.GoogleDriveManager'):
-            with patch('ai_assistant.advisors.meeting_notes.TaskTracker'):
+        with patch("ai_assistant.advisors.meeting_notes.GoogleDriveManager"):
+            with patch("ai_assistant.advisors.meeting_notes.TaskTracker"):
                 return MeetingNotesAgent()
 
     @pytest.mark.asyncio
@@ -1317,10 +1324,10 @@ class TestStatePersistenceAndDeduplication:
     @pytest.fixture
     def agent_with_state(self, temp_state_dir):
         """Agent with real state directory."""
-        with patch('ai_assistant.advisors.meeting_notes.GoogleDriveManager'):
-            with patch('ai_assistant.advisors.meeting_notes.TaskTracker'):
-                with patch('ai_assistant.advisors.meeting_notes.SlackAdvisorBridge'):
-                    with patch('pathlib.Path.mkdir'):
+        with patch("ai_assistant.advisors.meeting_notes.GoogleDriveManager"):
+            with patch("ai_assistant.advisors.meeting_notes.TaskTracker"):
+                with patch("ai_assistant.advisors.meeting_notes.SlackAdvisorBridge"):
+                    with patch("pathlib.Path.mkdir"):
                         agent = MeetingNotesAgent()
                         agent.state_dir = temp_state_dir
                         agent.meetings_file = temp_state_dir / "meetings.json"
@@ -1390,8 +1397,8 @@ class TestHardcodedDataValidation:
     @pytest.fixture
     def agent(self):
         """Provide agent."""
-        with patch('ai_assistant.advisors.meeting_notes.GoogleDriveManager'):
-            with patch('ai_assistant.advisors.meeting_notes.TaskTracker'):
+        with patch("ai_assistant.advisors.meeting_notes.GoogleDriveManager"):
+            with patch("ai_assistant.advisors.meeting_notes.TaskTracker"):
                 return MeetingNotesAgent()
 
     @pytest.mark.asyncio
@@ -1541,9 +1548,7 @@ class TestHardcodedDataValidation:
             for token in (*self.FORBIDDEN_NAMES, *self.FORBIDDEN_COMPANIES)
             if token in source
         ]
-        assert not found, (
-            f"meeting_notes.py hâlâ sabit örnek veri içeriyor: {found}"
-        )
+        assert not found, f"meeting_notes.py hâlâ sabit örnek veri içeriyor: {found}"
 
     @pytest.mark.asyncio
     async def test_action_items_match_attendees_or_transcript(self, agent):
@@ -1585,25 +1590,31 @@ class TestGeminiUnconfiguredGracefulDegradation:
     @pytest.mark.asyncio
     async def test_transcribe_audio_without_gemini_key(self):
         """Test that transcription gracefully returns empty string when Gemini unconfigured."""
-        with patch('ai_assistant.advisors.meeting_notes.GoogleDriveManager'):
-            with patch('ai_assistant.advisors.meeting_notes.TaskTracker'):
+        with patch("ai_assistant.advisors.meeting_notes.GoogleDriveManager"):
+            with patch("ai_assistant.advisors.meeting_notes.TaskTracker"):
                 agent = MeetingNotesAgent()
 
                 # Mock llm.is_configured() to return False
-                with patch('ai_assistant.advisors.meeting_notes.llm.is_configured', return_value=False):
+                with patch(
+                    "ai_assistant.advisors.meeting_notes.llm.is_configured",
+                    return_value=False,
+                ):
                     result = await agent.transcribe_audio(b"fake-audio-bytes")
 
                     # Should return empty string, not fail or return placeholder
                     assert result == ""
                     # Should have error message
                     assert agent.last_transcription_error is not None
-                    assert "GEMINI_API_KEY" in agent.last_transcription_error or "missing" in agent.last_transcription_error.lower()
+                    assert (
+                        "GEMINI_API_KEY" in agent.last_transcription_error
+                        or "missing" in agent.last_transcription_error.lower()
+                    )
 
     @pytest.mark.asyncio
     async def test_transcribe_audio_with_empty_bytes(self):
         """Test handling of empty audio bytes."""
-        with patch('ai_assistant.advisors.meeting_notes.GoogleDriveManager'):
-            with patch('ai_assistant.advisors.meeting_notes.TaskTracker'):
+        with patch("ai_assistant.advisors.meeting_notes.GoogleDriveManager"):
+            with patch("ai_assistant.advisors.meeting_notes.TaskTracker"):
                 agent = MeetingNotesAgent()
 
                 result = await agent.transcribe_audio(b"")
@@ -1614,8 +1625,8 @@ class TestGeminiUnconfiguredGracefulDegradation:
     @pytest.mark.asyncio
     async def test_transcribe_audio_type_validation(self):
         """Test that passing a string instead of bytes is caught."""
-        with patch('ai_assistant.advisors.meeting_notes.GoogleDriveManager'):
-            with patch('ai_assistant.advisors.meeting_notes.TaskTracker'):
+        with patch("ai_assistant.advisors.meeting_notes.GoogleDriveManager"):
+            with patch("ai_assistant.advisors.meeting_notes.TaskTracker"):
                 agent = MeetingNotesAgent()
 
                 with pytest.raises(TypeError):
@@ -1632,8 +1643,8 @@ class TestAnalysisGracefulDegradation:
 
     @pytest.fixture
     def agent(self):
-        with patch('ai_assistant.advisors.meeting_notes.GoogleDriveManager'):
-            with patch('ai_assistant.advisors.meeting_notes.TaskTracker'):
+        with patch("ai_assistant.advisors.meeting_notes.GoogleDriveManager"):
+            with patch("ai_assistant.advisors.meeting_notes.TaskTracker"):
                 return MeetingNotesAgent()
 
     @pytest.mark.asyncio
@@ -1646,9 +1657,7 @@ class TestAnalysisGracefulDegradation:
         with patch.object(
             meeting_notes_module.llm, "is_configured", return_value=False
         ):
-            with patch.object(
-                meeting_notes_module.llm, "generate_text"
-            ) as generate:
+            with patch.object(meeting_notes_module.llm, "generate_text") as generate:
                 with caplog.at_level("INFO"):
                     notes = await agent.analyze_meeting(
                         transcript,
@@ -1688,6 +1697,7 @@ class TestAnalysisGracefulDegradation:
     @pytest.mark.asyncio
     async def test_failed_request_is_recorded_not_swallowed(self, agent, caplog):
         """A raising provider leaves empty notes AND a logged reason."""
+
         def boom(*args, **kwargs):
             raise RuntimeError("429 rate limited")
 
@@ -1794,9 +1804,9 @@ class TestAsyncPatterns:
     @pytest.fixture
     def agent(self):
         """Provide agent with mocked dependencies."""
-        with patch('ai_assistant.advisors.meeting_notes.GoogleDriveManager'):
-            with patch('ai_assistant.advisors.meeting_notes.TaskTracker'):
-                with patch('ai_assistant.advisors.meeting_notes.SlackAdvisorBridge'):
+        with patch("ai_assistant.advisors.meeting_notes.GoogleDriveManager"):
+            with patch("ai_assistant.advisors.meeting_notes.TaskTracker"):
+                with patch("ai_assistant.advisors.meeting_notes.SlackAdvisorBridge"):
                     agent = MeetingNotesAgent()
                     agent.drive_manager = Mock()
                     agent.task_tracker = Mock()

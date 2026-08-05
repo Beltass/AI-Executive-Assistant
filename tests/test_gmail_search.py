@@ -60,8 +60,9 @@ def stubs(*ids) -> list:
 def test_search_passes_the_query_through_to_messages_list():
     api = FakeMessagesApi([{"messages": stubs("m1")}])
 
-    gmail.search_messages("from:notifications has:attachment", max_results=5,
-                          service=fake_service(api))
+    gmail.search_messages(
+        "from:notifications has:attachment", max_results=5, service=fake_service(api)
+    )
 
     assert api.list_calls[0]["userId"] == "me"
     assert api.list_calls[0]["q"] == "from:notifications has:attachment"
@@ -84,7 +85,10 @@ def test_each_hit_is_fetched_with_format_full():
 def test_search_returns_the_full_messages_not_the_stubs():
     full = {
         "id": "m1",
-        "payload": {"mimeType": "multipart/mixed", "parts": [{"mimeType": "audio/mpeg"}]},
+        "payload": {
+            "mimeType": "multipart/mixed",
+            "parts": [{"mimeType": "audio/mpeg"}],
+        },
     }
     api = FakeMessagesApi([{"messages": stubs("m1")}], messages={"m1": full})
 

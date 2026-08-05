@@ -305,7 +305,10 @@ def check_last_run(status: Dict[str, Any]) -> Check:
 
     if not conclusion:
         return _warn(
-            "last_run", name, "Son çalıştırmanın sonucu okunamadı.", "status.json'u kontrol et."
+            "last_run",
+            name,
+            "Son çalıştırmanın sonucu okunamadı.",
+            "status.json'u kontrol et.",
         )
     if conclusion == "failed":
         return _critical(
@@ -394,18 +397,24 @@ def check_slack_delivery(status: Dict[str, Any]) -> Check:
     if state == "skipped":
         # A quiet incremental run deliberately stays out of the channel.
         quiet = "yeni bulgu yok" in detail
-        return _ok(
-            "slack",
-            name,
-            "Sessiz artımlı çalıştırma — bilerek mesaj gönderilmedi."
+        return (
+            _ok(
+                "slack",
+                name,
+                (
+                    "Sessiz artımlı çalıştırma — bilerek mesaj gönderilmedi."
+                    if quiet
+                    else f"Gönderim denenmedi: {detail}"
+                ),
+            )
             if quiet
-            else f"Gönderim denenmedi: {detail}",
-        ) if quiet else _warn(
-            "slack",
-            name,
-            f"Slack gönderimi atlandı: {detail}",
-            "Slack hiç yapılandırılmamışsa SLACK_WEBHOOK_URL ya da "
-            "SLACK_BOT_TOKEN + SLACK_CHANNEL gizli değerlerini ekle.",
+            else _warn(
+                "slack",
+                name,
+                f"Slack gönderimi atlandı: {detail}",
+                "Slack hiç yapılandırılmamışsa SLACK_WEBHOOK_URL ya da "
+                "SLACK_BOT_TOKEN + SLACK_CHANNEL gizli değerlerini ekle.",
+            )
         )
     return _ok("slack", name, "Son brifing Slack'e teslim edildi.")
 
@@ -485,7 +494,9 @@ def check_fallback(runs: Sequence[dict]) -> Check:
 def check_token_budget(runs: Sequence[dict]) -> Check:
     """Is the run getting more expensive without producing more?"""
     name = "Token bütçesi eğilimi"
-    scored = [r for r in runs if isinstance(r, dict) and _num(r.get("total_tokens")) > 0]
+    scored = [
+        r for r in runs if isinstance(r, dict) and _num(r.get("total_tokens")) > 0
+    ]
     if len(scored) < 4:
         return _ok("token_budget", name, "Eğilim için yeterli ölçüm yok.")
 
@@ -533,7 +544,10 @@ def check_dashboard(status: Dict[str, Any], now: datetime) -> Check:
         newest_date = datetime.strptime(newest, "%Y-%m-%d").date()
     except (TypeError, ValueError):
         return _warn(
-            "dashboard", name, "Arşiv indeksindeki tarih okunamadı.", "reports/index.json'u kontrol et."
+            "dashboard",
+            name,
+            "Arşiv indeksindeki tarih okunamadı.",
+            "reports/index.json'u kontrol et.",
         )
 
     lag = (today - newest_date).days
@@ -733,7 +747,9 @@ def build_health(
         "counts": {
             SEVERITY_OK: sum(1 for c in checks if c.severity == SEVERITY_OK),
             SEVERITY_WARN: sum(1 for c in checks if c.severity == SEVERITY_WARN),
-            SEVERITY_CRITICAL: sum(1 for c in checks if c.severity == SEVERITY_CRITICAL),
+            SEVERITY_CRITICAL: sum(
+                1 for c in checks if c.severity == SEVERITY_CRITICAL
+            ),
         },
         "checks": [check.to_dict() for check in checks],
     }
@@ -851,7 +867,9 @@ def main() -> int:
     watchdog run, and failing the job would only raise a second, less
     informative alarm next to the one we just posted.
     """
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+    logging.basicConfig(
+        level=logging.INFO, format="%(levelname)s %(name)s: %(message)s"
+    )
     target = health_file_path()
     previous = _read_json(target)
 

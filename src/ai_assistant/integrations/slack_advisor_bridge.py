@@ -164,7 +164,9 @@ class SlackAdvisorBridge:
                 )
                 return response
             else:
-                logger.error(f"Slack error sending daily update: {response.get('error')}")
+                logger.error(
+                    f"Slack error sending daily update: {response.get('error')}"
+                )
                 return None
 
         except Exception as e:

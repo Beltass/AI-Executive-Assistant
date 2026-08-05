@@ -232,7 +232,9 @@ class Supervision:
         return {
             STATUS_OK: sum(1 for b in self.briefings if b.status == STATUS_OK),
             STATUS_FAILED: sum(1 for b in self.briefings if b.status == STATUS_FAILED),
-            STATUS_SKIPPED: sum(1 for b in self.briefings if b.status == STATUS_SKIPPED),
+            STATUS_SKIPPED: sum(
+                1 for b in self.briefings if b.status == STATUS_SKIPPED
+            ),
         }
 
     @property
@@ -242,7 +244,9 @@ class Supervision:
     def summary_line(self) -> str:
         """A compact one-line summary, e.g. ``3 ok, 0 failed, 1 skipped``."""
         c = self.counts
-        return f"{c[STATUS_OK]} ok, {c[STATUS_FAILED]} failed, {c[STATUS_SKIPPED]} skipped"
+        return (
+            f"{c[STATUS_OK]} ok, {c[STATUS_FAILED]} failed, {c[STATUS_SKIPPED]} skipped"
+        )
 
 
 class OperationsManager:
@@ -271,7 +275,9 @@ class OperationsManager:
         # chat and test entry points use it), so the gates stay out of the way
         # unless asked for. ``use_manifest_filters`` overrides either default.
         self.use_manifest_filters: bool = (
-            (not explicit) if use_manifest_filters is None else bool(use_manifest_filters)
+            (not explicit)
+            if use_manifest_filters is None
+            else bool(use_manifest_filters)
         )
 
         # Distribution status tracking (per-advisor)
@@ -553,7 +559,9 @@ class OperationsManager:
             )
         except Exception as exc:
             status["drive"] = f"error: {exc}"
-        self._log_integration("Google Drive arşivlemesi", advisor_title, status["drive"])
+        self._log_integration(
+            "Google Drive arşivlemesi", advisor_title, status["drive"]
+        )
 
         # Record distribution status
         self.distribution_status[advisor_id] = status
@@ -628,7 +636,9 @@ class OperationsManager:
             config = get_channel_config()
             own = config.dedicated_channel(advisor_id)
             if own:
-                logger.info(f"Slack yönlendirmesi: {advisor_title} → {own} (kendi kanalı)")
+                logger.info(
+                    f"Slack yönlendirmesi: {advisor_title} → {own} (kendi kanalı)"
+                )
                 return f"routed: {own}"
 
             fallback = config.get_channel(advisor_id, advisor_title)
@@ -685,7 +695,9 @@ class OperationsManager:
 
             # Get advisor-specific config (project name, assignee)
             project_env = f"ASANA_{advisor_id.upper()}_PROJECT"
-            project_name = (os.getenv(project_env, "") or "").strip() or f"{advisor_title} — Görevler"
+            project_name = (
+                os.getenv(project_env, "") or ""
+            ).strip() or f"{advisor_title} — Görevler"
 
             assignee_env = f"ASANA_{advisor_id.upper()}_ASSIGNEE"
             assignee_email = (os.getenv(assignee_env, "") or "").strip() or None
@@ -715,7 +727,9 @@ class OperationsManager:
             #
             # Since we don't have structured JSON here, we create a summary task:
 
-            summary_task_name = f"{advisor_title} — {datetime.now().strftime('%Y-%m-%d')}"
+            summary_task_name = (
+                f"{advisor_title} — {datetime.now().strftime('%Y-%m-%d')}"
+            )
             summary_task_desc = f"Danışman: {advisor_title}\n\n{briefing.text[:500]}"
 
             task_result = client.add_task(
@@ -726,7 +740,9 @@ class OperationsManager:
             )
 
             if task_result.success:
-                logger.info(f"Asana görev oluşturuldu: {task_result.task_name} ({task_result.task_id})")
+                logger.info(
+                    f"Asana görev oluşturuldu: {task_result.task_name} ({task_result.task_id})"
+                )
                 return "success: 1 görev oluşturuldu"
 
             return f"error: görev oluşturulamadı — {task_result.error}"
@@ -798,7 +814,9 @@ class OperationsManager:
                 file_content = report.to_markdown()
             except Exception as exc:  # pragma: no cover - defensive only
                 logger.warning(f"Rapor markdown'ı üretilemedi ({advisor_title}): {exc}")
-                file_content = f"# {advisor_title}\n\n**Tarih:** {date}\n\n{briefing.text}"
+                file_content = (
+                    f"# {advisor_title}\n\n**Tarih:** {date}\n\n{briefing.text}"
+                )
 
             file_id = client.upload_report(
                 file_name=file_name,
@@ -866,8 +884,7 @@ def _render_rich(supervision: Supervision) -> None:
 
 def _render_plain(supervision: Supervision) -> None:
     print(
-        "Operasyon Yöneticisi — Günlük Danışman Denetimi "
-        f"({supervision.mode_label})"
+        "Operasyon Yöneticisi — Günlük Danışman Denetimi " f"({supervision.mode_label})"
     )
     print("-" * 60)
     for b in supervision.briefings:
@@ -926,9 +943,21 @@ def _save_distribution_status(distribution_status: Dict[str, Dict[str, Any]]) ->
             "timestamp": datetime.now().isoformat(),
             "advisors": distribution_status,
             "summary": {
-                "slack": sum(1 for s in distribution_status.values() if _succeeded(s.get("slack"))),
-                "asana": sum(1 for s in distribution_status.values() if _succeeded(s.get("asana"))),
-                "drive": sum(1 for s in distribution_status.values() if _succeeded(s.get("drive"))),
+                "slack": sum(
+                    1
+                    for s in distribution_status.values()
+                    if _succeeded(s.get("slack"))
+                ),
+                "asana": sum(
+                    1
+                    for s in distribution_status.values()
+                    if _succeeded(s.get("asana"))
+                ),
+                "drive": sum(
+                    1
+                    for s in distribution_status.values()
+                    if _succeeded(s.get("drive"))
+                ),
             },
         }
 

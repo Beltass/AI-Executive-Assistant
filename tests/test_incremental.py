@@ -198,10 +198,13 @@ def test_incremental_sends_only_when_something_is_new(blank_env):
     )
     fresh = Briefing(key="n", title="N", status=STATUS_OK, text="x", new_findings=2)
 
-    assert slack_notifier.should_send(_digest(config.MODE_INCREMENTAL, [quiet])) is False
-    assert slack_notifier.should_send(
-        _digest(config.MODE_INCREMENTAL, [quiet, fresh])
-    ) is True
+    assert (
+        slack_notifier.should_send(_digest(config.MODE_INCREMENTAL, [quiet])) is False
+    )
+    assert (
+        slack_notifier.should_send(_digest(config.MODE_INCREMENTAL, [quiet, fresh]))
+        is True
+    )
 
 
 def test_quiet_incremental_can_be_forced_to_send(blank_env, monkeypatch):
@@ -389,9 +392,7 @@ def test_ai_mastery_teaches_a_rotating_curriculum_at_a_level(blank_env, monkeypa
     assert "UYDURMA" in prompt
 
     # Consecutive days teach different topics.
-    topics = {
-        mastery_module._daily_topic(date(2026, 7, day)) for day in (1, 2, 3, 4)
-    }
+    topics = {mastery_module._daily_topic(date(2026, 7, day)) for day in (1, 2, 3, 4)}
     assert len(topics) == 4
 
 
@@ -413,7 +414,12 @@ def test_cx_research_persona_enforces_evidence_discipline(blank_env, monkeypatch
     monkeypatch.setenv("USER_SECTOR", "banka çağrı merkezleri")
 
     prompt = CxResearchAdvisor().batch_section().user_prompt
-    for marker in ("📊 Kanıt", "🏆 Başarı hikâyesi", "🧪 Metodoloji", "✅ Bugünün görevi"):
+    for marker in (
+        "📊 Kanıt",
+        "🏆 Başarı hikâyesi",
+        "🧪 Metodoloji",
+        "✅ Bugünün görevi",
+    ):
         assert marker in prompt
     assert "banka çağrı merkezleri" in prompt
     for metric in ("NPS", "CSAT", "CES", "FCR", "churn"):
@@ -482,11 +488,21 @@ def test_new_advisors_share_the_single_batched_call(blank_env, monkeypatch):
 def test_status_report_records_mode_and_new_findings(blank_env):
     supervision = Supervision(
         briefings=[
-            Briefing(key="market_intelligence", title="Pazar İstihbaratı",
-                     status=STATUS_OK, text="x" * 40, new_findings=3),
-            Briefing(key="ai_innovation", title="YZ & İnovasyon",
-                     status=STATUS_SKIPPED, text="yeni bulgu yok", new_findings=0,
-                     nothing_new=True),
+            Briefing(
+                key="market_intelligence",
+                title="Pazar İstihbaratı",
+                status=STATUS_OK,
+                text="x" * 40,
+                new_findings=3,
+            ),
+            Briefing(
+                key="ai_innovation",
+                title="YZ & İnovasyon",
+                status=STATUS_SKIPPED,
+                text="yeni bulgu yok",
+                new_findings=0,
+                nothing_new=True,
+            ),
         ],
         mode=config.MODE_INCREMENTAL,
     )

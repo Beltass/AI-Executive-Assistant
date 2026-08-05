@@ -50,9 +50,7 @@ class TestPriorityRoundTrip:
         assert priority_to_code(rank) == code
         assert ActionItem(title="x", priority=rank).priority_code == code
 
-    @pytest.mark.parametrize(
-        "code,rank", [("P0", 1), ("P1", 2), ("P2", 3), ("P3", 4)]
-    )
+    @pytest.mark.parametrize("code,rank", [("P0", 1), ("P1", 2), ("P2", 3), ("P3", 4)])
     def test_code_to_rank(self, code, rank):
         assert priority_to_rank(code) == rank
         assert ActionItem(title="x", priority=code).priority_rank == rank
@@ -150,9 +148,7 @@ class TestActionCenterSchema:
         }
 
     def test_from_dict_round_trip(self):
-        item = ActionItem(
-            title="Onay al", priority="P1", approval_status="pending"
-        )
+        item = ActionItem(title="Onay al", priority="P1", approval_status="pending")
         again = ActionItem.from_dict(item.to_dict())
         assert again.title == "Onay al"
         assert again.priority_code == "P1"
@@ -174,8 +170,9 @@ class TestMeetingNotesSerialisation:
         when = datetime(2026, 8, 7, 9, 0, tzinfo=timezone.utc)
         notes = meeting_notes.MeetingNotes(title="Sprint")
         notes.action_items = [
-            ActionItem(description="Doküman yaz", owner="Burak", deadline=when,
-                       priority=2)
+            ActionItem(
+                description="Doküman yaz", owner="Burak", deadline=when, priority=2
+            )
         ]
         payload = notes.to_dict()["action_items"][0]
         assert set(payload) == {

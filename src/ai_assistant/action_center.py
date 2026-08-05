@@ -125,9 +125,7 @@ class ActionItem:
     recommendation: str = ""
     approval_status: str = "not_required"
     status: str = "pending"
-    created_at: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     def __init__(
         self,

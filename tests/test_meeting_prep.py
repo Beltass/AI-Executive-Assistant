@@ -128,7 +128,9 @@ def test_parse_event_reads_a_normal_meeting():
 
 def test_parse_event_drops_all_day_blocks():
     """An all-day entry has a ``date``, not a ``dateTime``: nothing to prepare."""
-    assert parse_event({"summary": "Yıllık izin", "start": {"date": "2026-08-05"}}) is None
+    assert (
+        parse_event({"summary": "Yıllık izin", "start": {"date": "2026-08-05"}}) is None
+    )
 
 
 def test_parse_event_drops_attendee_less_focus_blocks():
@@ -173,7 +175,10 @@ def test_score_note_folds_turkish_letters():
 
 def test_score_note_ignores_generic_note_words():
     """Every file is called "toplantı notları" — that is not a match."""
-    assert score_note(_meeting(summary="Bütçe planı", attendees=[]), "toplanti notlari") == 0
+    assert (
+        score_note(_meeting(summary="Bütçe planı", attendees=[]), "toplanti notlari")
+        == 0
+    )
 
 
 def test_score_note_of_an_unrelated_file_is_zero():
@@ -241,7 +246,9 @@ def test_skipped_when_the_calendar_cannot_be_read(monkeypatch, google_ok):
 
 def test_skipped_when_there_is_no_meeting_to_prepare(monkeypatch, google_ok):
     """Only all-day and focus blocks ahead: nothing to prepare for."""
-    _calendar(monkeypatch, [{"summary": "Yıllık izin", "start": {"date": "2026-08-05"}}])
+    _calendar(
+        monkeypatch, [{"summary": "Yıllık izin", "start": {"date": "2026-08-05"}}]
+    )
 
     briefing = MeetingPrepAdvisor().generate_briefing()
     assert briefing.status == STATUS_SKIPPED
@@ -392,7 +399,9 @@ def test_a_broken_drive_never_takes_the_section_down(monkeypatch, google_ok):
     assert "Geçmiş not: YOK." in section.user_prompt
 
 
-def test_the_batched_answer_carries_the_caveat_and_the_private_flag(monkeypatch, google_ok):
+def test_the_batched_answer_carries_the_caveat_and_the_private_flag(
+    monkeypatch, google_ok
+):
     briefing = MeetingPrepAdvisor().briefing_from_batch("  Hazırlık notu  ")
     assert briefing.status == STATUS_OK
     assert briefing.text.startswith("Hazırlık notu")

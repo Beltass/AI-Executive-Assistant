@@ -26,10 +26,10 @@ from src.ai_assistant.chat.advisor_dialog import (
     create_advisor_menu_blocks,
 )
 
-
 # ============================================================================
 # Tests for AdvisorDialog dataclass
 # ============================================================================
+
 
 class TestAdvisorDialog:
     """AdvisorDialog yapısının testleri."""
@@ -68,7 +68,11 @@ class TestAdvisorDialog:
             "user_id": "U12345",
             "advisor_key": "personal_assistant",
             "conversation_history": [
-                {"role": "user", "content": "Merhaba", "timestamp": datetime.now().isoformat()}
+                {
+                    "role": "user",
+                    "content": "Merhaba",
+                    "timestamp": datetime.now().isoformat(),
+                }
             ],
             "current_state": "waiting_input",
             "context": {},
@@ -89,6 +93,7 @@ class TestAdvisorDialog:
 # ============================================================================
 # Tests for AdvisorDialogManager
 # ============================================================================
+
 
 class TestAdvisorDialogManager:
     """Dialog Yöneticisinin testleri."""
@@ -116,7 +121,7 @@ class TestAdvisorDialogManager:
             manager = AdvisorDialogManager()
 
             # Geçici dosya yolunu ayarla
-            with patch.object(manager, '_get_dialog_file') as mock_get_file:
+            with patch.object(manager, "_get_dialog_file") as mock_get_file:
                 temp_file = os.path.join(tmpdir, "test_dialog.json")
                 mock_get_file.return_value = temp_file
 
@@ -141,7 +146,7 @@ class TestAdvisorDialogManager:
         """Dialog temizleme."""
         manager = AdvisorDialogManager()
 
-        with patch.object(manager, '_get_dialog_file') as mock_get_file:
+        with patch.object(manager, "_get_dialog_file") as mock_get_file:
             with tempfile.TemporaryDirectory() as tmpdir:
                 temp_file = os.path.join(tmpdir, "test_dialog.json")
                 mock_get_file.return_value = temp_file
@@ -158,6 +163,7 @@ class TestAdvisorDialogManager:
 # ============================================================================
 # Tests for AdvisorDialogFlow
 # ============================================================================
+
 
 class TestAdvisorDialogFlow:
     """Dialog Akışının testleri."""
@@ -221,7 +227,9 @@ class TestAdvisorDialogFlow:
         assert advisor_key == AdvisorType.DATA_ANALYST.value
 
         # Adım 2: Veri yükleme
-        response = flow.handle_advisor_input(advisor_key, "U12345", "CSV dosyası yüklüyorum")
+        response = flow.handle_advisor_input(
+            advisor_key, "U12345", "CSV dosyası yüklüyorum"
+        )
         assert response["type"] == "message"
         assert "text" in response
 
@@ -239,7 +247,9 @@ class TestAdvisorDialogFlow:
         assert "text" in response
 
         # Adım 3: Aksiyonu belirt
-        response = flow.handle_advisor_input(advisor_key, "U12345", "Profil analizi yap")
+        response = flow.handle_advisor_input(
+            advisor_key, "U12345", "Profil analizi yap"
+        )
         assert response["type"] == "message"
 
     def test_personal_assistant_multi_turn_conversation(self):
@@ -278,7 +288,10 @@ class TestAdvisorDialogFlow:
         # Format seçimi (format keywords: "rapor", "dashboard", "csv", "excel")
         format_response = flow.handle_advisor_input(advisor_key, "U12345", "rapor")
         assert "text" in format_response
-        assert "indir" in format_response["text"].lower() or "rapor" in format_response["text"].lower()
+        assert (
+            "indir" in format_response["text"].lower()
+            or "rapor" in format_response["text"].lower()
+        )
 
     def test_social_media_coach_profile_audit(self):
         """Sosyal Medya Koçu profil denetimi."""
@@ -293,7 +306,10 @@ class TestAdvisorDialogFlow:
         # Profil denetimi
         response = flow.handle_advisor_input(advisor_key, "U12345", "audit")
         assert "text" in response
-        assert any(word in response["text"].lower() for word in ["güçlü", "iyileştir", "profil"])
+        assert any(
+            word in response["text"].lower()
+            for word in ["güçlü", "iyileştir", "profil"]
+        )
 
     def test_social_media_coach_content_strategy(self):
         """Sosyal Medya Koçu content stratejisi."""
@@ -308,7 +324,10 @@ class TestAdvisorDialogFlow:
         # Strateji
         response = flow.handle_advisor_input(advisor_key, "U12345", "strateji")
         assert "text" in response
-        assert "haftalık" in response["text"].lower() or "strategy" in response["text"].lower()
+        assert (
+            "haftalık" in response["text"].lower()
+            or "strategy" in response["text"].lower()
+        )
 
     def test_personal_assistant_priority_tasks(self):
         """Kişisel Asistan acil görevler."""
@@ -320,7 +339,7 @@ class TestAdvisorDialogFlow:
         # Acil görevler
         response = flow.handle_advisor_input(advisor_key, "U12345", "acil")
         assert "text" in response
-        assert ("görev" in response["text"].lower() or "task" in response["text"].lower())
+        assert "görev" in response["text"].lower() or "task" in response["text"].lower()
 
     def test_personal_assistant_goal_tracking(self):
         """Kişisel Asistan hedef takibi."""
@@ -350,6 +369,7 @@ class TestAdvisorDialogFlow:
 # Tests for Block Kit generation
 # ============================================================================
 
+
 class TestBlockKitGeneration:
     """Block Kit oluşturmanın testleri."""
 
@@ -370,6 +390,7 @@ class TestBlockKitGeneration:
 # ============================================================================
 # Integration tests
 # ============================================================================
+
 
 class TestIntegration:
     """Entegrasyon testleri."""
@@ -430,6 +451,7 @@ class TestIntegration:
 # ============================================================================
 # State persistence tests
 # ============================================================================
+
 
 class TestStatePersistence:
     """Durum kalıcılığı testleri."""

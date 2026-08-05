@@ -104,9 +104,7 @@ class DayPlannerAdvisor(Advisor):
 
     def _generate(self) -> Briefing:
         if not google_auth.google_configured():
-            return self.skipped(
-                "missing env var(s): GOOGLE credentials not configured"
-            )
+            return self.skipped("missing env var(s): GOOGLE credentials not configured")
 
         try:
             creds = google_auth.get_credentials()
@@ -427,7 +425,10 @@ class DayPlannerAdvisor(Advisor):
                 quality = "excellent" if block.duration_minutes >= 90 else "good"
                 slots.append(
                     AvailableSlot(
-                        start=block.start, end=block.end, duration_minutes=block.duration_minutes, quality=quality
+                        start=block.start,
+                        end=block.end,
+                        duration_minutes=block.duration_minutes,
+                        quality=quality,
                     )
                 )
 
@@ -436,7 +437,9 @@ class DayPlannerAdvisor(Advisor):
 
         return slots[:5]  # Return top 5 slots
 
-    def _get_next_meeting(self, events: List[EventInfo], now: datetime) -> Optional[str]:
+    def _get_next_meeting(
+        self, events: List[EventInfo], now: datetime
+    ) -> Optional[str]:
         """Get the next upcoming meeting."""
         meetings = [e for e in events if e.event_type == "meeting"]
         if not meetings:
@@ -503,7 +506,9 @@ class DayPlannerAdvisor(Advisor):
         # Evening focus time
         evening_hours = [e for e in events if int(e.start_time.split(":")[0]) >= 17]
         if not evening_hours:
-            recommendations.append("Akşam 17:00 sonrası boş. Uzun vadeli projeler için harikaası.")
+            recommendations.append(
+                "Akşam 17:00 sonrası boş. Uzun vadeli projeler için harikaası."
+            )
 
         # Default recommendation if no others
         if not recommendations:
@@ -600,9 +605,7 @@ class DayPlannerAdvisor(Advisor):
 
         # Daily task
         lines.append("")
-        lines.append(
-            "### ✅ Bugünün görevi"
-        )
+        lines.append("### ✅ Bugünün görevi")
         lines.append(
             "Takvimindeki ilk odaklanma bloğuna 10 dakika haber/Slack kontrol olmadan "
             "gir ve en az 2 pomodoro çalış. Sonra check-in yap: enerji nasıl?"

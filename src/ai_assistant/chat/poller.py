@@ -137,9 +137,7 @@ def run_once(
 
     cursor = state.cursor(target)
     try:
-        messages = api.history(
-            target, oldest=cursor, limit=DEFAULT_HISTORY_LIMIT
-        )
+        messages = api.history(target, oldest=cursor, limit=DEFAULT_HISTORY_LIMIT)
     except SlackError as exc:
         report.errors.append(str(exc))
         logger.warning("Kanal okunamadı: %s", exc)
@@ -159,7 +157,12 @@ def run_once(
     if len(usable) > limit:
         skipped = len(usable) - limit
         usable = usable[-limit:]
-        _post(api, target, report, f"Son {skipped} mesajı atladım; en yeniden devam ediyorum.")
+        _post(
+            api,
+            target,
+            report,
+            f"Son {skipped} mesajı atladım; en yeniden devam ediyorum.",
+        )
 
     for message in usable:
         try:
@@ -268,9 +271,7 @@ def build_parser() -> argparse.ArgumentParser:
         default="",
         help="Yoklanacak kanal kimliği (varsayılan: SLACK_ANALYST_CHANNEL).",
     )
-    parser.add_argument(
-        "--verbose", action="store_true", help="Ayrıntılı günlük."
-    )
+    parser.add_argument("--verbose", action="store_true", help="Ayrıntılı günlük.")
     return parser
 
 

@@ -166,9 +166,7 @@ def normalize_url(url: str) -> str:
             and not key.lower().startswith(_TRACKING_PREFIXES)
         ]
         path = parts.path.rstrip("/")
-        return urlunsplit(
-            (parts.scheme.lower(), host, path, urlencode(query), "")
-        )
+        return urlunsplit((parts.scheme.lower(), host, path, urlencode(query), ""))
     except Exception:  # pragma: no cover - defensive only
         return raw.lower()
 

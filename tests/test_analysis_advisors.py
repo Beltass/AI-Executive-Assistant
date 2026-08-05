@@ -169,9 +169,7 @@ def test_impact_rank_puts_bad_before_good_and_big_moves_first():
 def test_unsupported_notes_list_the_missing_metrics(local_dataset):
     advisor = DataAnalystAdvisor()
     advisor._prepare()
-    missing_line = next(
-        note for note in advisor._limits if "hüküm kurulamaz" in note
-    )
+    missing_line = next(note for note in advisor._limits if "hüküm kurulamaz" in note)
     # The fixture has no first-contact-resolution column…
     assert "ilk temasta çözüm (FCR)" in missing_line
     # …but it DOES have abandonment (as a derived rate), so claiming it is
@@ -198,11 +196,15 @@ def test_data_analyst_joins_the_batch_with_a_key(local_dataset, monkeypatch):
     assert "SAYI UYDURMA" in section.system_prompt
 
 
-def test_data_analyst_batch_answer_becomes_a_structured_briefing(local_dataset, monkeypatch):
+def test_data_analyst_batch_answer_becomes_a_structured_briefing(
+    local_dataset, monkeypatch
+):
     monkeypatch.setattr(analyst_module.llm, "is_configured", lambda: True)
     advisor = DataAnalystAdvisor()
     advisor.batch_section()
-    briefing = advisor.briefing_from_batch("**Öne çıkan:** SLA %84,2 ile hedefin üzerinde.")
+    briefing = advisor.briefing_from_batch(
+        "**Öne çıkan:** SLA %84,2 ile hedefin üzerinde."
+    )
     assert briefing.status == STATUS_OK
     assert briefing.report["key_metrics"]
 
@@ -244,7 +246,9 @@ def test_data_analyst_actions_carry_an_owner(local_dataset):
 
 
 def test_data_analyst_document_renders_to_markdown(local_dataset):
-    report = reports.build_report(DataAnalystAdvisor().generate_briefing(), "2026-08-01", NOW)
+    report = reports.build_report(
+        DataAnalystAdvisor().generate_briefing(), "2026-08-01", NOW
+    )
     markdown = report.to_markdown()
     assert "## Analist yorumu" in markdown
     assert "## Aksiyonlar" in markdown
@@ -330,7 +334,12 @@ def test_operations_director_skipped_when_nobody_produced_business_content(blank
     advisor.observe(
         [
             Briefing(key="weather", title="Hava", status=STATUS_SKIPPED, text="yok"),
-            Briefing(key="market_intelligence", title="Pazar", status=STATUS_SKIPPED, text="yok"),
+            Briefing(
+                key="market_intelligence",
+                title="Pazar",
+                status=STATUS_SKIPPED,
+                text="yok",
+            ),
         ]
     )
     briefing = advisor.generate_briefing()
@@ -471,7 +480,9 @@ def test_operations_director_prompt_excludes_system_health(blank_env):
     assert "token tüketimi normal" not in prompt
 
 
-def test_operations_director_falls_back_when_the_model_call_fails(blank_env, monkeypatch):
+def test_operations_director_falls_back_when_the_model_call_fails(
+    blank_env, monkeypatch
+):
     monkeypatch.setattr(director_module.llm, "is_configured", lambda: True)
 
     def boom(*args, **kwargs):

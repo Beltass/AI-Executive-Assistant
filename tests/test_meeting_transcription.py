@@ -156,9 +156,7 @@ def test_no_thinking_config_when_no_budget_is_configured(monkeypatch, gemini_env
 def test_max_output_tokens_is_honoured(monkeypatch, gemini_env):
     captured = _capture_post(monkeypatch)
 
-    llm.generate_from_audio(
-        AUDIO, "audio/mpeg", "sys", "user", max_output_tokens=32768
-    )
+    llm.generate_from_audio(AUDIO, "audio/mpeg", "sys", "user", max_output_tokens=32768)
 
     assert captured["calls"][0]["generationConfig"]["maxOutputTokens"] == 32768
 
@@ -230,8 +228,9 @@ def test_openai_only_environment_says_audio_needs_gemini(monkeypatch):
 
 @pytest.fixture()
 def agent() -> MeetingNotesAgent:
-    with patch("ai_assistant.advisors.meeting_notes.GoogleDriveManager"), patch(
-        "ai_assistant.advisors.meeting_notes.TaskTracker"
+    with (
+        patch("ai_assistant.advisors.meeting_notes.GoogleDriveManager"),
+        patch("ai_assistant.advisors.meeting_notes.TaskTracker"),
     ):
         agent = MeetingNotesAgent()
     agent.drive_manager = Mock()
@@ -335,7 +334,9 @@ def test_a_failed_request_returns_nothing_and_records_why(agent, monkeypatch):
 
     monkeypatch.setattr(llm, "generate_from_audio", boom)
 
-    transcript = asyncio.run(agent.transcribe_audio(AUDIO, source_label="gmail://m1/a1"))
+    transcript = asyncio.run(
+        agent.transcribe_audio(AUDIO, source_label="gmail://m1/a1")
+    )
 
     assert transcript == ""
     assert "gemini tüm modellerde başarısız" in agent.last_transcription_error

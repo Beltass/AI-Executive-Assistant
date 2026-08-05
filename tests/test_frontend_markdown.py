@@ -87,7 +87,7 @@ def test_html_inside_every_block_type_is_escaped():
 
 
 def test_quotes_and_ampersands_are_escaped():
-    html = render('Tırnak " ve tek \' ve & işareti')
+    html = render("Tırnak \" ve tek ' ve & işareti")
     assert "&quot;" in html
     assert "&#39;" in html
     assert "&amp;" in html

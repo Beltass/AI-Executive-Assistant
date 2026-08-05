@@ -116,6 +116,7 @@ def _names(name: str) -> List[str]:
 
 class ComplaintRadarAdvisor(Advisor):
     """Expanded comprehensive analysis advisor covering market, sentiment, and competition."""
+
     key = "complaint_radar"
     title = "Pazar Trendleri & Kapsamlı Analiz Danışmanı"
 
@@ -138,9 +139,7 @@ class ComplaintRadarAdvisor(Advisor):
             if items:
                 # Gerçek başlıklar boş bir bölümden iyidir.
                 return self.ok(f"{self._headline_list()}\n\n{CAVEAT}")
-            return self.skipped(
-                "missing env var(s): GEMINI_API_KEY or OPENAI_API_KEY"
-            )
+            return self.skipped("missing env var(s): GEMINI_API_KEY or OPENAI_API_KEY")
 
         try:
             body = llm.generate_text(SYSTEM_PROMPT, self._user_prompt())
@@ -227,9 +226,7 @@ class ComplaintRadarAdvisor(Advisor):
 
     def _headline_list(self) -> str:
         """LLM'siz yedek yol: bugünün yeni başlıkları, kaynağına göre."""
-        blocks = [
-            f"*{label}*\n{self._format(group)}" for label, group in self._groups
-        ]
+        blocks = [f"*{label}*\n{self._format(group)}" for label, group in self._groups]
         return "Bugünün yeni şikâyet başlıkları:\n\n" + "\n\n".join(blocks)
 
     def _feed_block(self) -> str:

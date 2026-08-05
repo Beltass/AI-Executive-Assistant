@@ -95,7 +95,9 @@ def test_publish_writes_a_day_index_and_an_archive_index(tmp_path):
 
 
 def test_report_route_matches_the_dashboard_router(tmp_path):
-    publication = reports.publish(_supervision(_briefing()), root=str(tmp_path), now=NOW)
+    publication = reports.publish(
+        _supervision(_briefing()), root=str(tmp_path), now=NOW
+    )
     assert publication.reports[0].route == "#/rapor/2026-07-31/leadership_coach"
 
 
@@ -142,7 +144,10 @@ def test_failed_and_skipped_and_quiet_sections_are_not_published(tmp_path):
             Briefing(key="a", title="A", status=STATUS_FAILED, text="LLM patladı"),
             Briefing(key="b", title="B", status=STATUS_SKIPPED, text="missing env"),
             Briefing(
-                key="c", title="C", status=STATUS_SKIPPED, text="yeni bulgu yok",
+                key="c",
+                title="C",
+                status=STATUS_SKIPPED,
+                text="yeni bulgu yok",
                 nothing_new=True,
             ),
             Briefing(key="d", title="D", status=STATUS_OK, text="   "),
@@ -273,7 +278,10 @@ def test_a_private_card_in_an_old_index_is_dropped_on_merge(tmp_path):
     day.mkdir(parents=True)
     (day / "index.json").write_text(
         json.dumps(
-            {"date": "2026-07-31", "reports": [{"id": "daily_ops_briefing", "name": "x"}]}
+            {
+                "date": "2026-07-31",
+                "reports": [{"id": "daily_ops_briefing", "name": "x"}],
+            }
         ),
         encoding="utf-8",
     )
@@ -597,7 +605,13 @@ def test_prune_keeps_the_rolling_window_and_drops_the_oldest(tmp_path):
     removed = reports.prune(str(tmp_path), keep=30)
 
     assert len(removed) == 5
-    assert removed == ["2026-06-01", "2026-06-02", "2026-06-03", "2026-06-04", "2026-06-05"]
+    assert removed == [
+        "2026-06-01",
+        "2026-06-02",
+        "2026-06-03",
+        "2026-06-04",
+        "2026-06-05",
+    ]
     remaining = sorted(p.name for p in tmp_path.iterdir() if p.is_dir())
     assert len(remaining) == 30
     assert remaining[0] == "2026-06-06"
@@ -620,7 +634,9 @@ def test_prune_ignores_anything_that_is_not_a_day(tmp_path):
 
 def test_publish_prunes_and_rebuilds_the_archive(tmp_path):
     _seed_days(tmp_path, 3)
-    publication = reports.publish(_supervision(_briefing()), root=str(tmp_path), now=NOW)
+    publication = reports.publish(
+        _supervision(_briefing()), root=str(tmp_path), now=NOW
+    )
     assert publication.pruned == []
 
     archive = json.loads((tmp_path / "index.json").read_text(encoding="utf-8"))
@@ -643,17 +659,13 @@ def test_retention_is_configurable(monkeypatch):
 def test_publish_never_raises_on_an_unwritable_root(tmp_path):
     blocker = tmp_path / "blocked"
     blocker.write_text("not a directory", encoding="utf-8")
-    publication = reports.publish(
-        _supervision(_briefing()), root=str(blocker), now=NOW
-    )
+    publication = reports.publish(_supervision(_briefing()), root=str(blocker), now=NOW)
     assert isinstance(publication, reports.Publication)
 
 
 def test_a_key_shape_is_redacted_from_a_published_body(tmp_path):
     leaked = "**Öne çıkan:** hata\n\nHata: AIzaSyA1234567890abcdefghijklmnop çağrısı."
-    reports.publish(
-        _supervision(_briefing(text=leaked)), root=str(tmp_path), now=NOW
-    )
+    reports.publish(_supervision(_briefing(text=leaked)), root=str(tmp_path), now=NOW)
     blob = (tmp_path / "2026-07-31" / "leadership_coach.json").read_text(
         encoding="utf-8"
     )

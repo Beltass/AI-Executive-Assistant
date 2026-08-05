@@ -218,7 +218,9 @@ def test_a_changed_source_runs_again(run_env, calls):
 def test_an_undelivered_run_does_not_commit_its_source_hashes(run_env, calls):
     _run([FakeAdvisor(DATA_A, "haber 1"), FakeAdvisor(DATA_B, "şikayet 1")])
     # No commit(): the digest never reached the user.
-    supervision = _run([FakeAdvisor(DATA_A, "haber 1"), FakeAdvisor(DATA_B, "şikayet 1")])
+    supervision = _run(
+        [FakeAdvisor(DATA_A, "haber 1"), FakeAdvisor(DATA_B, "şikayet 1")]
+    )
 
     assert len(calls) == 2
     assert supervision.skipped_advisors == {}

@@ -112,8 +112,7 @@ class AdvisorDailyScheduler:
 
         # Process advisors concurrently
         tasks = [
-            self._update_advisor(advisor_key)
-            for advisor_key in self.advisors_to_update
+            self._update_advisor(advisor_key) for advisor_key in self.advisors_to_update
         ]
 
         update_results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -238,17 +237,13 @@ class AdvisorDailyScheduler:
                 summary_text = report["summary"]
                 # This would need a proper implementation to upload text as a Drive doc
                 # For now, return empty as this depends on specific document structure
-                logger.debug(
-                    f"Would upload summary for {advisor_key} to Drive"
-                )
+                logger.debug(f"Would upload summary for {advisor_key} to Drive")
 
             # Upload data files if available
             if "data_files" in report:
                 for file_key, file_data in report.get("data_files", {}).items():
                     # Upload file to Drive
-                    logger.debug(
-                        f"Would upload data file {file_key} for {advisor_key}"
-                    )
+                    logger.debug(f"Would upload data file {file_key} for {advisor_key}")
 
             return drive_links
 
@@ -261,16 +256,32 @@ class AdvisorDailyScheduler:
 
         Runs indefinitely, checking at the scheduled hour each day.
         """
-        logger.info(f"Starting advisor daily scheduler (update hour: {self.update_hour}:00 UTC)")
+        logger.info(
+            f"Starting advisor daily scheduler (update hour: {self.update_hour}:00 UTC)"
+        )
 
         while True:
             try:
                 now = datetime.utcnow()
-                scheduled_time = now.replace(hour=self.update_hour, minute=0, second=0, microsecond=0)
+                scheduled_time = now.replace(
+                    hour=self.update_hour, minute=0, second=0, microsecond=0
+                )
 
                 # If we're past today's scheduled time, schedule for tomorrow
                 if now > scheduled_time:
-                    scheduled_time = scheduled_time.replace(day=scheduled_time.day + 1) if scheduled_time.day < 31 else scheduled_time.replace(day=1, month=scheduled_time.month + 1) if scheduled_time.month < 12 else scheduled_time.replace(day=1, month=1, year=scheduled_time.year + 1)
+                    scheduled_time = (
+                        scheduled_time.replace(day=scheduled_time.day + 1)
+                        if scheduled_time.day < 31
+                        else (
+                            scheduled_time.replace(
+                                day=1, month=scheduled_time.month + 1
+                            )
+                            if scheduled_time.month < 12
+                            else scheduled_time.replace(
+                                day=1, month=1, year=scheduled_time.year + 1
+                            )
+                        )
+                    )
 
                 sleep_seconds = (scheduled_time - now).total_seconds()
                 logger.debug(

@@ -121,7 +121,14 @@ class TestGmailAttachmentDiscovery:
 
     @pytest.mark.parametrize(
         "mime_type",
-        ["audio/mpeg", "audio/mp4", "audio/wav", "audio/ogg", "audio/webm", "audio/x-m4a"],
+        [
+            "audio/mpeg",
+            "audio/mp4",
+            "audio/wav",
+            "audio/ogg",
+            "audio/webm",
+            "audio/x-m4a",
+        ],
     )
     def test_every_expected_audio_mime_type_is_recognised(self, mime_type):
         msg = message(
@@ -139,7 +146,9 @@ class TestGmailAttachmentDiscovery:
             {
                 "mimeType": "multipart/mixed",
                 "parts": [
-                    text_part("Backup copy: https://drive.google.com/file/d/DRIVE_ID/view"),
+                    text_part(
+                        "Backup copy: https://drive.google.com/file/d/DRIVE_ID/view"
+                    ),
                     audio_part(attachment_id="WINNER"),
                 ],
             }
@@ -186,7 +195,10 @@ class TestGmailAttachmentDiscovery:
 
     def test_attachment_just_under_the_limit_is_accepted(self):
         msg = message(
-            {"mimeType": "multipart/mixed", "parts": [audio_part(size=MAX_AUDIO_BYTES - 1)]}
+            {
+                "mimeType": "multipart/mixed",
+                "parts": [audio_part(size=MAX_AUDIO_BYTES - 1)],
+            }
         )
 
         source = extract_audio_source(msg)
@@ -252,9 +264,12 @@ class TestDriveDiscovery:
 
     def test_drive_host_without_a_usable_id_is_not_a_source(self):
         assert extract_drive_file_id("https://drive.google.com/drive/my-drive") is None
-        assert extract_audio_source(
-            message(body="https://drive.google.com/drive/my-drive")
-        ) is None
+        assert (
+            extract_audio_source(
+                message(body="https://drive.google.com/drive/my-drive")
+            )
+            is None
+        )
 
 
 class TestDropboxDiscovery:
@@ -320,9 +335,10 @@ class TestDirectUrlDiscovery:
         assert source.filename == "rec.mp3"
 
     def test_non_audio_url_is_not_a_source(self):
-        assert extract_audio_source(
-            message(body="Notes at https://example.com/notes.pdf")
-        ) is None
+        assert (
+            extract_audio_source(message(body="Notes at https://example.com/notes.pdf"))
+            is None
+        )
 
 
 class TestNoSourceAndMalformedInput:
@@ -367,7 +383,12 @@ class TestNoSourceAndMalformedInput:
 
     def test_undecodable_body_data_does_not_raise(self):
         msg = message(
-            {"mimeType": "multipart/mixed", "parts": [{"mimeType": "text/plain", "body": {"data": "!!!not-base64!!!"}}]}
+            {
+                "mimeType": "multipart/mixed",
+                "parts": [
+                    {"mimeType": "text/plain", "body": {"data": "!!!not-base64!!!"}}
+                ],
+            }
         )
 
         assert extract_audio_source(msg) is None
@@ -514,7 +535,10 @@ class TestSubjectAndMimeType:
         assert audio_mime_type(source) == "audio/mp4"
 
     def test_mime_type_defaults_to_mp3_when_nothing_is_known(self):
-        assert audio_mime_type(AudioSource(kind="direct_url", identifier="x")) == "audio/mpeg"
+        assert (
+            audio_mime_type(AudioSource(kind="direct_url", identifier="x"))
+            == "audio/mpeg"
+        )
 
 
 class TestProcessMeetingPipeline:

@@ -189,9 +189,12 @@ def test_banking_focus_rotates_day_by_day():
     # (and no day within a cycle) repeat.
     assert sorted(focuses) == sorted(banking_module.DAILY_FOCUS)
     # And the cycle then repeats predictably.
-    assert banking_module._daily_focus(
-        start + timedelta(days=len(banking_module.DAILY_FOCUS))
-    ) == focuses[0]
+    assert (
+        banking_module._daily_focus(
+            start + timedelta(days=len(banking_module.DAILY_FOCUS))
+        )
+        == focuses[0]
+    )
 
 
 def test_banking_prompt_leads_with_todays_focus(monkeypatch, blank_env):
@@ -285,7 +288,9 @@ def test_extract_task_same_line():
 
 
 def test_extract_task_next_line():
-    text = "### ✅ Bugünün görevi\nTek bir vendor sözleşmesini gözden geçir.\n\n## Başka"
+    text = (
+        "### ✅ Bugünün görevi\nTek bir vendor sözleşmesini gözden geçir.\n\n## Başka"
+    )
     assert extract_task(text) == "Tek bir vendor sözleşmesini gözden geçir."
 
 
@@ -299,7 +304,9 @@ def test_accountability_first_run_has_no_prior_state(monkeypatch, tmp_path, blan
     monkeypatch.setenv("ACCOUNTABILITY_STATE_FILE", str(state_file))
 
     advisor = AccountabilityCoachAdvisor()
-    advisor.observe([_briefing("leadership_coach", "Liderlik Koçu", "Geri bildirim ver.")])
+    advisor.observe(
+        [_briefing("leadership_coach", "Liderlik Koçu", "Geri bildirim ver.")]
+    )
     briefing = advisor.generate_briefing()
 
     assert briefing.status == STATUS_OK
@@ -703,9 +710,7 @@ def test_new_llm_advisors_share_one_batched_call(monkeypatch, google_ready, tmp_
     monkeypatch.setenv(
         "ACCOUNTABILITY_STATE_FILE", str(tmp_path / "accountability.json")
     )
-    monkeypatch.setattr(
-        banking_module, "fetch_feed_items", lambda url, limit=6: []
-    )
+    monkeypatch.setattr(banking_module, "fetch_feed_items", lambda url, limit=6: [])
 
     calls = []
     response = (
@@ -743,11 +748,14 @@ def test_new_llm_advisors_share_one_batched_call(monkeypatch, google_ready, tmp_
 
 
 def test_new_advisors_stay_out_of_the_batch_without_a_key(blank_env):
-    assert collect_sections(
-        [
-            BankingCcProjectsAdvisor(),
-            DailyOpsBriefingAdvisor(),
-            LanguageCoachAdvisor(),
-            AccountabilityCoachAdvisor(),
-        ]
-    ) == []
+    assert (
+        collect_sections(
+            [
+                BankingCcProjectsAdvisor(),
+                DailyOpsBriefingAdvisor(),
+                LanguageCoachAdvisor(),
+                AccountabilityCoachAdvisor(),
+            ]
+        )
+        == []
+    )

@@ -454,9 +454,7 @@ def evidence_block(result: Any, findings: Sequence[Any]) -> str:
     correlations = getattr(result, "correlations", [])
     if correlations:
         lines.append("")
-        lines.append(
-            "İLİŞKİLER (yalnızca BİRLİKTE HAREKET — neden-sonuç DEĞİL):"
-        )
+        lines.append("İLİŞKİLER (yalnızca BİRLİKTE HAREKET — neden-sonuç DEĞİL):")
         for item in correlations:
             lines.append(
                 f"- {item.left} ↔ {item.right}: r = {item.r:+.2f} "
@@ -534,9 +532,11 @@ def build_key_metrics(findings: Sequence[Any], limit: int = 4) -> List[Dict[str,
             {
                 "label": finding.metric,
                 "value": finding.display,
-                "trend": finding.direction
-                if finding.direction in ("up", "down", "flat")
-                else "",
+                "trend": (
+                    finding.direction
+                    if finding.direction in ("up", "down", "flat")
+                    else ""
+                ),
                 "note": note,
                 "spark": [float(v) for v in list(finding.spark)[-12:]],
             }
@@ -548,19 +548,19 @@ def build_action_items(findings: Sequence[Any], result: Any) -> List[Dict[str, s
     """Aksiyonlar — yalnızca operasyonu BOZAN bulgulardan, etki sırasıyla."""
     recipes = {
         "sla": "SLA erozyonu: en düşük servis seviyeli saat dilimleri için "
-               "vardiya takviyesi planla, kuyruk önceliklerini yeniden kur.",
+        "vardiya takviyesi planla, kuyruk önceliklerini yeniden kur.",
         "abandon_rate": "Terk–bekleme ilişkisini kır: geri arama tamponu aç, "
-                        "kuyruk anonsunu ve yoğun saat kadrosunu gözden geçir.",
+        "kuyruk anonsunu ve yoğun saat kadrosunu gözden geçir.",
         "asa": "Kuyruk devir süresi uzuyor: yoğun saatlerde ek kaynak ve "
-               "taşma (overflow) kuralını devreye al.",
+        "taşma (overflow) kuralını devreye al.",
         "aht": "AHT uzaması: en uzun görüşme konularını ayıkla, bilgi tabanını "
-               "ve yönlendirme akışını bu konular için güncelle.",
+        "ve yönlendirme akışını bu konular için güncelle.",
         "occupancy": "Doluluk–verimlilik dengesi bozuk: mola dağılımını ve "
-                     "kadro büyüklüğünü yeniden hesapla.",
+        "kadro büyüklüğünü yeniden hesapla.",
         "fcr": "İlk temasta çözüm düşük: tekrar temas nedenlerini sınıflandır, "
-               "temsilci yetki sınırını genişlet.",
+        "temsilci yetki sınırını genişlet.",
         "csat": "Memnuniyet geriliyor: düşük puanlı çağrıları dinleyip koçluk "
-                "konularını çıkar.",
+        "konularını çıkar.",
     }
     actions: List[Dict[str, str]] = []
     for finding in findings:
@@ -662,7 +662,9 @@ def build_report_payload(
 # --- LLM'siz yol -------------------------------------------------------------
 
 
-def offline_narrative(result: Any, findings: Sequence[Any], limits: Sequence[str]) -> str:
+def offline_narrative(
+    result: Any, findings: Sequence[Any], limits: Sequence[str]
+) -> str:
     """LLM anahtarı yokken üretilen deterministik Türkçe brifing.
 
     Veri VAR ama yorumlayacak model yok: sayıları etki sırasıyla, motorun
@@ -683,7 +685,9 @@ def offline_narrative(result: Any, findings: Sequence[Any], limits: Sequence[str
     lines.append("")
     lines.append("## 📉 Etkiye göre sıralı bulgular")
     for finding in findings:
-        lines.append(f"- **{finding.metric} — {finding.display}**: {finding.interpretation}")
+        lines.append(
+            f"- **{finding.metric} — {finding.display}**: {finding.interpretation}"
+        )
 
     correlations = list(getattr(result, "correlations", []))
     if correlations:

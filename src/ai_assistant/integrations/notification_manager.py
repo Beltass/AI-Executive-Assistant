@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 
 class AlertLevel(Enum):
     """Alert severity levels."""
+
     LOW = 1
     MEDIUM = 2
     HIGH = 3
@@ -428,9 +429,11 @@ class DeadlineTracker:
                         deadline=task.deadline,
                         owner=task.owner,
                         level=alert_level,
-                        message=f"{reason}\n\n{task.description}"
-                        if task.description
-                        else reason,
+                        message=(
+                            f"{reason}\n\n{task.description}"
+                            if task.description
+                            else reason
+                        ),
                         channels=self._get_channels_for_level(alert_level),
                         description=task.description,
                         priority=task.priority,

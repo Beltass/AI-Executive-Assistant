@@ -56,14 +56,14 @@ def css() -> str:
 
 def test_no_cdn_or_external_asset_is_loaded(html):
     """It must deploy as-is on GitHub Pages and Vercel, offline included."""
-    for tag in re.findall(r'<(?:script|link)\b[^>]*>', html):
+    for tag in re.findall(r"<(?:script|link)\b[^>]*>", html):
         url = re.search(r'(?:src|href)="([^"]+)"', tag)
         if not url:
             continue
         target = url.group(1)
-        assert target.startswith("./") or target.startswith("data:"), (
-            f"external asset in {tag}"
-        )
+        assert target.startswith("./") or target.startswith(
+            "data:"
+        ), f"external asset in {tag}"
 
 
 def test_no_module_system_or_bundler_syntax(app):
@@ -97,9 +97,7 @@ def test_every_tab_has_a_button_and_a_panel(html):
 def test_tabs_are_wired_for_screen_readers_in_both_directions(html):
     """`aria-controls` and `aria-labelledby` must point at each other."""
     for tab in TABS:
-        button = re.search(
-            r'<button[^>]*id="tab-%s"[^>]*>' % tab, html, re.DOTALL
-        )
+        button = re.search(r'<button[^>]*id="tab-%s"[^>]*>' % tab, html, re.DOTALL)
         assert button, f"tab-{tab} button missing"
         assert f'aria-controls="panel-{tab}"' in button.group(0)
         assert 'role="tab"' in button.group(0)
@@ -125,7 +123,7 @@ def test_the_tablist_is_labelled(html):
 
 def test_every_tab_is_a_hash_route(app):
     """Tabs are shareable and the back button works only if they are routed."""
-    tab_list = re.search(r'var TABS = \[([^\]]+)\]', app)
+    tab_list = re.search(r"var TABS = \[([^\]]+)\]", app)
     assert tab_list
     for tab in TABS:
         assert f'"{tab}"' in tab_list.group(1)
@@ -161,7 +159,7 @@ def test_dark_is_the_default_theme(html):
 def test_the_theme_choice_is_applied_before_first_paint(html):
     """Otherwise a light-mode user gets a dark flash on every load."""
     head = html.split("</head>", 1)[0]
-    assert "localStorage.getItem(\"aia-theme\")" in head
+    assert 'localStorage.getItem("aia-theme")' in head
 
 
 def test_the_theme_toggle_persists_its_choice(app):
@@ -229,7 +227,9 @@ def test_every_hand_written_legend_names_its_series(html):
         # A swatch with no words next to it is exactly the failure mode this
         # guards against, so every item must carry text as well.
         for item in re.findall(r"<li>(.*?)</li>", legend, re.DOTALL):
-            assert re.sub(r"<[^>]+>", "", item).strip(), f"legend item with no label: {item}"
+            assert re.sub(
+                r"<[^>]+>", "", item
+            ).strip(), f"legend item with no label: {item}"
 
 
 def test_there_is_a_skip_link_and_a_main_landmark(html):
@@ -302,9 +302,9 @@ def test_the_reading_view_has_a_title_block_lead_metrics_body_and_blocks(html):
 def test_the_action_checklist_renders_deadline_and_owner_as_badges(app):
     """Gap check: the schema's ActionItem.deadline/owner must reach the DOM,
     not stop at the JSON — a deadline is a badge, never plain trailing text."""
-    block = app.split("function renderDocActions(doc)", 1)[1].split(
-        "\n  function ", 1
-    )[0]
+    block = app.split("function renderDocActions(doc)", 1)[1].split("\n  function ", 1)[
+        0
+    ]
     assert "checklist__item" in block
     assert "badge--deadline" in block
     assert "badge--owner" in block
@@ -318,7 +318,9 @@ def test_schema_1_archives_do_not_repeat_the_headline_inside_the_body(app):
     prints its lead sentence twice, one line apart."""
     assert "function stripLeadingHeadlineLine(markdown)" in app
     assert "HEADLINE_LINE_RE" in app
-    block = app.split("function renderDocBody(doc)", 1)[1].split("sections.forEach", 1)[0]
+    block = app.split("function renderDocBody(doc)", 1)[1].split("sections.forEach", 1)[
+        0
+    ]
     assert "stripLeadingHeadlineLine" in block
 
 
@@ -544,7 +546,17 @@ def _legend_labels(nodes: list) -> list:
         ),
         (
             "stackedRuns",
-            [[{"at_istanbul": "31.07.2026 10:04", "ok": 2, "failed": 1, "skipped": 1}], {}],
+            [
+                [
+                    {
+                        "at_istanbul": "31.07.2026 10:04",
+                        "ok": 2,
+                        "failed": 1,
+                        "skipped": 1,
+                    }
+                ],
+                {},
+            ],
             0,  # its three statuses are named in the hand-written legend
         ),
     ],
@@ -572,8 +584,18 @@ def test_stacked_runs_draws_one_hit_target_per_run():
         "stackedRuns",
         [
             [
-                {"at_istanbul": "31.07.2026 10:04", "ok": 12, "failed": 1, "skipped": 2},
-                {"at_istanbul": "31.07.2026 14:04", "ok": 3, "failed": 0, "skipped": 12},
+                {
+                    "at_istanbul": "31.07.2026 10:04",
+                    "ok": 12,
+                    "failed": 1,
+                    "skipped": 2,
+                },
+                {
+                    "at_istanbul": "31.07.2026 14:04",
+                    "ok": 3,
+                    "failed": 0,
+                    "skipped": 12,
+                },
             ],
             {},
         ],
@@ -669,7 +691,7 @@ def test_split_bar_reports_the_real_share_in_its_tooltip():
         [
             [
                 {"name": "Girdi", "value": 750, "color": "var(--series-1)"},
-                {"name": "Çıktı", "value": 250, "color": "var(--series-2)"}
+                {"name": "Çıktı", "value": 250, "color": "var(--series-2)"},
             ],
             {},
         ],
@@ -684,8 +706,20 @@ def test_grouped_shares_draws_two_bars_per_agent_with_one_shared_scale():
         "groupedShares",
         [
             [
-                {"id": "a", "name": "Ajan A", "token_share": 52.0, "output_share": 38.0, "tokens": 5200},
-                {"id": "b", "name": "Ajan B", "token_share": 48.0, "output_share": 62.0, "tokens": 4800},
+                {
+                    "id": "a",
+                    "name": "Ajan A",
+                    "token_share": 52.0,
+                    "output_share": 38.0,
+                    "tokens": 5200,
+                },
+                {
+                    "id": "b",
+                    "name": "Ajan B",
+                    "token_share": 48.0,
+                    "output_share": 62.0,
+                    "tokens": 4800,
+                },
             ],
             {},
         ],
@@ -755,9 +789,7 @@ def test_the_shipped_javascript_parses(script):
         capture_output=True,
         text=True,
     )
-    assert result.returncode == 0, (
-        f"frontend/{script} does not parse:\n{result.stderr}"
-    )
+    assert result.returncode == 0, f"frontend/{script} does not parse:\n{result.stderr}"
 
 
 @node_only
@@ -796,12 +828,10 @@ def test_the_hidden_attribute_is_reset_so_a_display_class_cannot_beat_it(css):
     source = re.sub(r"/\*.*?\*/", "", css, flags=re.S)  # comments are not rules
     bodies = re.findall(r"(?:^|[,}])\s*\[hidden\]\s*\{([^}]*)\}", source)
     assert bodies, "styles.css has no [hidden] rule; .stack/.tile would win"
-    assert any(re.search(r"display\s*:\s*none", b) for b in bodies), (
-        f"[hidden] must set display: none, got: {[b.strip() for b in bodies]}"
-    )
     assert any(
-        re.search(r"display\s*:\s*none\s*!important", b) for b in bodies
-    ), (
+        re.search(r"display\s*:\s*none", b) for b in bodies
+    ), f"[hidden] must set display: none, got: {[b.strip() for b in bodies]}"
+    assert any(re.search(r"display\s*:\s*none\s*!important", b) for b in bodies), (
         "[hidden] must use !important — any component class that declares a "
         "display would otherwise defeat the attribute"
     )

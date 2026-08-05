@@ -141,6 +141,7 @@ def last_outcome() -> BatchOutcome:
     """The outcome of the most recent :func:`run_batch` call in this process."""
     return _last_outcome
 
+
 # Marker the model must emit before each section; also what we split on.
 SECTION_MARKER = "### SECTION:"
 
@@ -505,7 +506,5 @@ def run_batch(
     )
     if len(parsed) < len(sections):
         missing = [s.key for s in sections if s.key not in parsed]
-        logger.warning(
-            "toplu brifingde eksik kalan bölümler: %s", ", ".join(missing)
-        )
+        logger.warning("toplu brifingde eksik kalan bölümler: %s", ", ".join(missing))
     return parsed

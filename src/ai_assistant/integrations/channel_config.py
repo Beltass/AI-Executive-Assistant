@@ -97,9 +97,7 @@ class ChannelConfig:
         """
         return any(self.dedicated_channel(key) for key in ADVISOR_KEYS)
 
-    def get_channel(
-        self, advisor_key: str, advisor_title: str = ""
-    ) -> Optional[str]:
+    def get_channel(self, advisor_key: str, advisor_title: str = "") -> Optional[str]:
         """Get the channel ID for an advisor.
 
         Falls back to main_channel if no specific channel is configured, then to

@@ -169,7 +169,9 @@ class JobOpportunity:
     company_name: str
     industry: str
     posting_date: str
-    opportunity_type: str  # "direct_posting", "leadership_change", "expansion", "product_launch"
+    opportunity_type: (
+        str  # "direct_posting", "leadership_change", "expansion", "product_launch"
+    )
     relevance_score: int  # 1-5
     description: str
     action_suggested: str
@@ -239,7 +241,9 @@ class LinkedInCoach(Advisor):
             if opportunities:
                 sections.append(self._format_opportunities_section(opportunities))
 
-            briefing_text = "\n".join(sections) if sections else "LinkedIn İmaj Koçu hazır."
+            briefing_text = (
+                "\n".join(sections) if sections else "LinkedIn İmaj Koçu hazır."
+            )
             return self.ok(briefing_text)
 
         except Exception as exc:
@@ -283,7 +287,9 @@ class LinkedInCoach(Advisor):
             if DRAFTS_FILE.exists():
                 with open(DRAFTS_FILE, "r", encoding="utf-8") as fh:
                     data = json.load(fh)
-                    return [LinkedInPost.from_dict(post) for post in data.get("posts", [])]
+                    return [
+                        LinkedInPost.from_dict(post) for post in data.get("posts", [])
+                    ]
         except Exception as exc:
             logger.warning("LinkedIn drafts dosyası okunamadı: %s", exc)
         return []
@@ -292,7 +298,12 @@ class LinkedInCoach(Advisor):
         """Save draft posts to state file."""
         try:
             with open(DRAFTS_FILE, "w", encoding="utf-8") as fh:
-                json.dump({"posts": [p.to_dict() for p in posts]}, fh, indent=2, ensure_ascii=False)
+                json.dump(
+                    {"posts": [p.to_dict() for p in posts]},
+                    fh,
+                    indent=2,
+                    ensure_ascii=False,
+                )
         except Exception as exc:
             logger.error("LinkedIn drafts dosyası yazılamadı: %s", exc)
 
@@ -321,7 +332,9 @@ class LinkedInCoach(Advisor):
             if METRICS_FILE.exists():
                 with open(METRICS_FILE, "r", encoding="utf-8") as fh:
                     data = json.load(fh)
-                    return [EngagementMetrics.from_dict(m) for m in data.get("metrics", [])]
+                    return [
+                        EngagementMetrics.from_dict(m) for m in data.get("metrics", [])
+                    ]
         except Exception as exc:
             logger.warning("LinkedIn metrics dosyası okunamadı: %s", exc)
         return []
@@ -330,7 +343,12 @@ class LinkedInCoach(Advisor):
         """Save engagement metrics."""
         try:
             with open(METRICS_FILE, "w", encoding="utf-8") as fh:
-                json.dump({"metrics": [m.to_dict() for m in metrics]}, fh, indent=2, ensure_ascii=False)
+                json.dump(
+                    {"metrics": [m.to_dict() for m in metrics]},
+                    fh,
+                    indent=2,
+                    ensure_ascii=False,
+                )
         except Exception as exc:
             logger.error("LinkedIn metrics dosyası yazılamadı: %s", exc)
 
@@ -341,7 +359,9 @@ class LinkedInCoach(Advisor):
         all_posts = self._load_drafts()
         return [p for p in all_posts if p.draft and not p.posted_at]
 
-    def generate_daily_posts(self, sector_news: str = "", tech_news: str = "") -> List[LinkedInPost]:
+    def generate_daily_posts(
+        self, sector_news: str = "", tech_news: str = ""
+    ) -> List[LinkedInPost]:
         """Generate 1-2 daily posts from sector/tech news.
 
         Args:
@@ -414,7 +434,14 @@ class LinkedInCoach(Advisor):
             logger.error("Post reddetme hatası: %s", exc)
             return False
 
-    def edit_post(self, post_id: str, headline: str = "", body: str = "", hashtags: List[str] = None, cta: str = "") -> bool:
+    def edit_post(
+        self,
+        post_id: str,
+        headline: str = "",
+        body: str = "",
+        hashtags: List[str] = None,
+        cta: str = "",
+    ) -> bool:
         """Edit a draft post.
 
         Args:
@@ -537,7 +564,9 @@ class LinkedInCoach(Advisor):
                 followers=1250 + len(existing_metrics) * 5,
                 impressions=450 + len(existing_metrics) * 20,
                 engagements=85 + len(existing_metrics) * 3,
-                posts_published=len([p for p in self._load_drafts() if p.posted_at and p.date == today]),
+                posts_published=len(
+                    [p for p in self._load_drafts() if p.posted_at and p.date == today]
+                ),
                 likes_count=60,
                 comments_count=15,
                 shares_count=10,
@@ -570,15 +599,21 @@ class LinkedInCoach(Advisor):
             today = datetime.utcnow().date()
             week_ago = today - timedelta(days=7)
 
-            weekly_metrics = [m for m in metrics if datetime.fromisoformat(m.date).date() >= week_ago]
+            weekly_metrics = [
+                m for m in metrics if datetime.fromisoformat(m.date).date() >= week_ago
+            ]
 
             if not weekly_metrics:
                 return {"status": "no_data", "message": "Haftalık veri yok"}
 
-            total_followers = sum(m.followers for m in weekly_metrics) / len(weekly_metrics)
+            total_followers = sum(m.followers for m in weekly_metrics) / len(
+                weekly_metrics
+            )
             total_engagements = sum(m.engagements for m in weekly_metrics)
             total_posts = sum(m.posts_published for m in weekly_metrics)
-            avg_engagement_rate = sum(m.engagement_rate for m in weekly_metrics) / len(weekly_metrics)
+            avg_engagement_rate = sum(m.engagement_rate for m in weekly_metrics) / len(
+                weekly_metrics
+            )
 
             return {
                 "period": f"{week_ago} - {today}",
@@ -586,7 +621,9 @@ class LinkedInCoach(Advisor):
                 "total_engagements": total_engagements,
                 "total_posts": total_posts,
                 "avg_engagement_rate": round(avg_engagement_rate, 3),
-                "recommendation": self._generate_engagement_recommendation(avg_engagement_rate),
+                "recommendation": self._generate_engagement_recommendation(
+                    avg_engagement_rate
+                ),
             }
         except Exception as exc:
             logger.error("Haftalık özet hatası: %s", exc)
@@ -595,7 +632,9 @@ class LinkedInCoach(Advisor):
     def _generate_engagement_recommendation(self, engagement_rate: float) -> str:
         """Generate recommendation based on engagement rate."""
         if engagement_rate > 0.2:
-            return "Harika! Engagement oranın çok yüksek. Bu içerik tarzını devam ettir."
+            return (
+                "Harika! Engagement oranın çok yüksek. Bu içerik tarzını devam ettir."
+            )
         elif engagement_rate > 0.1:
             return "İyi performans. Daha fazla konuşmaya davet eden postlar dene."
         else:
@@ -693,7 +732,9 @@ class LinkedInCoach(Advisor):
             "3. Multi-agent AI sistemleri üretime geçiyor"
         )
 
-    def _generate_mock_posts(self, sector_news: str, tech_news: str) -> List[LinkedInPost]:
+    def _generate_mock_posts(
+        self, sector_news: str, tech_news: str
+    ) -> List[LinkedInPost]:
         """Generate mock posts from news."""
         from uuid import uuid4
 
@@ -743,7 +784,11 @@ class LinkedInCoach(Advisor):
             all_metrics = self._load_metrics()
             today = datetime.utcnow().date()
             week_ago = today - timedelta(days=7)
-            return [m for m in all_metrics if datetime.fromisoformat(m.date).date() >= week_ago]
+            return [
+                m
+                for m in all_metrics
+                if datetime.fromisoformat(m.date).date() >= week_ago
+            ]
         except Exception as exc:
             logger.warning("Son metrikler alınamadı: %s", exc)
             return None

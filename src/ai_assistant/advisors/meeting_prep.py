@@ -150,8 +150,20 @@ _STOPWORDS = frozenset(
 )
 
 _TR_FOLD = str.maketrans(
-    {"ı": "i", "İ": "i", "ş": "s", "Ş": "s", "ğ": "g", "Ğ": "g",
-     "ç": "c", "Ç": "c", "ö": "o", "Ö": "o", "ü": "u", "Ü": "u"}
+    {
+        "ı": "i",
+        "İ": "i",
+        "ş": "s",
+        "Ş": "s",
+        "ğ": "g",
+        "Ğ": "g",
+        "ç": "c",
+        "Ç": "c",
+        "ö": "o",
+        "Ö": "o",
+        "ü": "u",
+        "Ü": "u",
+    }
 )
 
 _WORD_RE = re.compile(r"[a-z0-9]+")
@@ -360,7 +372,9 @@ def find_notes(
         scored = [
             note
             for note in (
-                _note_from_item(meeting, item) for item in files if isinstance(item, dict)
+                _note_from_item(meeting, item)
+                for item in files
+                if isinstance(item, dict)
             )
             if note is not None
         ]

@@ -136,9 +136,8 @@ class Distribution:
         """One Turkish line for the job log."""
         if self.skipped_reason:
             return f"kanal dağıtımı yapılmadı — {self.skipped_reason}"
-        return (
-            f"{self.delivered}/{len(self.posts)} bölüm kendi kanalına gönderildi"
-            + (f" · {len(self.failures)} hata" if self.failures else "")
+        return f"{self.delivered}/{len(self.posts)} bölüm kendi kanalına gönderildi" + (
+            f" · {len(self.failures)} hata" if self.failures else ""
         )
 
 
@@ -197,7 +196,9 @@ class SlackChannelNotifier:
         Kept for backwards compatibility; :func:`distribute` is what the daily
         run uses. Returns a :class:`CheckResult` and never raises.
         """
-        post = self.post_report(advisor_key, advisor_title, report, channel_id, base_url)
+        post = self.post_report(
+            advisor_key, advisor_title, report, channel_id, base_url
+        )
         return post.result or failed(NAME, f"{advisor_title}: bilinmeyen hata")
 
     def post_report(
@@ -289,7 +290,9 @@ class SlackChannelNotifier:
             post.permalink = self._permalink(post.channel, ts)
         return post
 
-    def _post_bot(self, channel: str, text: str, blocks: list) -> Tuple[CheckResult, str]:
+    def _post_bot(
+        self, channel: str, text: str, blocks: list
+    ) -> Tuple[CheckResult, str]:
         """Post via bot token. Returns ``(result, message_ts)``."""
         payload = {"channel": channel, "text": text, "blocks": blocks}
         try:
@@ -304,7 +307,12 @@ class SlackChannelNotifier:
         try:
             data = resp.json()
         except Exception:
-            return failed(NAME, f"chat.postMessage: JSON olmayan yanıt ({resp.status_code})"), ""
+            return (
+                failed(
+                    NAME, f"chat.postMessage: JSON olmayan yanıt ({resp.status_code})"
+                ),
+                "",
+            )
 
         if data.get("ok"):
             return ok(NAME, f"chat.postMessage → {channel}"), str(data.get("ts") or "")
@@ -371,16 +379,16 @@ def distribute(
     sender = notifier or SlackChannelNotifier()
     if not sender.bot_token:
         dist.skipped_reason = (
-            WEBHOOK_CANNOT_ROUTE if sender.webhook_url else f"kimlik bilgisi yok ({BOT_TOKEN_ENV})"
+            WEBHOOK_CANNOT_ROUTE
+            if sender.webhook_url
+            else f"kimlik bilgisi yok ({BOT_TOKEN_ENV})"
         )
         logger.warning(f"Kanal dağıtımı atlandı: {dist.skipped_reason}")
         return dist
 
     base = base_url or _dashboard_base_url()
     main_channel = config.resolve_main_channel()
-    reports_by_key = {
-        r.id: r for r in list(getattr(publication, "reports", []) or [])
-    }
+    reports_by_key = {r.id: r for r in list(getattr(publication, "reports", []) or [])}
 
     for briefing in list(getattr(supervision, "briefings", []) or []):
         key = str(getattr(briefing, "key", "") or "")

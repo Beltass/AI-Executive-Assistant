@@ -162,7 +162,9 @@ class TemplateStore:
         payload = self._bucket().get(_key(name))
         return Template.from_dict(payload) if payload else None
 
-    def save(self, name: str, spec: ReportSpec, now: Optional[datetime] = None) -> Template:
+    def save(
+        self, name: str, spec: ReportSpec, now: Optional[datetime] = None
+    ) -> Template:
         """Şablonu yazar (aynı ad varsa ÜZERİNE yazar) ve diske işler."""
         moment = (now or datetime.now()).isoformat(timespec="seconds")
         existing = self.get(name)
@@ -201,7 +203,8 @@ class TemplateStore:
         if len(bucket) <= MAX_TEMPLATES:
             return
         ordered = sorted(
-            bucket.items(), key=lambda item: str((item[1] or {}).get("created_at") or "")
+            bucket.items(),
+            key=lambda item: str((item[1] or {}).get("created_at") or ""),
         )
         for key, _ in ordered[: len(bucket) - MAX_TEMPLATES]:
             bucket.pop(key, None)

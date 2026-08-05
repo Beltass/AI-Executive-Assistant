@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 
 class TaskStatus(str, Enum):
     """Task status enum."""
+
     PENDING = "pending"
     IN_PROGRESS = "in_progress"
     COMPLETED = "completed"
@@ -67,23 +68,23 @@ class Task:
         """Convert to dictionary for serialization."""
         data = asdict(self)
         # Convert datetime objects to ISO format strings
-        for key in ('deadline', 'created_at', 'updated_at', 'completed_at'):
+        for key in ("deadline", "created_at", "updated_at", "completed_at"):
             if data[key]:
                 data[key] = data[key].isoformat()
-        data['status'] = self.status.value
+        data["status"] = self.status.value
         return data
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> Task:
         """Create Task from dictionary."""
         # Convert ISO format strings back to datetime objects
-        for key in ('deadline', 'created_at', 'updated_at', 'completed_at'):
+        for key in ("deadline", "created_at", "updated_at", "completed_at"):
             if data.get(key) and isinstance(data[key], str):
                 data[key] = datetime.fromisoformat(data[key])
 
         # Convert status string to enum
-        if isinstance(data.get('status'), str):
-            data['status'] = TaskStatus(data['status'])
+        if isinstance(data.get("status"), str):
+            data["status"] = TaskStatus(data["status"])
 
         return cls(**data)
 
@@ -191,10 +192,7 @@ class TaskTracker:
         Returns:
             List of overdue tasks (not completed)
         """
-        overdue = [
-            task for task in self.tasks.values()
-            if task.is_overdue
-        ]
+        overdue = [task for task in self.tasks.values() if task.is_overdue]
         return sorted(overdue, key=lambda t: t.deadline or datetime.now())
 
     def get_upcoming_tasks(self, days: int = 3) -> List[Task]:
@@ -210,10 +208,13 @@ class TaskTracker:
         cutoff = now + timedelta(days=days)
 
         upcoming = [
-            task for task in self.tasks.values()
-            if (task.status != TaskStatus.COMPLETED and
-                task.deadline and
-                now <= task.deadline <= cutoff)
+            task
+            for task in self.tasks.values()
+            if (
+                task.status != TaskStatus.COMPLETED
+                and task.deadline
+                and now <= task.deadline <= cutoff
+            )
         ]
         return sorted(upcoming, key=lambda t: t.deadline)
 
@@ -227,9 +228,10 @@ class TaskTracker:
             List of tasks for that owner
         """
         return [
-            task for task in self.tasks.values()
-            if task.owner.lower() == owner.lower() and
-            task.status != TaskStatus.COMPLETED
+            task
+            for task in self.tasks.values()
+            if task.owner.lower() == owner.lower()
+            and task.status != TaskStatus.COMPLETED
         ]
 
     def get_tasks_by_status(self, status: TaskStatus) -> List[Task]:
@@ -241,10 +243,7 @@ class TaskTracker:
         Returns:
             List of tasks with that status
         """
-        return [
-            task for task in self.tasks.values()
-            if task.status == status
-        ]
+        return [task for task in self.tasks.values() if task.status == status]
 
     def get_summary_stats(self) -> Dict[str, Any]:
         """Get summary statistics.
@@ -253,18 +252,24 @@ class TaskTracker:
             Dictionary with task counts and stats
         """
         total = len(self.tasks)
-        pending = len([t for t in self.tasks.values() if t.status == TaskStatus.PENDING])
-        in_progress = len([t for t in self.tasks.values() if t.status == TaskStatus.IN_PROGRESS])
-        completed = len([t for t in self.tasks.values() if t.status == TaskStatus.COMPLETED])
+        pending = len(
+            [t for t in self.tasks.values() if t.status == TaskStatus.PENDING]
+        )
+        in_progress = len(
+            [t for t in self.tasks.values() if t.status == TaskStatus.IN_PROGRESS]
+        )
+        completed = len(
+            [t for t in self.tasks.values() if t.status == TaskStatus.COMPLETED]
+        )
         overdue = len(self.get_overdue_tasks())
 
         return {
-            'total': total,
-            'pending': pending,
-            'in_progress': in_progress,
-            'completed': completed,
-            'overdue': overdue,
-            'completion_rate': (completed / total * 100) if total > 0 else 0,
+            "total": total,
+            "pending": pending,
+            "in_progress": in_progress,
+            "completed": completed,
+            "overdue": overdue,
+            "completion_rate": (completed / total * 100) if total > 0 else 0,
         }
 
     def sync_to_drive(self, folder_id: str) -> bool:
@@ -290,7 +295,7 @@ class TaskTracker:
                 file_path=None,  # We'll handle this differently for in-memory content
                 folder_id=folder_id,
                 file_name=file_name,
-                mime_type='text/csv'
+                mime_type="text/csv",
             )
 
             if file_id:
@@ -319,16 +324,16 @@ class TaskTracker:
             manager = GoogleDriveManager()
 
             # Find tasks CSV file
-            files = manager.list_files(folder_id, mime_type='text/csv')
-            task_files = [f for f in files if 'tasks_' in f['name']]
+            files = manager.list_files(folder_id, mime_type="text/csv")
+            task_files = [f for f in files if "tasks_" in f["name"]]
 
             if not task_files:
                 self.logger.info("No task files found in Drive")
                 return False
 
             # Get the most recent one
-            latest = sorted(task_files, key=lambda x: x.get('modifiedTime', ''))[-1]
-            file_id = latest['id']
+            latest = sorted(task_files, key=lambda x: x.get("modifiedTime", ""))[-1]
+            file_id = latest["id"]
 
             # Download and parse. The destination used to be the fixed path
             # /tmp/tasks_sync.csv: two concurrent syncs would overwrite each
@@ -373,21 +378,22 @@ class TaskTracker:
         """
         try:
             import csv
-            with open(file_path, 'r') as f:
+
+            with open(file_path, "r") as f:
                 reader = csv.DictReader(f)
                 for row in reader:
-                    if not row['ID']:
+                    if not row["ID"]:
                         continue
                     task = Task(
-                        id=row['ID'],
-                        title=row['Title'],
-                        owner=row['Owner'],
-                        status=TaskStatus(row['Status']),
-                        priority=int(row['Priority']),
-                        meeting_id=row.get('Meeting') or None,
+                        id=row["ID"],
+                        title=row["Title"],
+                        owner=row["Owner"],
+                        status=TaskStatus(row["Status"]),
+                        priority=int(row["Priority"]),
+                        meeting_id=row.get("Meeting") or None,
                     )
-                    if row['Deadline']:
-                        task.deadline = datetime.fromisoformat(row['Deadline'])
+                    if row["Deadline"]:
+                        task.deadline = datetime.fromisoformat(row["Deadline"])
                     self.tasks[task.id] = task
         except Exception as e:
             self.logger.error(f"Failed to load CSV: {e}")
@@ -396,10 +402,10 @@ class TaskTracker:
         """Save tasks to persistent storage."""
         try:
             data = {
-                'tasks': {k: v.to_dict() for k, v in self.tasks.items()},
-                'last_updated': datetime.now(timezone.utc).isoformat(),
+                "tasks": {k: v.to_dict() for k, v in self.tasks.items()},
+                "last_updated": datetime.now(timezone.utc).isoformat(),
             }
-            with open(self.tasks_file, 'w') as f:
+            with open(self.tasks_file, "w") as f:
                 json.dump(data, f, indent=2)
             self.logger.debug(f"Saved {len(self.tasks)} tasks to {self.tasks_file}")
         except Exception as e:
@@ -412,12 +418,12 @@ class TaskTracker:
                 self.logger.info("No existing tasks file found")
                 return
 
-            with open(self.tasks_file, 'r') as f:
+            with open(self.tasks_file, "r") as f:
                 data = json.load(f)
 
             self.tasks = {
                 task_id: Task.from_dict(task_data)
-                for task_id, task_data in data.get('tasks', {}).items()
+                for task_id, task_data in data.get("tasks", {}).items()
             }
             self.logger.info(f"Loaded {len(self.tasks)} tasks from {self.tasks_file}")
         except Exception as e:

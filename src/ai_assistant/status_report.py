@@ -593,11 +593,11 @@ SECRET_ENV_VARS = (
 # through this process's environment (a copy/pasted key inside an upstream
 # error message, say).
 _SECRET_PATTERNS = (
-    re.compile(r"AIza[0-9A-Za-z\-_]{10,}"),            # Google / Gemini
-    re.compile(r"sk-[A-Za-z0-9\-_]{16,}"),             # OpenAI
-    re.compile(r"xox[baprs]-[A-Za-z0-9\-]{8,}"),       # Slack tokens
-    re.compile(r"ghp_[A-Za-z0-9]{16,}"),               # GitHub PAT
-    re.compile(r"hooks\.slack\.com/services/\S+"),     # Slack webhook path
+    re.compile(r"AIza[0-9A-Za-z\-_]{10,}"),  # Google / Gemini
+    re.compile(r"sk-[A-Za-z0-9\-_]{16,}"),  # OpenAI
+    re.compile(r"xox[baprs]-[A-Za-z0-9\-]{8,}"),  # Slack tokens
+    re.compile(r"ghp_[A-Za-z0-9]{16,}"),  # GitHub PAT
+    re.compile(r"hooks\.slack\.com/services/\S+"),  # Slack webhook path
     re.compile(r"(?i)(api[-_]?key|token|secret|password)=[^\s&\"']+"),
 )
 
@@ -772,7 +772,9 @@ class IntegrationMetrics:
             if filename.startswith("archive_") or filename.endswith("_archive.zip"):
                 drive["archive_count"] = int(drive.get("archive_count", 0)) + 1
             else:
-                drive["documents_uploaded"] = int(drive.get("documents_uploaded", 0)) + 1
+                drive["documents_uploaded"] = (
+                    int(drive.get("documents_uploaded", 0)) + 1
+                )
             drive["last_sync_time"] = when
         else:
             failed = drive.get("failed_uploads", [])
@@ -819,13 +821,17 @@ class IntegrationMetrics:
                 fh.write("\n")
             return True
         except Exception as exc:
-            logger.warning("entegrasyon metrik dosyası yazılamadı (%s): %s", target, exc)
+            logger.warning(
+                "entegrasyon metrik dosyası yazılamadı (%s): %s", target, exc
+            )
             return False
 
 
 def integration_metrics_file_path() -> str:
     """Where integration metrics are persisted."""
-    return (os.getenv(INTEGRATION_METRICS_FILE_ENV) or "").strip() or DEFAULT_INTEGRATION_METRICS_FILE
+    return (
+        os.getenv(INTEGRATION_METRICS_FILE_ENV) or ""
+    ).strip() or DEFAULT_INTEGRATION_METRICS_FILE
 
 
 def sanitize(text: Any, limit: int = MAX_DETAIL_CHARS) -> str:
@@ -958,7 +964,9 @@ def _accountability_snapshot(briefings: Any = None) -> Dict[str, Any]:
     try:
         from .advisors.accountability_coach import DEFAULT_STATE_FILE
 
-        path = (os.getenv("ACCOUNTABILITY_STATE_FILE") or "").strip() or DEFAULT_STATE_FILE
+        path = (
+            os.getenv("ACCOUNTABILITY_STATE_FILE") or ""
+        ).strip() or DEFAULT_STATE_FILE
         with open(path, "r", encoding="utf-8") as fh:
             data = json.load(fh)
         if not isinstance(data, dict):
@@ -1322,9 +1330,7 @@ def _calculate_token_efficiency(
     """
     output_tokens = tokens.get("output", 0)
     ran_count = sum(
-        1
-        for a in advisors
-        if a.get("status") in (STATUS_OK, STATUS_FAILED)
+        1 for a in advisors if a.get("status") in (STATUS_OK, STATUS_FAILED)
     )
     if ran_count == 0:
         return 0.0
@@ -1356,9 +1362,7 @@ def _collect_7day_trends(
             # Reconstruct from historical run data if available
             total = run.get("total", 0)
             skipped = sum(
-                1
-                for a in run.get("advisors", [])
-                if a.get("status") == STATUS_SKIPPED
+                1 for a in run.get("advisors", []) if a.get("status") == STATUS_SKIPPED
             )
             if total > 0:
                 value = round((total - skipped) / total * 100, 1)
@@ -1497,15 +1501,9 @@ def _performance_snapshot(
     token_efficiency = _calculate_token_efficiency(tokens, advisors)
 
     # Collect 7-day trends (history doesn't include current run yet)
-    completion_7d = _collect_7day_trends(
-        history, "completion", advisors, counts
-    )
-    deadline_7d = _collect_7day_trends(
-        history, "deadline", advisors, counts
-    )
-    success_7d = _collect_7day_trends(
-        history, "success", advisors, counts
-    )
+    completion_7d = _collect_7day_trends(history, "completion", advisors, counts)
+    deadline_7d = _collect_7day_trends(history, "deadline", advisors, counts)
+    success_7d = _collect_7day_trends(history, "success", advisors, counts)
 
     # Extract alerts and feedback
     alerts = _extract_alerts(briefings)
@@ -1589,15 +1587,15 @@ def build_status(
 
     advisors = [_advisor_entry(b) for b in briefings]
     conclusion = _conclusion(counts)
-    duration = round(float(duration_seconds), 1) if duration_seconds is not None else None
+    duration = (
+        round(float(duration_seconds), 1) if duration_seconds is not None else None
+    )
     batch = _batch_snapshot()
     tokens = _tokens_snapshot()
 
     # How this run was asked to work, and how much of it was actually new.
     mode = str(getattr(supervision, "mode", MODE_FULL) or MODE_FULL)
-    new_findings = sum(
-        entry["new_findings"] or 0 for entry in advisors
-    )
+    new_findings = sum(entry["new_findings"] or 0 for entry in advisors)
     quiet = sum(1 for entry in advisors if entry["nothing_new"])
 
     if slack_result is None:
@@ -1625,9 +1623,7 @@ def build_status(
 
     history = list(previous_history or [])
     # Note: performance metrics use history before we append current run
-    performance = _performance_snapshot(
-        advisors, counts, tokens, history, briefings
-    )
+    performance = _performance_snapshot(advisors, counts, tokens, history, briefings)
 
     history.append(run_summary)
     history = history[-HISTORY_LIMIT:]

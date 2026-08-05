@@ -163,7 +163,9 @@ class GoogleOAuthClient:
         Returns:
             Tuple of (code_verifier, code_challenge)
         """
-        code_verifier = base64.urlsafe_b64encode(secrets.token_bytes(32)).decode("utf-8")
+        code_verifier = base64.urlsafe_b64encode(secrets.token_bytes(32)).decode(
+            "utf-8"
+        )
         code_verifier = code_verifier.rstrip("=")
 
         code_challenge = base64.urlsafe_b64encode(
@@ -584,9 +586,7 @@ class GoogleOAuthClient:
         """
         try:
             service = self.get_gmail_service()
-            thread = (
-                service.users().threads().get(userId="me", id=thread_id).execute()
-            )
+            thread = service.users().threads().get(userId="me", id=thread_id).execute()
 
             messages = []
             for msg in thread.get("messages", []):
@@ -632,7 +632,12 @@ class GoogleOAuthClient:
             raw_message = base64.urlsafe_b64encode(message_obj.as_bytes()).decode()
 
             send_message = {"raw": raw_message}
-            result = service.users().messages().send(userId="me", body=send_message).execute()
+            result = (
+                service.users()
+                .messages()
+                .send(userId="me", body=send_message)
+                .execute()
+            )
 
             logger.info(f"E-posta gönderildi: {to}")
             return result.get("id", "")
@@ -675,9 +680,7 @@ class GoogleOAuthClient:
             if not time_min:
                 time_min = datetime.now(timezone.utc).isoformat()
             if not time_max:
-                time_max = (
-                    datetime.now(timezone.utc) + timedelta(days=30)
-                ).isoformat()
+                time_max = (datetime.now(timezone.utc) + timedelta(days=30)).isoformat()
 
             request_params = {
                 "calendarId": calendar_id,
@@ -716,9 +719,7 @@ class GoogleOAuthClient:
         try:
             service = self.get_calendar_service()
             event = (
-                service.events()
-                .get(calendarId=calendar_id, eventId=event_id)
-                .execute()
+                service.events().get(calendarId=calendar_id, eventId=event_id).execute()
             )
             logger.info(f"Takvim etkinliği alındı: {event_id}")
             return event
@@ -777,7 +778,9 @@ class GoogleOAuthClient:
             if attendees:
                 event["attendees"] = [{"email": email} for email in attendees]
 
-            result = service.events().insert(calendarId=calendar_id, body=event).execute()
+            result = (
+                service.events().insert(calendarId=calendar_id, body=event).execute()
+            )
             logger.info(f"Takvim etkinliği oluşturuldu: {result.get('id')}")
             return result.get("id", "")
         except Exception as e:
@@ -814,9 +817,7 @@ class GoogleOAuthClient:
 
             # Get existing event
             event = (
-                service.events()
-                .get(calendarId=calendar_id, eventId=event_id)
-                .execute()
+                service.events().get(calendarId=calendar_id, eventId=event_id).execute()
             )
 
             # Update with changes
@@ -834,9 +835,7 @@ class GoogleOAuthClient:
             logger.error(f"Takvim etkinliği güncellenemedi ({event_id}): {e}")
             raise GoogleServiceError(f"Cannot update event {event_id}: {e}")
 
-    def delete_event(
-        self, event_id: str, calendar_id: str = "primary"
-    ) -> bool:
+    def delete_event(self, event_id: str, calendar_id: str = "primary") -> bool:
         """Delete a calendar event.
 
         Args:
@@ -899,7 +898,9 @@ def _parse_message(message: dict[str, Any]) -> dict[str, Any]:
     # Check main payload first
     payload = message.get("payload", {})
     if "body" in payload and payload["body"].get("data"):
-        body = base64.urlsafe_b64decode(payload["body"]["data"]).decode("utf-8", errors="ignore")
+        body = base64.urlsafe_b64decode(payload["body"]["data"]).decode(
+            "utf-8", errors="ignore"
+        )
 
     # Parse parts for multipart messages
     for part in parts:

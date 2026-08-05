@@ -73,15 +73,15 @@ DEFAULT_RETENTION_DAYS = 30
 _PRIVATE_ADVISOR_KEYS_CURRENT = frozenset(
     {
         "communications_calendar",  # real names, subjects and meetings
-        "meeting_prep",             # calendar entries and meeting note content
-        "data_analyst",             # the operation's own performance data
-        "ai_innovation",            # reasons about the user's own backlog
-        "executive_coaching",       # personal development + accountability
-        "social_media_coach",       # personal social media profiles and content
-        "personal_assistant",       # personal tasks, goals and schedule
-        "work_analyst",             # consolidates everyone else's private work
-        "operations_director",      # synthesises every private section above
-        "sre_watchdog",             # the system's own technical internals
+        "meeting_prep",  # calendar entries and meeting note content
+        "data_analyst",  # the operation's own performance data
+        "ai_innovation",  # reasons about the user's own backlog
+        "executive_coaching",  # personal development + accountability
+        "social_media_coach",  # personal social media profiles and content
+        "personal_assistant",  # personal tasks, goals and schedule
+        "work_analyst",  # consolidates everyone else's private work
+        "operations_director",  # synthesises every private section above
+        "sre_watchdog",  # the system's own technical internals
     }
 )
 
@@ -663,9 +663,7 @@ def split_sections(markdown: str) -> tuple:
     def take_sources() -> bool:
         found = [s for s in (_source_from_line(line) for line in body) if s]
         leftovers = [
-            line
-            for line in body
-            if line.strip() and not _source_from_line(line)
+            line for line in body if line.strip() and not _source_from_line(line)
         ]
         # Convert only a list that really IS a list of links; two stray lines
         # (the "verify the links" nudge) are tolerated, a prose section is not.
@@ -860,9 +858,7 @@ def read_minutes(words: int) -> int:
 # kelimelerinden okunur; uydurma bir sıralama yerine metnin söylediği kadarı.
 
 #: "bugün", "acil" — bugün bitmesi gereken iş. P0.
-_URGENT_RE = re.compile(
-    r"(bugün|bugun|acil|derhal|hemen|today|asap)", re.IGNORECASE
-)
+_URGENT_RE = re.compile(r"(bugün|bugun|acil|derhal|hemen|today|asap)", re.IGNORECASE)
 
 #: Onay/karar bekleyen iş: bir başkasının "olur"u olmadan ilerlemez.
 _APPROVAL_RE = re.compile(
@@ -1075,7 +1071,12 @@ def render_markdown_document(report: "PublishedReport") -> str:
 
     stamp = report.generated_at_istanbul or report.generated_at
     if stamp:
-        out += ["", "---", "", f"_Hazırlanma: {stamp} (İstanbul) · AI Executive Assistant_"]
+        out += [
+            "",
+            "---",
+            "",
+            f"_Hazırlanma: {stamp} (İstanbul) · AI Executive Assistant_",
+        ]
 
     # Collapse the runs of blank lines the block assembly leaves behind.
     text = "\n".join(out)
@@ -1090,16 +1091,24 @@ def _spec_table_lines(spec: Dict[str, Any]) -> List[str]:
         return []
     labels = [str(c.get("label") or c.get("key") or "") for c in columns]
     keys = [str(c.get("key") or "") for c in columns]
-    lines = ["| " + " | ".join(labels) + " |", "| " + " | ".join("---" for _ in labels) + " |"]
+    lines = [
+        "| " + " | ".join(labels) + " |",
+        "| " + " | ".join("---" for _ in labels) + " |",
+    ]
     for row in rows[:50]:
         if isinstance(row, dict):
-            cells = [str(row.get(key, "") if row.get(key) is not None else "") for key in keys]
+            cells = [
+                str(row.get(key, "") if row.get(key) is not None else "")
+                for key in keys
+            ]
         elif isinstance(row, (list, tuple)):
             cells = [str(cell) for cell in row][: len(labels)]
             cells += [""] * (len(labels) - len(cells))
         else:
             continue
-        lines.append("| " + " | ".join(cell.replace("|", "\\|") for cell in cells) + " |")
+        lines.append(
+            "| " + " | ".join(cell.replace("|", "\\|") for cell in cells) + " |"
+        )
     return lines
 
 
@@ -1369,7 +1378,9 @@ def publish(
     try:
         costs = estimate_token_costs(briefings)
         publication.reports = [
-            build_report(b, day, moment, tokens=costs.get(str(getattr(b, "key", "")), 0))
+            build_report(
+                b, day, moment, tokens=costs.get(str(getattr(b, "key", "")), 0)
+            )
             for b in briefings
             if is_publishable(b)
         ]
@@ -1382,9 +1393,7 @@ def publish(
             return publication
 
         for report in publication.reports:
-            _write_json(
-                os.path.join(directory, f"{report.id}.json"), report.document()
-            )
+            _write_json(os.path.join(directory, f"{report.id}.json"), report.document())
 
         cards = _merge_cards(existing_index.get("reports"), publication.reports)
         mode = str(getattr(supervision, "mode", MODE_FULL) or MODE_FULL)

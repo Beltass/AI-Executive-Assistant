@@ -210,10 +210,15 @@ def _private_line(briefing: Any, channel_link: str) -> dict:
     key = str(getattr(briefing, "key", "") or "")
     meta = reports.ADVISOR_META.get(key, reports.DEFAULT_META)
     title = str(getattr(briefing, "title", "") or key)
-    headline = clip(
-        to_mrkdwn(reports.extract_headline(str(getattr(briefing, "text", "") or ""))),
-        400,
-    ) or "_(özet çıkarılamadı)_"
+    headline = (
+        clip(
+            to_mrkdwn(
+                reports.extract_headline(str(getattr(briefing, "text", "") or ""))
+            ),
+            400,
+        )
+        or "_(özet çıkarılamadı)_"
+    )
     tail = (
         f"<{channel_link}|💬 Kendi kanalında tam bölüm>"
         if channel_link
@@ -321,13 +326,19 @@ def build_index_message(
     # A private advisor that already has its own channel is summarised by one
     # line; one that does not is still inlined in full — that body has nowhere
     # else to go.
-    summarised = [b for b in private if str(getattr(b, "key", "")) in delivered_elsewhere]
-    inlined = [b for b in private if str(getattr(b, "key", "")) not in delivered_elsewhere]
+    summarised = [
+        b for b in private if str(getattr(b, "key", "")) in delivered_elsewhere
+    ]
+    inlined = [
+        b for b in private if str(getattr(b, "key", "")) not in delivered_elsewhere
+    ]
 
     for briefing in summarised:
         if len(blocks) >= MAX_BLOCKS - 2:
             break
-        blocks.append(_private_line(briefing, links.get(str(getattr(briefing, "key", "")), "")))
+        blocks.append(
+            _private_line(briefing, links.get(str(getattr(briefing, "key", "")), ""))
+        )
 
     for briefing in inlined:
         if len(blocks) >= MAX_BLOCKS - 2:
@@ -456,7 +467,9 @@ def _configure_logging() -> None:
     scheduled run auditable after the fact. Only configured for the CLI, so
     importing the module as a library still leaves logging untouched.
     """
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+    logging.basicConfig(
+        level=logging.INFO, format="%(levelname)s %(name)s: %(message)s"
+    )
 
 
 def _print_run_report(digest: Digest) -> None:

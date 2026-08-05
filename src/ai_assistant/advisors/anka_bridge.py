@@ -35,7 +35,9 @@ class AnkaBridgeAdvisor(Advisor):
     def _generate(self) -> Briefing:
         url = (os.getenv("ANKA_WEBHOOK_URL") or os.getenv("ANKA_API_URL") or "").strip()
         if not url:
-            return self.skipped("Anka endpoint not configured (ANKA_WEBHOOK_URL/ANKA_API_URL)")
+            return self.skipped(
+                "Anka endpoint not configured (ANKA_WEBHOOK_URL/ANKA_API_URL)"
+            )
 
         method = (os.getenv("ANKA_HTTP_METHOD") or "POST").strip().upper()
         headers = {}

@@ -23,8 +23,7 @@ USER_PROMPT = (
     "göster, ve 10 dakikalık küçük bir birlikte-etkinlik öner. Suçluluk "
     "hissettirmeyen, destekleyici bir dil kullan. Kaynaklar arasında "
     "ebeveynlik/çocuk gelişimi kitapları veya güvenilir eğitim platformları "
-    "önerebilirsin.\n\n"
-    + RICH_BRIEFING_GUIDE
+    "önerebilirsin.\n\n" + RICH_BRIEFING_GUIDE
 )
 
 

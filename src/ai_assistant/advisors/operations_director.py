@@ -285,7 +285,9 @@ def user_prompt(entries: Sequence[Tuple[str, str, str]]) -> str:
 # --- LLM'siz yol -------------------------------------------------------------
 
 
-def fallback_decisions(entries: Sequence[Tuple[str, str, str]], analyst: Any) -> List[Dict[str, str]]:
+def fallback_decisions(
+    entries: Sequence[Tuple[str, str, str]], analyst: Any
+) -> List[Dict[str, str]]:
     """Model olmadan üretilen karar listesi.
 
     Analistin kendi aksiyonları zaten sahibi ve süresi belli maddelerdir;
@@ -492,7 +494,9 @@ class OperationsDirectorAdvisor(Advisor):
     # -- yardımcılar ------------------------------------------------------
     def _fallback(self, entries: Sequence[Tuple[str, str, str]]) -> Briefing:
         decisions = fallback_decisions(entries, self._analyst())
-        return self._briefing(fallback_narrative(entries, decisions), decisions, entries)
+        return self._briefing(
+            fallback_narrative(entries, decisions), decisions, entries
+        )
 
     def _briefing(
         self,

@@ -23,7 +23,6 @@ from ai_assistant.integrations import STATUS_FAILED, STATUS_OK, STATUS_SKIPPED
 from ai_assistant.integrations.llm import CallStats
 from ai_assistant.operations_manager import Supervision
 
-
 # --- helpers ----------------------------------------------------------------
 
 
@@ -265,9 +264,12 @@ def test_record_run_never_raises_on_an_unwritable_path(tmp_path):
     """Fail-safe: a metrics failure must cost a measurement, never the run."""
     blocked = tmp_path / "file.txt"
     blocked.write_text("occupied", encoding="utf-8")
-    assert metrics.record_run(
-        _supervision({"a": 10}), path=str(blocked / "nested" / "metrics.json")
-    ) is None
+    assert (
+        metrics.record_run(
+            _supervision({"a": 10}), path=str(blocked / "nested" / "metrics.json")
+        )
+        is None
+    )
 
 
 def test_metrics_file_path_honours_the_env_var(monkeypatch, tmp_path):
@@ -318,8 +320,18 @@ def test_a_balanced_agent_is_not_called_out():
     history = [
         _run(
             agents=[
-                {"id": "a", "name": "A", "est_total_tokens": 5000, "output_chars": 5000},
-                {"id": "b", "name": "B", "est_total_tokens": 5000, "output_chars": 5000},
+                {
+                    "id": "a",
+                    "name": "A",
+                    "est_total_tokens": 5000,
+                    "output_chars": 5000,
+                },
+                {
+                    "id": "b",
+                    "name": "B",
+                    "est_total_tokens": 5000,
+                    "output_chars": 5000,
+                },
             ]
         )
         for _ in range(5)
@@ -355,7 +367,9 @@ def test_a_genuinely_cheap_incremental_run_is_praised_not_flagged():
     history = [_run(mode=MODE_FULL, prompt_tokens=10000, sections=12)] + [
         _run(mode=MODE_INCREMENTAL, prompt_tokens=1500, sections=3) for _ in range(3)
     ]
-    incremental = [t for t in metrics.recommendations(history) if "Artımlı" in t["title"]]
+    incremental = [
+        t for t in metrics.recommendations(history) if "Artımlı" in t["title"]
+    ]
     assert incremental and incremental[0]["severity"] == metrics.SEVERITY_GOOD
 
 
@@ -384,8 +398,18 @@ def test_every_recommendation_carries_a_severity_and_a_metric():
             retries=2,
             guide_saved_chars=26000,
             agents=[
-                {"id": "x", "name": "X", "est_total_tokens": 9000, "output_chars": 1000},
-                {"id": "y", "name": "Y", "est_total_tokens": 1000, "output_chars": 9000},
+                {
+                    "id": "x",
+                    "name": "X",
+                    "est_total_tokens": 9000,
+                    "output_chars": 1000,
+                },
+                {
+                    "id": "y",
+                    "name": "Y",
+                    "est_total_tokens": 1000,
+                    "output_chars": 9000,
+                },
             ],
         )
         for _ in range(6)
@@ -455,7 +479,9 @@ def test_llm_call_count_is_read_from_the_llm_layer(monkeypatch):
     llm_module.reset_call_count()
     monkeypatch.setattr(llm_module, "call_count", lambda: 15)
 
-    record = metrics.build_run_metrics(_supervision({"alpha": 100}), call_stats=_stats())
+    record = metrics.build_run_metrics(
+        _supervision({"alpha": 100}), call_stats=_stats()
+    )
 
     assert record["llm_call_count"] == 15
 

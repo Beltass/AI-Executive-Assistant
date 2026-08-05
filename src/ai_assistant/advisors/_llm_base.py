@@ -17,7 +17,6 @@ from typing import Optional
 from . import Advisor, BatchSection, Briefing
 from ..integrations import llm
 
-
 # Shared structure appended to persona USER prompts so every daily briefing is
 # deep, curiosity-provoking, source-linked and developmental — well-formatted
 # for Slack (Markdown headings/bullets). Personas can inline it via
@@ -105,9 +104,7 @@ class LLMAdvisor(Advisor):
 
     def _generate(self) -> Briefing:
         if not llm.is_configured():
-            return self.skipped(
-                "missing env var(s): GEMINI_API_KEY or OPENAI_API_KEY"
-            )
+            return self.skipped("missing env var(s): GEMINI_API_KEY or OPENAI_API_KEY")
         try:
             text = llm.generate_text(self.system_prompt, self.user_prompt)
         except Exception as exc:

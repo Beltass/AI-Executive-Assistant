@@ -20,8 +20,7 @@ USER_PROMPT = (
     "(süre, sıklık, hangi adım), 'önce/sonra' biçiminde gerçek bir örnek ver "
     "(örneğin zayıf bir CV maddesinin güçlü hâli ya da 15 dakikalık bir dil "
     "pratiği planı), ilerlemenin nasıl ölçüleceğini söyle ve 4 haftalık kısa "
-    "bir yol haritası çıkar. Genel geçer tavsiyelerden kaçın.\n\n"
-    + RICH_BRIEFING_GUIDE
+    "bir yol haritası çıkar. Genel geçer tavsiyelerden kaçın.\n\n" + RICH_BRIEFING_GUIDE
 )
 
 

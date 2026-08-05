@@ -105,9 +105,9 @@ class TestActionCenterSections:
         assert f'id="{element}"' in html
 
     def test_sections_read_the_real_files_not_a_fixture(self, app):
-        block = app.split("/* TAB 0 — 🎯 Aksiyon Merkezi", 1)[1].split(
-            "/* TAB 1 —", 1
-        )[0]
+        block = app.split("/* TAB 0 — 🎯 Aksiyon Merkezi", 1)[1].split("/* TAB 1 —", 1)[
+            0
+        ]
         code = re.sub(r"/\*.*?\*/", "", block, flags=re.S)  # yorumlar kod değil
         code = re.sub(r"//[^\n]*", "", code)
         # Gerçek kaynaklar

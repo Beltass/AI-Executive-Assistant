@@ -203,8 +203,7 @@ def get_credentials() -> "Credentials":
         from google.oauth2.credentials import Credentials
     except ImportError as exc:  # optional dependency not installed
         raise GoogleAuthError(
-            "google-auth libraries not installed; run "
-            "`pip install -e \".[dev]\"`"
+            "google-auth libraries not installed; run " '`pip install -e ".[dev]"`'
         ) from exc
 
     source = credentials_source()
@@ -258,8 +257,7 @@ def run_login_flow() -> "Credentials":
         from google_auth_oauthlib.flow import InstalledAppFlow
     except ImportError as exc:  # optional dependency not installed
         raise GoogleAuthError(
-            "google-auth-oauthlib not installed; run "
-            "`pip install -e \".[dev]\"`"
+            "google-auth-oauthlib not installed; run " '`pip install -e ".[dev]"`'
         ) from exc
 
     secrets_file = _client_secrets_file()
@@ -288,7 +286,11 @@ def run_login_flow() -> "Credentials":
 
 def main(argv: Optional[list] = None) -> int:
     """CLI entrypoint for the one-time login flow."""
-    if not google_configured() and _inline_client_config() is None and _client_secrets_file() is None:
+    if (
+        not google_configured()
+        and _inline_client_config() is None
+        and _client_secrets_file() is None
+    ):
         print(
             "No Google client credentials configured.\n"
             "Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET (or "
@@ -352,9 +354,9 @@ def cloud_setup_instructions(has_refresh_token: bool) -> str:
         "  - GOOGLE_REFRESH_TOKEN",
         "",
         "Where to read the values from (they are NOT printed here on purpose):",
-        f"  - GOOGLE_REFRESH_TOKEN -> the \"refresh_token\" field in {path}",
-        f"  - GOOGLE_CLIENT_ID     -> the \"client_id\" field in {path}",
-        f"  - GOOGLE_CLIENT_SECRET -> the \"client_secret\" field in {path}",
+        f'  - GOOGLE_REFRESH_TOKEN -> the "refresh_token" field in {path}',
+        f'  - GOOGLE_CLIENT_ID     -> the "client_id" field in {path}',
+        f'  - GOOGLE_CLIENT_SECRET -> the "client_secret" field in {path}',
         "    (or from the OAuth client in the Google Cloud console)",
         "",
         f"Keep {path} out of git — it is already git-ignored — and never paste "

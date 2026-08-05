@@ -79,12 +79,12 @@ MEETING_ANALYSIS_SYSTEM_PROMPT = (
     "- İsimleri metinde geçtiği gibi kullan. Örnek isim veya yer tutucu isim "
     "KULLANMA.\n"
     "- 'deadline_text' alanına tarihi konuşmada söylendiği HÂLİYLE yaz "
-    "(\"cuma gününe kadar\", \"iki hafta içinde\", \"ayın 15'i\"). Tarih "
+    '("cuma gününe kadar", "iki hafta içinde", "ayın 15\'i"). Tarih '
     "söylenmediyse boş string bırak.\n"
     "- 'deadline_iso' alanına aynı tarihin YYYY-MM-DD tahminini yaz; emin "
     "değilsen boş string bırak.\n"
     "- 'priority' 1 (düşük) ile 5 (kritik) arası bir tam sayıdır.\n"
-    "- 'impact' ve 'urgency' yalnızca \"low\", \"medium\" veya \"high\" "
+    '- \'impact\' ve \'urgency\' yalnızca "low", "medium" veya "high" '
     "olabilir.\n"
     "- 'competitive_actions' yalnızca RAKİPLERLE ilgili bir şey konuşulduysa "
     "doldurulur; konuşulmadıysa boş liste döndür.\n"
@@ -277,39 +277,39 @@ class MeetingNotes:
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         return {
-            'meeting_id': self.meeting_id,
-            'title': self.title,
-            'date': self.date.isoformat(),
-            'attendees': self.attendees,
-            'audio_file_url': self.audio_file_url,
-            'transcript_text': self.transcript_text,
-            'summary': self.summary,
-            'findings': self.findings,
-            'action_items': [
+            "meeting_id": self.meeting_id,
+            "title": self.title,
+            "date": self.date.isoformat(),
+            "attendees": self.attendees,
+            "audio_file_url": self.audio_file_url,
+            "transcript_text": self.transcript_text,
+            "summary": self.summary,
+            "findings": self.findings,
+            "action_items": [
                 {
-                    'id': ai.id,
-                    'description': ai.description,
-                    'owner': ai.owner,
-                    'deadline': ai.deadline.isoformat() if ai.deadline else None,
-                    'priority': ai.priority,
-                    'status': ai.status,
-                    'created_at': ai.created_at.isoformat(),
+                    "id": ai.id,
+                    "description": ai.description,
+                    "owner": ai.owner,
+                    "deadline": ai.deadline.isoformat() if ai.deadline else None,
+                    "priority": ai.priority,
+                    "status": ai.status,
+                    "created_at": ai.created_at.isoformat(),
                 }
                 for ai in self.action_items
             ],
-            'competitive_actions': [
+            "competitive_actions": [
                 {
-                    'id': ca.id,
-                    'description': ca.description,
-                    'impact': ca.impact,
-                    'urgency': ca.urgency,
-                    'recommended_action': ca.recommended_action,
+                    "id": ca.id,
+                    "description": ca.description,
+                    "impact": ca.impact,
+                    "urgency": ca.urgency,
+                    "recommended_action": ca.recommended_action,
                 }
                 for ca in self.competitive_actions
             ],
-            'next_steps': self.next_steps,
-            'drive_folder_id': self.drive_folder_id,
-            'created_at': self.created_at.isoformat(),
+            "next_steps": self.next_steps,
+            "drive_folder_id": self.drive_folder_id,
+            "created_at": self.created_at.isoformat(),
         }
 
 
@@ -481,9 +481,7 @@ class MeetingNotesAgent(Advisor):
 
         transcript = (transcript or "").strip()
         if not transcript:
-            self.last_transcription_error = (
-                f"model boş transkript döndürdü ({label})"
-            )
+            self.last_transcription_error = f"model boş transkript döndürdü ({label})"
             self.logger.error(self.last_transcription_error)
             return ""
 
@@ -577,9 +575,7 @@ class MeetingNotesAgent(Advisor):
             )
             return meeting_notes
 
-        self.logger.info(
-            f"Analyzing meeting: {meeting_title} ({len(body)} characters)"
-        )
+        self.logger.info(f"Analyzing meeting: {meeting_title} ({len(body)} characters)")
 
         try:
             # Off the event loop: a blocking HTTP call with retries behind it.
@@ -600,9 +596,7 @@ class MeetingNotesAgent(Advisor):
         try:
             payload = _parse_analysis_json(raw)
         except ValueError as e:
-            self.last_analysis_error = (
-                f"analiz yanıtı okunamadı ({meeting_title}): {e}"
-            )
+            self.last_analysis_error = f"analiz yanıtı okunamadı ({meeting_title}): {e}"
             self.logger.error(
                 "%s — ham yanıt %d karakter", self.last_analysis_error, len(raw or "")
             )
@@ -689,15 +683,19 @@ class MeetingNotesAgent(Advisor):
             reports = {}
 
             # Generate and upload markdown summary
-            summary_doc_id = await self._generate_summary_doc(meeting_notes, meeting_folder_id)
+            summary_doc_id = await self._generate_summary_doc(
+                meeting_notes, meeting_folder_id
+            )
             if summary_doc_id:
-                reports['summary_doc'] = summary_doc_id
+                reports["summary_doc"] = summary_doc_id
                 self.logger.info(f"Created summary doc: {summary_doc_id}")
 
             # Generate and upload task list
-            tasks_doc_id = await self._generate_tasks_doc(meeting_notes, meeting_folder_id)
+            tasks_doc_id = await self._generate_tasks_doc(
+                meeting_notes, meeting_folder_id
+            )
             if tasks_doc_id:
-                reports['tasks_doc'] = tasks_doc_id
+                reports["tasks_doc"] = tasks_doc_id
                 self.logger.info(f"Created tasks doc: {tasks_doc_id}")
 
             return reports
@@ -762,7 +760,9 @@ class MeetingNotesAgent(Advisor):
 |-------|---------|----------|---------|-------|
 """
             for item in meeting_notes.action_items:
-                deadline_str = item.deadline.strftime('%Y-%m-%d') if item.deadline else 'TBD'
+                deadline_str = (
+                    item.deadline.strftime("%Y-%m-%d") if item.deadline else "TBD"
+                )
                 content += f"| {item.description} | {item.owner} | {deadline_str} | {item.priority} | {item.status} |\n"
 
             doc_id = self.drive_manager.create_google_doc(
@@ -840,9 +840,7 @@ class MeetingNotesAgent(Advisor):
             )
 
             if response.get("ok"):
-                self.logger.info(
-                    f"Deadline reminders sent for {len(upcoming)} tasks"
-                )
+                self.logger.info(f"Deadline reminders sent for {len(upcoming)} tasks")
                 return True
             else:
                 self.logger.error(
@@ -854,7 +852,9 @@ class MeetingNotesAgent(Advisor):
             self.logger.error(f"Failed to send deadline reminders: {e}")
             return False
 
-    def _build_deadline_reminder_blocks(self, tasks: List[Task]) -> List[Dict[str, Any]]:
+    def _build_deadline_reminder_blocks(
+        self, tasks: List[Task]
+    ) -> List[Dict[str, Any]]:
         """Build Block Kit message for deadline reminders.
 
         Args:
@@ -876,9 +876,7 @@ class MeetingNotesAgent(Advisor):
 
         for task in tasks:
             deadline_str = (
-                task.deadline.strftime("%Y-%m-%d")
-                if task.deadline
-                else "TBD"
+                task.deadline.strftime("%Y-%m-%d") if task.deadline else "TBD"
             )
             priority_emoji = self._get_priority_emoji(task.priority)
 

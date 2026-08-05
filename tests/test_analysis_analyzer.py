@@ -177,7 +177,7 @@ def test_group_by_computes_mean_median_min_max_and_count():
         descending=False,
     )
     rows = {row["G"]: row for row in table.rows}
-    assert rows["A"]["v_mean"] == pytest.approx(3.0)      # (1+2+6)/3
+    assert rows["A"]["v_mean"] == pytest.approx(3.0)  # (1+2+6)/3
     assert rows["A"]["v_median"] == pytest.approx(2.0)
     assert rows["A"]["v_min"] == pytest.approx(1.0)
     assert rows["A"]["v_max"] == pytest.approx(6.0)
@@ -224,7 +224,9 @@ def test_group_by_two_dimensions_makes_one_row_per_combination():
         ],
     )
     table = group_by(data, ["Vardiya", "Kuyruk"], [Measure("Çağrı Adedi", "sum")])
-    cells = {(row["Vardiya"], row["Kuyruk"]): row["çağrı_adedi_sum"] for row in table.rows}
+    cells = {
+        (row["Vardiya"], row["Kuyruk"]): row["çağrı_adedi_sum"] for row in table.rows
+    }
     assert cells == {
         ("Sabah", "Teknik"): 50.0,
         ("Sabah", "Fatura"): 20.0,
@@ -234,9 +236,7 @@ def test_group_by_two_dimensions_makes_one_row_per_combination():
 
 
 def test_group_by_truncates_and_says_so():
-    data = profile_table(
-        ["Kod", "V"], [[f"K{i:03d}", str(i)] for i in range(30)]
-    )
+    data = profile_table(["Kod", "V"], [[f"K{i:03d}", str(i)] for i in range(30)])
     table = group_by(data, ["Kod"], [Measure("V", "sum")], limit=5)
     assert len(table.rows) == 5
     assert table.truncated == 25
@@ -281,7 +281,10 @@ def test_pivot_column_specs_describe_a_sortable_table():
 def _six_days():
     return profile_table(
         ["Tarih", "Değer"],
-        [[f"0{day}.01.2026", str(value)] for day, value in zip(range(1, 7), [10, 20, 30, 40, 50, 60])],
+        [
+            [f"0{day}.01.2026", str(value)]
+            for day, value in zip(range(1, 7), [10, 20, 30, 40, 50, 60])
+        ],
     )
 
 
@@ -291,8 +294,8 @@ def test_time_series_deltas_and_moving_average_are_exact():
     assert [point.label for point in series.points][0] == "01.01.2026"
     # Period-over-period difference: the first point has no predecessor.
     assert [point.delta for point in series.points] == [None, 10, 10, 10, 10, 10]
-    assert series.points[1].delta_pct == pytest.approx(100.0)   # 10 → 20
-    assert series.points[5].delta_pct == pytest.approx(20.0)    # 50 → 60
+    assert series.points[1].delta_pct == pytest.approx(100.0)  # 10 → 20
+    assert series.points[5].delta_pct == pytest.approx(20.0)  # 50 → 60
     # 3-period moving average, growing into its window.
     assert [point.moving for point in series.points] == [10, 15, 20, 30, 40, 50]
 
@@ -325,9 +328,9 @@ def test_time_series_can_bucket_by_week_and_month():
     data = profile_table(
         ["Tarih", "Değer"],
         [
-            ["05.01.2026", "1"],   # Monday
-            ["07.01.2026", "2"],   # same week
-            ["12.01.2026", "4"],   # next week
+            ["05.01.2026", "1"],  # Monday
+            ["07.01.2026", "2"],  # same week
+            ["12.01.2026", "4"],  # next week
             ["03.02.2026", "8"],
         ],
     )
@@ -381,7 +384,9 @@ def test_iqr_outlier_band_is_computed_exactly():
     assert report.total == 8
     assert report.count == 1
     assert report.rate == pytest.approx(1 / 8)
-    assert [(o.value, o.side, o.context) for o in report.examples] == [(100.0, "üst", "r7")]
+    assert [(o.value, o.side, o.context) for o in report.examples] == [
+        (100.0, "üst", "r7")
+    ]
     assert "1 aykırı ölçüm" in report.interpretation
 
 
@@ -423,8 +428,8 @@ def test_outliers_refuses_a_column_that_is_not_numeric():
 def test_pearson_recognises_the_textbook_cases():
     assert pearson([1, 2, 3, 4, 5], [2, 4, 6, 8, 10]) == pytest.approx(1.0)
     assert pearson([1, 2, 3, 4, 5], [10, 8, 6, 4, 2]) == pytest.approx(-1.0)
-    assert pearson([1, 2, 3, 4], [1, 1, 1, 1]) is None       # no variance
-    assert pearson([1, 2], [3, 4]) is None                   # too few pairs
+    assert pearson([1, 2, 3, 4], [1, 1, 1, 1]) is None  # no variance
+    assert pearson([1, 2], [3, 4]) is None  # too few pairs
 
 
 def test_pearson_matches_a_hand_computed_value():
@@ -433,7 +438,9 @@ def test_pearson_matches_a_hand_computed_value():
     #   var_x = 2,25 + 0,25 + 0,25 + 2,25                                = 5
     #   var_y = 3,0625 + 0,0625 + 1,5625 + 0,0625                        = 4,75
     #   r     = 3,5 / √(5 · 4,75) = 3,5 / 4,8734 = 0,71818…
-    assert pearson([1, 2, 3, 4], [2, 4, 5, 4]) == pytest.approx(3.5 / math.sqrt(5 * 4.75))
+    assert pearson([1, 2, 3, 4], [2, 4, 5, 4]) == pytest.approx(
+        3.5 / math.sqrt(5 * 4.75)
+    )
     assert pearson([1, 2, 3, 4], [2, 4, 5, 4]) == pytest.approx(0.7182, abs=1e-4)
 
 
@@ -567,7 +574,15 @@ def test_make_finding_computes_the_delta_and_picks_a_tone():
 
 def test_call_centre_kpis_are_derived_from_the_real_columns(call_centre):
     findings = {f.key: f for f in call_center_kpis(call_centre, sla_target=80.0)}
-    assert set(findings) >= {"calls_total", "sla", "abandon_rate", "aht", "occupancy", "csat", "asa"}
+    assert set(findings) >= {
+        "calls_total",
+        "sla",
+        "abandon_rate",
+        "aht",
+        "occupancy",
+        "csat",
+        "asa",
+    }
 
     assert findings["calls_total"].value == pytest.approx(10382.0)
     # Abandon rate is derived, not read: 511 / 10382 = 4,92 %.
@@ -588,7 +603,7 @@ def test_sla_below_target_is_flagged_as_a_problem():
     findings = {f.key: f for f in call_center_kpis(data, sla_target=80.0)}
     sla = findings["sla"]
     assert sla.value == pytest.approx(60.0)
-    assert sla.tone == TONE_BAD          # more than 5 points below target
+    assert sla.tone == TONE_BAD  # more than 5 points below target
     assert "altında" in sla.interpretation
 
 
@@ -694,9 +709,11 @@ def test_all_text_data_degrades_to_a_distribution_note():
 
 
 def test_three_rows_do_not_break_anything():
-    data = profile_table(["Tarih", "V"], [["01.01.2026", "1"], ["02.01.2026", "2"], ["03.01.2026", "3"]])
+    data = profile_table(
+        ["Tarih", "V"], [["01.01.2026", "1"], ["02.01.2026", "2"], ["03.01.2026", "3"]]
+    )
     result = analyze(data)
-    assert result.outliers == []          # too few measurements for IQR
+    assert result.outliers == []  # too few measurements for IQR
     assert result.headline
 
 
@@ -708,9 +725,7 @@ def test_a_dimension_only_table_produces_a_result_without_raising():
 
 
 def test_analyze_never_divides_by_zero_on_constant_data():
-    data = profile_table(
-        ["Tarih", "V"], [[f"0{d}.01.2026", "0"] for d in range(1, 8)]
-    )
+    data = profile_table(["Tarih", "V"], [[f"0{d}.01.2026", "0"] for d in range(1, 8)])
     result = analyze(data)
     for series in result.series:
         assert series.change_pct is None or math.isfinite(series.change_pct)

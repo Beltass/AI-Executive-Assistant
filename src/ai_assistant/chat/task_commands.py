@@ -91,16 +91,14 @@ class TaskCommandParser:
         Format: /task create "Title" "@person" "2026-08-10" "HIGH"
         """
         if not self.task_tracker:
-            return CommandResult(
-                success=False, message="Task tracker not available"
-            )
+            return CommandResult(success=False, message="Task tracker not available")
 
         # Parse quoted arguments
         parts = self._parse_quoted_args(args, 4)
         if len(parts) < 3:
             return CommandResult(
                 success=False,
-                message="Usage: /task create \"Title\" \"@person\" \"YYYY-MM-DD\" "
+                message='Usage: /task create "Title" "@person" "YYYY-MM-DD" '
                 "[priority: 1-5]",
             )
 
@@ -156,18 +154,14 @@ class TaskCommandParser:
         - /task list @person (person's tasks)
         """
         if not self.task_tracker:
-            return CommandResult(
-                success=False, message="Task tracker not available"
-            )
+            return CommandResult(success=False, message="Task tracker not available")
 
         filter_type = args.strip().lower() if args else "all"
         tasks = []
 
         if filter_type == "all":
             tasks = [
-                t
-                for t in self.task_tracker.tasks.values()
-                if t.status != "completed"
+                t for t in self.task_tracker.tasks.values() if t.status != "completed"
             ]
         elif filter_type == "mine":
             tasks = self.task_tracker.get_tasks_by_owner(user_id)
@@ -187,7 +181,9 @@ class TaskCommandParser:
             )
 
         # Sort by deadline
-        tasks.sort(key=lambda t: t.deadline or datetime.max.replace(tzinfo=timezone.utc))
+        tasks.sort(
+            key=lambda t: t.deadline or datetime.max.replace(tzinfo=timezone.utc)
+        )
 
         # Build block format
         blocks = [
@@ -202,9 +198,7 @@ class TaskCommandParser:
 
         for task in tasks[:20]:  # Limit to 20 to avoid message size limits
             deadline_str = (
-                task.deadline.strftime("%Y-%m-%d")
-                if task.deadline
-                else "No deadline"
+                task.deadline.strftime("%Y-%m-%d") if task.deadline else "No deadline"
             )
             days_left = task.days_until_deadline if task.deadline else None
             urgency = ""
@@ -239,9 +233,7 @@ class TaskCommandParser:
         Format: /task done <task_id>
         """
         if not self.task_tracker:
-            return CommandResult(
-                success=False, message="Task tracker not available"
-            )
+            return CommandResult(success=False, message="Task tracker not available")
 
         task_id = args.strip()
         if not task_id:
@@ -272,15 +264,13 @@ class TaskCommandParser:
         Format: /task reschedule <task_id> "2026-08-15"
         """
         if not self.task_tracker:
-            return CommandResult(
-                success=False, message="Task tracker not available"
-            )
+            return CommandResult(success=False, message="Task tracker not available")
 
         parts = args.split(None, 1)
         if len(parts) < 2:
             return CommandResult(
                 success=False,
-                message="Usage: /task reschedule <task_id> \"YYYY-MM-DD\"",
+                message='Usage: /task reschedule <task_id> "YYYY-MM-DD"',
             )
 
         task_id = parts[0]
@@ -315,15 +305,13 @@ class TaskCommandParser:
         Format: /task assign <task_id> "@person"
         """
         if not self.task_tracker:
-            return CommandResult(
-                success=False, message="Task tracker not available"
-            )
+            return CommandResult(success=False, message="Task tracker not available")
 
         parts = args.split(None, 1)
         if len(parts) < 2:
             return CommandResult(
                 success=False,
-                message="Usage: /task assign <task_id> \"@person\"",
+                message='Usage: /task assign <task_id> "@person"',
             )
 
         task_id = parts[0]
@@ -352,9 +340,7 @@ class TaskCommandParser:
         Format: /task priority <task_id> <1-5>
         """
         if not self.task_tracker:
-            return CommandResult(
-                success=False, message="Task tracker not available"
-            )
+            return CommandResult(success=False, message="Task tracker not available")
 
         parts = args.split()
         if len(parts) < 2:
@@ -398,15 +384,13 @@ class TaskCommandParser:
         Format: /task notes <task_id> "text"
         """
         if not self.task_tracker:
-            return CommandResult(
-                success=False, message="Task tracker not available"
-            )
+            return CommandResult(success=False, message="Task tracker not available")
 
         parts = args.split(None, 1)
         if len(parts) < 2:
             return CommandResult(
                 success=False,
-                message="Usage: /task notes <task_id> \"note text\"",
+                message='Usage: /task notes <task_id> "note text"',
             )
 
         task_id = parts[0]

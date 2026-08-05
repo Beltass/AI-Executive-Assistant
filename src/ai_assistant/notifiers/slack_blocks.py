@@ -226,12 +226,16 @@ def _fit_section(text: str) -> str:
     return clip(body, MAX_SECTION_CHARS, marker=TRUNCATION_NOTE)
 
 
-def fields_section(pairs: Sequence[Tuple[str, str]], title: str = "") -> Optional[Dict[str, Any]]:
+def fields_section(
+    pairs: Sequence[Tuple[str, str]], title: str = ""
+) -> Optional[Dict[str, Any]]:
     """Sayısal göstergeler için ``fields`` bloğu — Slack bunları ikişerli dizer.
 
     Telefonda okunan en iyi biçim bu: etiket üstte kalın, değer altında.
     """
-    items = [(str(label or "").strip(), str(value or "").strip()) for label, value in pairs]
+    items = [
+        (str(label or "").strip(), str(value or "").strip()) for label, value in pairs
+    ]
     items = [(label, value) for label, value in items if label or value]
     if not items:
         return None
@@ -270,7 +274,9 @@ def fit_blocks(
 
 def dashboard_base_url() -> str:
     """Panonun herkese açık kök adresi, her zaman sonunda eğik çizgiyle."""
-    raw = (os.getenv(DASHBOARD_BASE_URL_ENV) or "").strip() or DEFAULT_DASHBOARD_BASE_URL
+    raw = (
+        os.getenv(DASHBOARD_BASE_URL_ENV) or ""
+    ).strip() or DEFAULT_DASHBOARD_BASE_URL
     return raw if raw.endswith("/") else raw + "/"
 
 
@@ -283,7 +289,9 @@ def report_url(report: Any, base: str = "") -> str:
 # --- raporun parçaları ------------------------------------------------------
 
 
-def _meta_line(report: Any, new_findings: int = 0, now: Optional[datetime] = None) -> str:
+def _meta_line(
+    report: Any, new_findings: int = 0, now: Optional[datetime] = None
+) -> str:
     """Başlığın altındaki tek bağlam satırı: saat · okuma süresi · tazelik."""
     stamp = str(getattr(report, "generated_at_istanbul", "") or "").strip()
     if not stamp and now is not None:
@@ -346,7 +354,9 @@ def _bullets(report: Any, skip: str = "") -> Tuple[List[str], bool]:
         lead = first_sentence(getattr(part, "body", "") or "")
         if lead and plain(lead).casefold() == normal:
             lead = ""
-        titled.append(f"*{clip(title, 80)}* — {lead}" if lead else f"*{clip(title, 120)}*")
+        titled.append(
+            f"*{clip(title, 80)}* — {lead}" if lead else f"*{clip(title, 120)}*"
+        )
     if titled:
         return titled[:MAX_BULLETS], len(titled) > MAX_BULLETS
 
@@ -396,7 +406,9 @@ def _source_block(report: Any) -> Optional[Dict[str, Any]]:
             links.append(f"<{url}|{clip(title, 60)}>")
     if not links:
         return None
-    tail = f" · +{len(sources) - len(links)} kaynak" if len(sources) > len(links) else ""
+    tail = (
+        f" · +{len(sources) - len(links)} kaynak" if len(sources) > len(links) else ""
+    )
     return context("🔗 " + " · ".join(links) + tail)
 
 
@@ -477,7 +489,9 @@ def build_report_message(
     now: Optional[datetime] = None,
 ) -> Tuple[str, List[Dict[str, Any]]]:
     """``(bildirim metni, bloklar)`` — Slack blocks ile birlikte metin İSTER."""
-    blocks = report_blocks(report, base_url=base_url, new_findings=new_findings, now=now)
+    blocks = report_blocks(
+        report, base_url=base_url, new_findings=new_findings, now=now
+    )
     emoji = str(getattr(report, "emoji", "") or "🧩")
     name = plain(getattr(report, "name", "") or "Rapor")
     headline = plain(getattr(report, "headline", "") or "")
@@ -519,5 +533,7 @@ def build_briefing_message(
     max_body_blocks: int = 3,
 ) -> Tuple[str, List[Dict[str, Any]]]:
     """``(bildirim metni, bloklar)`` — özel bölüm için."""
-    blocks = briefing_blocks(title, briefing, emoji=emoji, max_body_blocks=max_body_blocks)
+    blocks = briefing_blocks(
+        title, briefing, emoji=emoji, max_body_blocks=max_body_blocks
+    )
     return clip(f"{emoji} {plain(title)}", MAX_FALLBACK_CHARS), blocks

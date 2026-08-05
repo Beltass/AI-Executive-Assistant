@@ -95,9 +95,20 @@ def _measure_column(measure: Any) -> Dict[str, Any]:
     unit = measure.unit
     label = measure.title()
     if unit == "%":
-        return {"key": measure.key, "label": label, "type": "pct", "digits": 1, "barMax": 100}
+        return {
+            "key": measure.key,
+            "label": label,
+            "type": "pct",
+            "digits": 1,
+            "barMax": 100,
+        }
     if unit == "sn":
-        return {"key": measure.key, "label": f"{label} — dk", "type": "num", "digits": 1}
+        return {
+            "key": measure.key,
+            "label": f"{label} — dk",
+            "type": "num",
+            "digits": 1,
+        }
     return {"key": measure.key, "label": label, "type": "num", "digits": 0}
 
 
@@ -112,13 +123,16 @@ def _measure_value(measure: Any, value: Any) -> Any:
 def pivot_table_spec(pivot: PivotTable, limit: int = MAX_TABLE_ROWS) -> Dict[str, Any]:
     """Bir kırılımı, ön yüzün sıralanabilir tablo tanımına çevirir."""
     columns: List[Dict[str, Any]] = [
-        {"key": dimension, "label": dimension, "type": "text"} for dimension in pivot.dimensions
+        {"key": dimension, "label": dimension, "type": "text"}
+        for dimension in pivot.dimensions
     ]
     columns += [_measure_column(measure) for measure in pivot.measures]
 
     rows: List[Dict[str, Any]] = []
     for entry in pivot.rows[:limit]:
-        row: Dict[str, Any] = {dimension: entry.get(dimension, "") for dimension in pivot.dimensions}
+        row: Dict[str, Any] = {
+            dimension: entry.get(dimension, "") for dimension in pivot.dimensions
+        }
         for measure in pivot.measures:
             row[measure.key] = _measure_value(measure, entry.get(measure.key))
         rows.append(row)
@@ -128,7 +142,9 @@ def pivot_table_spec(pivot: PivotTable, limit: int = MAX_TABLE_ROWS) -> Dict[str
         for index, dimension in enumerate(pivot.dimensions):
             total_row[dimension] = "TOPLAM" if index == 0 else ""
         for measure in pivot.measures:
-            total_row[measure.key] = _measure_value(measure, pivot.totals.get(measure.key))
+            total_row[measure.key] = _measure_value(
+                measure, pivot.totals.get(measure.key)
+            )
         rows.append(total_row)
 
     note = pivot.note or ""
@@ -142,17 +158,25 @@ def pivot_table_spec(pivot: PivotTable, limit: int = MAX_TABLE_ROWS) -> Dict[str
         "note": note or None,
         # Ön sıralama: en büyük ölçütten başla — "kim en çok / en yüksek" sorusu
         # rapora bakan kişinin ilk sorusudur. Başlığa tıklayınca değişir.
-        "sort": {"key": pivot.measures[0].key, "dir": "desc"} if pivot.measures else None,
+        "sort": (
+            {"key": pivot.measures[0].key, "dir": "desc"} if pivot.measures else None
+        ),
     }
 
 
-def pivot_chart_spec(pivot: PivotTable, chart_type: str = "") -> Optional[Dict[str, Any]]:
+def pivot_chart_spec(
+    pivot: PivotTable, chart_type: str = ""
+) -> Optional[Dict[str, Any]]:
     """Kırılımın grafiği: az dilim varsa halka, çoksa yatay çubuk."""
     if not pivot.rows or not pivot.measures:
         return None
     measure = pivot.measures[0]
     dimension = pivot.dimensions[0]
-    rows = [row for row in pivot.rows[:MAX_CHART_CATEGORIES] if isinstance(row.get(measure.key), (int, float))]
+    rows = [
+        row
+        for row in pivot.rows[:MAX_CHART_CATEGORIES]
+        if isinstance(row.get(measure.key), (int, float))
+    ]
     if not rows:
         return None
 
@@ -190,11 +214,16 @@ def pivot_chart_spec(pivot: PivotTable, chart_type: str = "") -> Optional[Dict[s
             }
             for index, row in enumerate(rows)
         ],
-        "options": {"unit": measure.unit, "aria": f"{dimension} bazında {measure.title()}"},
+        "options": {
+            "unit": measure.unit,
+            "aria": f"{dimension} bazında {measure.title()}",
+        },
     }
 
 
-def series_chart_spec(series: TimeSeries, chart_type: str = "") -> Optional[Dict[str, Any]]:
+def series_chart_spec(
+    series: TimeSeries, chart_type: str = ""
+) -> Optional[Dict[str, Any]]:
     """Zaman serisinin çizgi grafiği: değer + hareketli ortalama."""
     points = [p for p in series.points if p.value is not None]
     if len(points) < 2:
@@ -204,7 +233,8 @@ def series_chart_spec(series: TimeSeries, chart_type: str = "") -> Optional[Dict
             "type": "bar",
             "title": series.title,
             "data": [
-                {"label": p.short or p.label, "value": round(float(p.value), 2)} for p in points
+                {"label": p.short or p.label, "value": round(float(p.value), 2)}
+                for p in points
             ],
             "options": {"orientation": "vertical", "unit": series.unit},
         }
@@ -226,7 +256,11 @@ def series_chart_spec(series: TimeSeries, chart_type: str = "") -> Optional[Dict
                 "name": "Hareketli ortalama (3 dönem)",
                 "color": "var(--neutral)",
                 "points": [
-                    {"value": round(float(p.moving), 2), "label": p.label, "short": p.short}
+                    {
+                        "value": round(float(p.moving), 2),
+                        "label": p.label,
+                        "short": p.short,
+                    }
                     for p in moving
                 ],
             }
@@ -240,15 +274,27 @@ def series_chart_spec(series: TimeSeries, chart_type: str = "") -> Optional[Dict
     }
 
 
-def series_table_spec(series: TimeSeries, limit: int = MAX_TABLE_ROWS) -> Dict[str, Any]:
+def series_table_spec(
+    series: TimeSeries, limit: int = MAX_TABLE_ROWS
+) -> Dict[str, Any]:
     """Serinin sayısal karşılığı — grafiğin yanında her zaman tablo da olur."""
     unit_suffix = " — dk" if series.unit == "sn" else ""
     columns = [
         {"key": "period", "label": "Dönem", "type": "text"},
         {"key": "value", "label": f"Değer{unit_suffix}", "type": "num", "digits": 1},
-        {"key": "delta", "label": "Fark", "type": "trend", "digits": 1,
-         "betterWhen": series.better or "up"},
-        {"key": "moving", "label": f"Hareketli ort.{unit_suffix}", "type": "num", "digits": 1},
+        {
+            "key": "delta",
+            "label": "Fark",
+            "type": "trend",
+            "digits": 1,
+            "betterWhen": series.better or "up",
+        },
+        {
+            "key": "moving",
+            "label": f"Hareketli ort.{unit_suffix}",
+            "type": "num",
+            "digits": 1,
+        },
     ]
 
     def scale(value: Optional[float]) -> Optional[float]:
@@ -294,7 +340,9 @@ def findings_table_spec(findings: Sequence[Finding]) -> Dict[str, Any]:
                     if finding.baseline is not None
                     else "—"
                 ),
-                "status": TONE_BADGE.get(finding.tone, {"tone": "info", "icon": "•", "label": "Bilgi"}),
+                "status": TONE_BADGE.get(
+                    finding.tone, {"tone": "info", "icon": "•", "label": "Bilgi"}
+                ),
             }
         )
     return {
@@ -311,7 +359,13 @@ def profile_table_spec(dataset: Dataset) -> Dict[str, Any]:
         {"key": "column", "label": "Sütun", "type": "text"},
         {"key": "kind", "label": "Tip", "type": "text"},
         {"key": "filled", "label": "Dolu kayıt", "type": "num", "digits": 0},
-        {"key": "null_rate", "label": "Boşluk", "type": "pct", "digits": 1, "barMax": 100},
+        {
+            "key": "null_rate",
+            "label": "Boşluk",
+            "type": "pct",
+            "digits": 1,
+            "barMax": 100,
+        },
         {"key": "distinct", "label": "Benzersiz", "type": "num", "digits": 0},
         {"key": "summary", "label": "Özet", "type": "text", "sortable": False},
     ]
@@ -331,12 +385,15 @@ def profile_table_spec(dataset: Dataset) -> Dict[str, Any]:
                 f"({profile.granularity})"
             )
         elif profile.top_values:
-            summary = "en sık: " + ", ".join(f"{v} ({c})" for v, c in profile.top_values[:3])
+            summary = "en sık: " + ", ".join(
+                f"{v} ({c})" for v, c in profile.top_values[:3]
+            )
         else:
             summary = "—"
         rows.append(
             {
-                "column": profile.name + (f" · {profile.metric_label}" if profile.metric_label else ""),
+                "column": profile.name
+                + (f" · {profile.metric_label}" if profile.metric_label else ""),
                 "kind": profile.kind_label,
                 "filled": profile.count,
                 "null_rate": round(profile.null_rate * 100, 1),
@@ -369,7 +426,11 @@ def _key_metrics(result: AnalysisResult) -> List[reports.KeyMetric]:
                 # bu dizeyi olduğu gibi basar, yeniden noktalamaz.
                 value=finding.display,
                 unit="",
-                trend=finding.direction if finding.direction in ("up", "down", "flat") else "",
+                trend=(
+                    finding.direction
+                    if finding.direction in ("up", "down", "flat")
+                    else ""
+                ),
                 note=note,
                 spark=[float(v) for v in finding.spark[-12:]],
             )
@@ -382,17 +443,17 @@ def _action_items(result: AnalysisResult) -> List[reports.ActionItem]:
     actions: List[reports.ActionItem] = []
     recipes = {
         "sla": "Servis seviyesi hedefin altında: en düşük SLA'lı saat dilimleri için vardiya "
-               "takviyesi planla ve kuyruk önceliklerini gözden geçir.",
+        "takviyesi planla ve kuyruk önceliklerini gözden geçir.",
         "abandon_rate": "Terk oranı eşiğin üzerinde: kuyrukta bekleme anonsunu, geri arama "
-                        "seçeneğini ve yoğun saat kadrosunu ele al.",
+        "seçeneğini ve yoğun saat kadrosunu ele al.",
         "aht": "AHT uzuyor: en uzun görüşme konularını ayıkla, bilgi tabanını ve çağrı "
-               "yönlendirme akışını bu konular için güncelle.",
+        "yönlendirme akışını bu konular için güncelle.",
         "occupancy": "Doluluk sağlıklı bandın dışında: mola/vardiya planını ve kadro "
-                     "büyüklüğünü yeniden hesapla.",
+        "büyüklüğünü yeniden hesapla.",
         "csat": "Memnuniyet geriliyor: düşük puan alan çağrıları dinleyip koçluk konularını çıkar.",
         "asa": "Bekleme süresi yükseliyor: yoğun saatlerde kuyruk devri ve ek kaynak seçeneğini değerlendir.",
         "fcr": "İlk temasta çözüm düşük: tekrar eden çağrı nedenlerini sınıflandırıp yetki "
-               "sınırlarını genişlet.",
+        "sınırlarını genişlet.",
     }
     for finding in result.findings:
         if finding.tone not in (TONE_BAD, TONE_WARN):
@@ -513,7 +574,9 @@ def build_sections(
                     f"En düşük: **{worst.get(dimension)}** "
                     f"({format_value(worst.get(measure.key), measure.unit)})."
                 )
-            body_lines.append("Sütun başlığına dokunarak tabloyu istediğin ölçüte göre sıralayabilirsin.")
+            body_lines.append(
+                "Sütun başlığına dokunarak tabloyu istediğin ölçüte göre sıralayabilirsin."
+            )
         sections.append(
             reports.Section(
                 title=pivot.title,
@@ -521,13 +584,17 @@ def build_sections(
                 table=pivot_table_spec(pivot),
                 # Halka yalnızca İLK kırılımda: arka arkaya üç halka aynı
                 # soruyu üç kez sorar, çubuk ise karşılaştırmayı kolaylaştırır.
-                chart=pivot_chart_spec(pivot, chart_type or ("" if index == 0 else "bar")),
+                chart=pivot_chart_spec(
+                    pivot, chart_type or ("" if index == 0 else "bar")
+                ),
             )
         )
 
     for series in result.series:
         spec = series_chart_spec(series, chart_type)
-        trend_word = {"up": "yükseliş", "down": "düşüş", "flat": "yatay seyir"}.get(series.trend, "")
+        trend_word = {"up": "yükseliş", "down": "düşüş", "flat": "yatay seyir"}.get(
+            series.trend, ""
+        )
         body = f"{series.period.capitalize()} bazında {len(series.points)} dönem"
         if series.change_pct is not None and trend_word:
             body += f"; dönemin ikinci yarısı ilk yarısına göre %{format_number(abs(series.change_pct), 1)} {trend_word} gösteriyor."
@@ -543,7 +610,9 @@ def build_sections(
         )
 
     if result.outliers:
-        body = "\n\n".join(report.interpretation for report in result.outliers if report.interpretation)
+        body = "\n\n".join(
+            report.interpretation for report in result.outliers if report.interpretation
+        )
         columns = [
             {"key": "column", "label": "Ölçüt", "type": "text"},
             {"key": "count", "label": "Aykırı adet", "type": "num", "digits": 0},
@@ -737,9 +806,11 @@ def publish_document(
                 "schema_version": 1,
                 "date": report.date,
                 "generated_at": when.isoformat(timespec="seconds"),
-                "generated_at_istanbul": when.astimezone(ISTANBUL).strftime("%d.%m.%Y %H:%M")
-                if when.tzinfo
-                else when.strftime("%d.%m.%Y %H:%M"),
+                "generated_at_istanbul": (
+                    when.astimezone(ISTANBUL).strftime("%d.%m.%Y %H:%M")
+                    if when.tzinfo
+                    else when.strftime("%d.%m.%Y %H:%M")
+                ),
                 "mode": str(existing.get("mode") or ""),
                 "mode_label": str(existing.get("mode_label") or ""),
                 "count": len(cards),

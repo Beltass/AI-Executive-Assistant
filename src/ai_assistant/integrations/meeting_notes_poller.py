@@ -205,9 +205,7 @@ def find_gmail_attachment(message: Dict[str, Any]) -> Optional[AudioSource]:
         filename = str(part.get("filename") or "")
 
         if not attachment_id:
-            logger.debug(
-                f"Audio part '{filename}' has no attachmentId; skipping it"
-            )
+            logger.debug(f"Audio part '{filename}' has no attachmentId; skipping it")
             continue
 
         size = _part_size(part)
@@ -353,7 +351,9 @@ def find_drive_source(text: str) -> Optional[AudioSource]:
         return AudioSource(
             kind="drive",
             identifier=file_id,
-            filename=filename if filename.lower().endswith(AUDIO_FILE_EXTENSIONS) else "",
+            filename=(
+                filename if filename.lower().endswith(AUDIO_FILE_EXTENSIONS) else ""
+            ),
             mime_type=mime_type or "",
         )
     return None
@@ -375,7 +375,11 @@ def find_dropbox_source(text: str) -> Optional[AudioSource]:
         return None
 
     chosen = next(
-        (u for u in candidates if _filename_from_url(u).lower().endswith(AUDIO_FILE_EXTENSIONS)),
+        (
+            u
+            for u in candidates
+            if _filename_from_url(u).lower().endswith(AUDIO_FILE_EXTENSIONS)
+        ),
         candidates[0],
     )
     filename = _filename_from_url(chosen)
@@ -444,9 +448,7 @@ def extract_audio_source(message: Dict[str, Any]) -> Optional[AudioSource]:
         try:
             source = finder(text)
         except Exception as exc:
-            logger.warning(
-                f"{finder.__name__} failed for message {message_id}: {exc}"
-            )
+            logger.warning(f"{finder.__name__} failed for message {message_id}: {exc}")
             continue
         if source:
             logger.info(
@@ -486,9 +488,7 @@ def _fetch_gmail_attachment(source: AudioSource, gmail_service: Any) -> bytes:
     )
     data = (response or {}).get("data")
     if not data:
-        raise ValueError(
-            f"Gmail returned no data for attachment {source.identifier}"
-        )
+        raise ValueError(f"Gmail returned no data for attachment {source.identifier}")
     return _decode_base64url(data)
 
 
@@ -604,7 +604,7 @@ class MeetingNotesPoller:
 
     async def run(
         self,
-        email_query: str = 'from:notifications has:attachment filename:(mp3 OR wav OR m4a)',
+        email_query: str = "from:notifications has:attachment filename:(mp3 OR wav OR m4a)",
         auto_transcribe: bool = True,
         generate_reports: bool = True,
     ) -> bool:
@@ -651,7 +651,7 @@ class MeetingNotesPoller:
             # Process each message
             processed_count = 0
             for message in messages:
-                meeting_id = message.get('id')
+                meeting_id = message.get("id")
 
                 # Skip if already processed
                 if self._is_processed(meeting_id):
@@ -706,7 +706,7 @@ class MeetingNotesPoller:
             True if successful
         """
         try:
-            message_id = message.get('id')
+            message_id = message.get("id")
             subject = message_subject(message)
 
             self.logger.info(f"Processing meeting: {subject}")
@@ -743,15 +743,16 @@ class MeetingNotesPoller:
                 )
 
                 if not transcript:
-                    reason = getattr(
-                        self.agent, "last_transcription_error", None
-                    ) or "unknown reason"
+                    reason = (
+                        getattr(self.agent, "last_transcription_error", None)
+                        or "unknown reason"
+                    )
                     self.logger.error(f"Transcription produced nothing: {reason}")
                     return False
 
             # Analyze meeting
             self.logger.info("Analyzing meeting...")
-            attendees = message.get('attendees', [])
+            attendees = message.get("attendees", [])
             meeting_notes = await self.agent.analyze_meeting(
                 transcript,
                 meeting_title=subject,
@@ -766,7 +767,9 @@ class MeetingNotesPoller:
                 self.logger.info(f"Generated reports: {reports}")
 
             # Create tasks
-            self.logger.info(f"Creating {len(meeting_notes.action_items)} action items...")
+            self.logger.info(
+                f"Creating {len(meeting_notes.action_items)} action items..."
+            )
             task_ids = await self.agent.create_tasks_in_tracker(
                 meeting_notes.action_items,
                 meeting_notes.meeting_id,
@@ -817,9 +820,9 @@ class MeetingNotesPoller:
         """
         return fetch_audio_bytes(
             source,
-            gmail_service=self._get_gmail_service()
-            if source.kind == "gmail_attachment"
-            else None,
+            gmail_service=(
+                self._get_gmail_service() if source.kind == "gmail_attachment" else None
+            ),
             drive_manager=getattr(self, "drive_manager", None),
         )
 
@@ -830,12 +833,12 @@ class MeetingNotesPoller:
             data = {}
 
             if meetings_file.exists():
-                with open(meetings_file, 'r') as f:
+                with open(meetings_file, "r") as f:
                     data = json.load(f)
 
             data[notes.meeting_id] = notes.to_dict()
 
-            with open(meetings_file, 'w') as f:
+            with open(meetings_file, "w") as f:
                 json.dump(data, f, indent=2)
 
             self.logger.info(f"Saved meeting notes: {notes.meeting_id}")
@@ -849,10 +852,10 @@ class MeetingNotesPoller:
             if not self.processed_file.exists():
                 return False
 
-            with open(self.processed_file, 'r') as f:
+            with open(self.processed_file, "r") as f:
                 data = json.load(f)
 
-            return message_id in data.get('processed', [])
+            return message_id in data.get("processed", [])
 
         except Exception:
             return False
@@ -863,16 +866,16 @@ class MeetingNotesPoller:
             data = {}
 
             if self.processed_file.exists():
-                with open(self.processed_file, 'r') as f:
+                with open(self.processed_file, "r") as f:
                     data = json.load(f)
 
-            if 'processed' not in data:
-                data['processed'] = []
+            if "processed" not in data:
+                data["processed"] = []
 
-            data['processed'].append(message_id)
-            data['last_run'] = datetime.now(timezone.utc).isoformat()
+            data["processed"].append(message_id)
+            data["last_run"] = datetime.now(timezone.utc).isoformat()
 
-            with open(self.processed_file, 'w') as f:
+            with open(self.processed_file, "w") as f:
                 json.dump(data, f, indent=2)
 
         except Exception as e:
@@ -886,18 +889,18 @@ async def main():
     )
     parser.add_argument(
         "--email-query",
-        default='from:notifications has:attachment filename:(mp3 OR wav OR m4a)',
+        default="from:notifications has:attachment filename:(mp3 OR wav OR m4a)",
         help="Gmail query for finding meeting emails",
     )
     parser.add_argument(
         "--auto-transcribe",
-        type=lambda x: x.lower() == 'true',
+        type=lambda x: x.lower() == "true",
         default=True,
         help="Auto-transcribe audio files",
     )
     parser.add_argument(
         "--generate-reports",
-        type=lambda x: x.lower() == 'true',
+        type=lambda x: x.lower() == "true",
         default=True,
         help="Generate meeting reports",
     )

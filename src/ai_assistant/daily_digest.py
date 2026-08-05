@@ -103,9 +103,7 @@ def build_digest(supervision: Supervision | None = None) -> Digest:
     return Digest(text="\n".join(lines), supervision=supervision)
 
 
-def distribute_digest_by_channel(
-    supervision: Supervision, publication=None
-) -> dict:
+def distribute_digest_by_channel(supervision: Supervision, publication=None) -> dict:
     """Distribute one run across the Slack workspace: sub-channels + summary.
 
     Each advisor's section goes to its OWN channel (``SLACK_CHANNEL_<KEY>``),

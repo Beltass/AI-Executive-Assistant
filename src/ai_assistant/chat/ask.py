@@ -218,9 +218,7 @@ SCOPE_PROBLEM = (
 
 ACK = "Toplantı notlarına bakıyorum, özeti birazdan yazacağım…"
 
-_EMPTY_NOTE = (
-    "*{name}* notunu açtım ama içi boş görünüyor; özetlenecek bir metin yok."
-)
+_EMPTY_NOTE = "*{name}* notunu açtım ama içi boş görünüyor; özetlenecek bir metin yok."
 
 _CANCELLED = "Tamam, not özetini bıraktım."
 
@@ -339,7 +337,9 @@ def _resolve_pending(
     # "baştan" ya da yeni bir özet isteği: menüyü at, sıfırdan başla.
     if command == COMMAND_RESTART or is_summary_request(text):
         _drop_pending(store, channel, user)
-        return _begin(text, store, channel, user, client_factory, generator, notify, now)
+        return _begin(
+            text, store, channel, user, client_factory, generator, notify, now
+        )
 
     notes = [_note_from_dict(item) for item in pending.get("notes") or []]
     prompt = _menu(notes)

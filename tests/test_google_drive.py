@@ -176,7 +176,9 @@ def test_a_missing_file_id_is_rejected_loudly():
 
 
 def test_a_transport_failure_becomes_a_drive_error():
-    files = FakeFiles(meta={"mimeType": DOC_MIME}, error=RuntimeError("connection reset"))
+    files = FakeFiles(
+        meta={"mimeType": DOC_MIME}, error=RuntimeError("connection reset")
+    )
     with pytest.raises(DriveError) as excinfo:
         _client(files).read_file_text("note-1")
     assert not isinstance(excinfo.value, DrivePermissionError)

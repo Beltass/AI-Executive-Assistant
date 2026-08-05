@@ -297,9 +297,7 @@ def _openai_usage(data: dict) -> Dict[str, int]:
     if not isinstance(usage, dict):
         usage = {}
     details = usage.get("completion_tokens_details")
-    thoughts = (
-        _int(details.get("reasoning_tokens")) if isinstance(details, dict) else 0
-    )
+    thoughts = _int(details.get("reasoning_tokens")) if isinstance(details, dict) else 0
     prompt = _int(usage.get("prompt_tokens"))
     output = _int(usage.get("completion_tokens"))
     total = _int(usage.get("total_tokens")) or (prompt + output)
@@ -531,7 +529,9 @@ def check_connection() -> CheckResult:
                 headers={"X-goog-api-key": gemini_key},
             )
         except Exception as exc:
-            return failed(SPEC.name, _redact_key(f"request error (gemini): {exc}", gemini_key))
+            return failed(
+                SPEC.name, _redact_key(f"request error (gemini): {exc}", gemini_key)
+            )
         result = classify_response(SPEC.name, resp)
         result.detail = f"gemini — {result.detail}"
         return result
@@ -592,7 +592,9 @@ def generate_text(
     """
     provider = configured_provider()
     if provider is None:
-        raise RuntimeError("no LLM provider configured (GEMINI_API_KEY or OPENAI_API_KEY)")
+        raise RuntimeError(
+            "no LLM provider configured (GEMINI_API_KEY or OPENAI_API_KEY)"
+        )
 
     if provider == "gemini":
         return _generate_gemini(

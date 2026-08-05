@@ -237,7 +237,9 @@ def _shift_business_days(anchor: datetime, days: int) -> datetime:
 def _parse_explicit(text: str, anchor: datetime) -> Optional[datetime]:
     iso = _ISO_RE.search(text)
     if iso:
-        return _with_day(anchor, int(iso.group(1)), int(iso.group(2)), int(iso.group(3)))
+        return _with_day(
+            anchor, int(iso.group(1)), int(iso.group(2)), int(iso.group(3))
+        )
 
     dotted = _DOTTED_RE.search(text)
     if dotted:
@@ -297,11 +299,18 @@ def _parse_named_offset(text: str, anchor: datetime) -> Optional[datetime]:
     if "hafta başı" in text or "hafta basi" in text:
         delta = (0 - anchor.weekday()) % 7 or 7
         return _shift_days(anchor, delta)
-    if any(marker in text for marker in ("gelecek ay", "önümüzdeki ay", "onumuzdeki ay")):
+    if any(
+        marker in text for marker in ("gelecek ay", "önümüzdeki ay", "onumuzdeki ay")
+    ):
         return _add_months(anchor, 1)
     if any(
         marker in text
-        for marker in ("gelecek hafta", "önümüzdeki hafta", "onumuzdeki hafta", "haftaya")
+        for marker in (
+            "gelecek hafta",
+            "önümüzdeki hafta",
+            "onumuzdeki hafta",
+            "haftaya",
+        )
     ):
         return _shift_days(anchor, 7)
     return None

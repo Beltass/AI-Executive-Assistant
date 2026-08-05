@@ -47,6 +47,7 @@ DEFAULT_ADVISOR_DIALOG_ENABLED = True
 @dataclass
 class DirectMessage:
     """Doğrudan mesaj yapısı."""
+
     user_id: str
     text: str
     timestamp: str
@@ -57,6 +58,7 @@ class DirectMessage:
 @dataclass
 class DirectMessageResponse:
     """DM yanıt yapısı."""
+
     advisor_key: str
     response_text: str
     generated_at: str
@@ -93,11 +95,13 @@ class DirectMessenger:
         self.dialog_flow = None
         if self.dialog_enabled:
             from .advisor_dialog import AdvisorDialogFlow
+
             self.dialog_flow = AdvisorDialogFlow()
 
     def _get_timeout(self) -> int:
         """Yapılandırılan timeout'u al."""
         import os
+
         raw = (os.getenv(TIMEOUT_ENV) or "").strip()
         try:
             return int(raw)
@@ -107,6 +111,7 @@ class DirectMessenger:
     def _get_notification_method(self) -> str:
         """Bildirim yöntemini al."""
         import os
+
         method = (os.getenv(NOTIFICATION_METHOD_ENV) or "").strip().lower()
         if method in [NOTIFICATION_PUSH, NOTIFICATION_EMAIL, NOTIFICATION_SMS]:
             return method
@@ -115,12 +120,15 @@ class DirectMessenger:
     def _is_dialog_enabled(self) -> bool:
         """Dialog sistemi etkin mi?"""
         import os
+
         value = (os.getenv(ADVISOR_DIALOG_ENABLED_ENV) or "").strip().lower()
         if value in ["false", "no", "0"]:
             return False
         return DEFAULT_ADVISOR_DIALOG_ENABLED
 
-    async def route_to_advisor(self, message: DirectMessage) -> Optional[DirectMessageResponse]:
+    async def route_to_advisor(
+        self, message: DirectMessage
+    ) -> Optional[DirectMessageResponse]:
         """Bir DM'yi uygun danışmana yönlendir.
 
         Args:
@@ -149,7 +157,9 @@ class DirectMessenger:
             logger.exception("DM yönlendirme başarısız")
             return None
 
-    async def _route_with_dialog(self, message: DirectMessage) -> Optional[DirectMessageResponse]:
+    async def _route_with_dialog(
+        self, message: DirectMessage
+    ) -> Optional[DirectMessageResponse]:
         """Dialog sistemi ile yönlendir.
 
         Args:
@@ -164,20 +174,22 @@ class DirectMessenger:
 
             # Menü seçimi kontrolü: danışman seçilmedi mi?
             if self._is_menu_selection(text):
-                advisor_key, response_dict = self.dialog_flow.handle_advisor_selection(user_id, text)
+                advisor_key, response_dict = self.dialog_flow.handle_advisor_selection(
+                    user_id, text
+                )
                 if advisor_key:
                     return DirectMessageResponse(
                         advisor_key=advisor_key,
                         response_text=self._format_blocks_as_text(response_dict),
                         generated_at=datetime.now().isoformat(),
-                        sources=[]
+                        sources=[],
                     )
                 else:
                     return DirectMessageResponse(
                         advisor_key="system",
                         response_text=response_dict.get("text", "Seçim anlaşılamadı."),
                         generated_at=datetime.now().isoformat(),
-                        sources=[]
+                        sources=[],
                     )
 
             # Hangi advisor'a ait dialog'u kontrol et
@@ -189,16 +201,18 @@ class DirectMessenger:
                     advisor_key="system",
                     response_text=self._format_blocks_as_text(response_dict),
                     generated_at=datetime.now().isoformat(),
-                    sources=[]
+                    sources=[],
                 )
 
             # Advisora yönlendir
-            response_dict = self.dialog_flow.handle_advisor_input(advisor_key, user_id, text)
+            response_dict = self.dialog_flow.handle_advisor_input(
+                advisor_key, user_id, text
+            )
             return DirectMessageResponse(
                 advisor_key=advisor_key,
                 response_text=response_dict.get("text", ""),
                 generated_at=datetime.now().isoformat(),
-                sources=[]
+                sources=[],
             )
 
         except Exception as exc:
@@ -248,13 +262,11 @@ class DirectMessenger:
                 "Veya tam sorunun yazabilirsin!"
             ),
             generated_at=datetime.now().isoformat(),
-            sources=[]
+            sources=[],
         )
 
     async def _call_advisor(
-        self,
-        advisor_key: str,
-        message: DirectMessage
+        self, advisor_key: str, message: DirectMessage
     ) -> Optional[DirectMessageResponse]:
         """Bir danışmanı çağır ve cevap al."""
         try:
@@ -277,7 +289,7 @@ class DirectMessenger:
                 advisor_key=advisor_key,
                 response_text=response_text,
                 generated_at=datetime.now().isoformat(),
-                sources=[advisor.key]
+                sources=[advisor.key],
             )
 
         except Exception as exc:
@@ -285,10 +297,7 @@ class DirectMessenger:
             return None
 
     async def send_direct_message(
-        self,
-        user_id: str,
-        advisor_key: str,
-        response: DirectMessageResponse
+        self, user_id: str, advisor_key: str, response: DirectMessageResponse
     ) -> bool:
         """Danışman yanıtını kullanıcıya DM olarak gönder.
 
@@ -330,10 +339,7 @@ class DirectMessenger:
             return False
 
     async def send_notification(
-        self,
-        user_id: str,
-        notification: str,
-        urgent: bool = False
+        self, user_id: str, notification: str, urgent: bool = False
     ) -> bool:
         """Bildirim gönder (push/email/SMS).
 
@@ -349,7 +355,9 @@ class DirectMessenger:
             if self.notification_method == NOTIFICATION_PUSH:
                 return await self._send_push_notification(user_id, notification, urgent)
             elif self.notification_method == NOTIFICATION_EMAIL:
-                return await self._send_email_notification(user_id, notification, urgent)
+                return await self._send_email_notification(
+                    user_id, notification, urgent
+                )
             elif self.notification_method == NOTIFICATION_SMS:
                 return await self._send_sms_notification(user_id, notification, urgent)
 
@@ -360,10 +368,7 @@ class DirectMessenger:
             return False
 
     async def _send_push_notification(
-        self,
-        user_id: str,
-        text: str,
-        urgent: bool
+        self, user_id: str, text: str, urgent: bool
     ) -> bool:
         """Slack push bildirimi gönder."""
         try:
@@ -389,10 +394,7 @@ class DirectMessenger:
             return False
 
     async def _send_email_notification(
-        self,
-        user_id: str,
-        text: str,
-        urgent: bool
+        self, user_id: str, text: str, urgent: bool
     ) -> bool:
         """E-posta bildirimi gönder."""
         # TODO: E-posta entegrasyonu (Gmail API)
@@ -400,10 +402,7 @@ class DirectMessenger:
         return True
 
     async def _send_sms_notification(
-        self,
-        user_id: str,
-        text: str,
-        urgent: bool
+        self, user_id: str, text: str, urgent: bool
     ) -> bool:
         """SMS bildirimi gönder."""
         # TODO: SMS entegrasyonu (Twilio vb.)
@@ -411,10 +410,7 @@ class DirectMessenger:
         return True
 
     async def fallback_if_offline(
-        self,
-        user_id: str,
-        message: str,
-        method_preference: Optional[str] = None
+        self, user_id: str, message: str, method_preference: Optional[str] = None
     ) -> bool:
         """Kullanıcı çevrimdışısysa fallback yöntemi kullan.
 
@@ -436,9 +432,13 @@ class DirectMessenger:
 
                 try:
                     if method == NOTIFICATION_PUSH:
-                        await self._send_push_notification(user_id, message, urgent=True)
+                        await self._send_push_notification(
+                            user_id, message, urgent=True
+                        )
                     elif method == NOTIFICATION_EMAIL:
-                        await self._send_email_notification(user_id, message, urgent=True)
+                        await self._send_email_notification(
+                            user_id, message, urgent=True
+                        )
                     elif method == NOTIFICATION_SMS:
                         await self._send_sms_notification(user_id, message, urgent=True)
 

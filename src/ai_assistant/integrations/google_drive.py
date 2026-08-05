@@ -57,6 +57,7 @@ logger = logging.getLogger(__name__)
 
 # Integration spec for health checks
 from ..config import get_integration
+
 SPEC = get_integration("google_drive")
 
 _SKIP_DETAIL = (
@@ -160,7 +161,7 @@ def _retry_with_backoff(
             return func(*args, **kwargs)
         except HttpError as exc:
             last_error = exc
-            status = exc.resp.status if hasattr(exc, 'resp') else None
+            status = exc.resp.status if hasattr(exc, "resp") else None
 
             # Rate limit (429) or server error (5xx) — retry
             if status in (429, 500, 502, 503, 504):
@@ -219,6 +220,7 @@ class DriveClient:
 
         try:
             from googleapiclient.discovery import build
+
             self.service: Resource = build(
                 "drive", "v3", credentials=creds, cache_discovery=False
             )
@@ -256,13 +258,17 @@ class DriveClient:
             query = " and ".join(f"({part})" for part in query_parts)
 
             def _execute():
-                return self.service.files().list(
-                    q=query,
-                    spaces="drive",
-                    fields="files(id, name, modifiedTime, mimeType, webViewLink)",
-                    pageSize=min(max_results, 1000),
-                    orderBy="modifiedTime desc",
-                ).execute()
+                return (
+                    self.service.files()
+                    .list(
+                        q=query,
+                        spaces="drive",
+                        fields="files(id, name, modifiedTime, mimeType, webViewLink)",
+                        pageSize=min(max_results, 1000),
+                        orderBy="modifiedTime desc",
+                    )
+                    .execute()
+                )
 
             result = _retry_with_backoff(_execute)
             return result.get("files", [])
@@ -327,7 +333,9 @@ class DriveClient:
                     ).execute()
                 )
             else:
-                raw = _read_with_retry(lambda: files.get_media(fileId=file_id).execute())
+                raw = _read_with_retry(
+                    lambda: files.get_media(fileId=file_id).execute()
+                )
         except DrivePermissionError as exc:
             raise DrivePermissionError(
                 f"Not permitted to read the content of {file_id}: {exc}"
@@ -373,9 +381,7 @@ class DriveClient:
         try:
             # Check if file already exists
             existing = self.list_documents_in_folder(folder_id, file_name)
-            existing_file = next(
-                (f for f in existing if f["name"] == file_name), None
-            )
+            existing_file = next((f for f in existing if f["name"] == file_name), None)
 
             if existing_file:
                 # Update existing file
@@ -384,9 +390,7 @@ class DriveClient:
                 )
             else:
                 # Create new file
-                return self._create_file(
-                    file_name, file_content, folder_id, mime_type
-                )
+                return self._create_file(file_name, file_content, folder_id, mime_type)
 
         except RateLimitError:
             raise
@@ -432,11 +436,15 @@ class DriveClient:
             }
 
             def _execute():
-                return self.service.files().create(
-                    body=file_metadata,
-                    media_body=media,
-                    fields="id, webViewLink",
-                ).execute()
+                return (
+                    self.service.files()
+                    .create(
+                        body=file_metadata,
+                        media_body=media,
+                        fields="id, webViewLink",
+                    )
+                    .execute()
+                )
 
             result = _retry_with_backoff(_execute)
             logger.info(f"Created file: {file_name} ({result['id']})")
@@ -476,11 +484,15 @@ class DriveClient:
             )
 
             def _execute():
-                return self.service.files().update(
-                    fileId=file_id,
-                    media_body=media,
-                    fields="id, webViewLink",
-                ).execute()
+                return (
+                    self.service.files()
+                    .update(
+                        fileId=file_id,
+                        media_body=media,
+                        fields="id, webViewLink",
+                    )
+                    .execute()
+                )
 
             result = _retry_with_backoff(_execute)
             logger.info(f"Updated file: {file_id}")
@@ -526,17 +538,25 @@ class DriveClient:
         try:
             # Make the file accessible to anyone with the link
             def _share():
-                return self.service.permissions().create(
-                    fileId=file_id,
-                    body={"role": "reader", "type": "anyone"},
-                    fields="id",
-                ).execute()
+                return (
+                    self.service.permissions()
+                    .create(
+                        fileId=file_id,
+                        body={"role": "reader", "type": "anyone"},
+                        fields="id",
+                    )
+                    .execute()
+                )
 
             def _get_link():
-                return self.service.files().get(
-                    fileId=file_id,
-                    fields="webViewLink",
-                ).execute()
+                return (
+                    self.service.files()
+                    .get(
+                        fileId=file_id,
+                        fields="webViewLink",
+                    )
+                    .execute()
+                )
 
             try:
                 _retry_with_backoff(_share)
@@ -579,12 +599,16 @@ class DriveClient:
             )
 
             def _execute():
-                return self.service.files().list(
-                    q=query,
-                    spaces="drive",
-                    fields="files(id, name)",
-                    pageSize=1,
-                ).execute()
+                return (
+                    self.service.files()
+                    .list(
+                        q=query,
+                        spaces="drive",
+                        fields="files(id, name)",
+                        pageSize=1,
+                    )
+                    .execute()
+                )
 
             result = _retry_with_backoff(_execute)
             files = result.get("files", [])
@@ -621,10 +645,14 @@ class DriveClient:
             }
 
             def _execute():
-                return self.service.files().create(
-                    body=file_metadata,
-                    fields="id",
-                ).execute()
+                return (
+                    self.service.files()
+                    .create(
+                        body=file_metadata,
+                        fields="id",
+                    )
+                    .execute()
+                )
 
             result = _retry_with_backoff(_execute)
             folder_id = result["id"]
@@ -673,12 +701,16 @@ class DriveClient:
             query = f"'{folder_id}' in parents and trashed = false"
 
             def _list():
-                return self.service.files().list(
-                    q=query,
-                    spaces="drive",
-                    fields="files(id, name, modifiedTime, mimeType)",
-                    pageSize=1000,
-                ).execute()
+                return (
+                    self.service.files()
+                    .list(
+                        q=query,
+                        spaces="drive",
+                        fields="files(id, name, modifiedTime, mimeType)",
+                        pageSize=1000,
+                    )
+                    .execute()
+                )
 
             result = _retry_with_backoff(_list)
             files = result.get("files", [])
@@ -695,7 +727,9 @@ class DriveClient:
 
                 # Parse ISO 8601 datetime
                 try:
-                    modified_dt = datetime.fromisoformat(modified_str.replace("Z", "+00:00"))
+                    modified_dt = datetime.fromisoformat(
+                        modified_str.replace("Z", "+00:00")
+                    )
                 except ValueError:
                     logger.warning(f"Could not parse date: {modified_str}")
                     continue
@@ -714,9 +748,7 @@ class DriveClient:
 
                     self._move_file(file_info["id"], target_folder)
                     archived_ids.append(file_info["id"])
-                    logger.info(
-                        f"Archived {file_info['name']} to {archive_subdir}"
-                    )
+                    logger.info(f"Archived {file_info['name']} to {archive_subdir}")
 
             return archived_ids
 
@@ -738,22 +770,31 @@ class DriveClient:
             DriveError: On API errors.
         """
         try:
+
             def _get_parents():
-                return self.service.files().get(
-                    fileId=file_id,
-                    fields="parents",
-                ).execute()
+                return (
+                    self.service.files()
+                    .get(
+                        fileId=file_id,
+                        fields="parents",
+                    )
+                    .execute()
+                )
 
             parents_result = _retry_with_backoff(_get_parents)
             old_parents = ",".join(parents_result.get("parents", []))
 
             def _move():
-                return self.service.files().update(
-                    fileId=file_id,
-                    addParents=new_parent_id,
-                    removeParents=old_parents,
-                    fields="id, parents",
-                ).execute()
+                return (
+                    self.service.files()
+                    .update(
+                        fileId=file_id,
+                        addParents=new_parent_id,
+                        removeParents=old_parents,
+                        fields="id, parents",
+                    )
+                    .execute()
+                )
 
             _retry_with_backoff(_move)
 

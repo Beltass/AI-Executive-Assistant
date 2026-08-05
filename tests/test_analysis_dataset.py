@@ -110,7 +110,19 @@ def test_parse_number_accepts_native_types():
 
 @pytest.mark.parametrize(
     "raw",
-    ["", "   ", None, "abc", "-", "N/A", "TR-0012", True, False, float("nan"), float("inf")],
+    [
+        "",
+        "   ",
+        None,
+        "abc",
+        "-",
+        "N/A",
+        "TR-0012",
+        True,
+        False,
+        float("nan"),
+        float("inf"),
+    ],
 )
 def test_parse_number_refuses_what_is_not_a_number(raw):
     assert parse_number(raw) is None
@@ -187,9 +199,7 @@ def test_turkish_mobile_numbers_keep_their_leading_zero():
 
 def test_a_genuine_number_starting_with_zero_is_still_a_number():
     """The guard is narrow: ``0``, ``0,75`` and ``0.5`` are values, not codes."""
-    table = profile_table(
-        ["Oran"], [["0"], ["0,75"], ["0,5"], ["1,25"], ["0"], ["2"]]
-    )
+    table = profile_table(["Oran"], [["0"], ["0,75"], ["0,5"], ["1,25"], ["0"], ["2"]])
     assert table.column("Oran").kind == KIND_NUMERIC
     assert table.rows[1][0] == pytest.approx(0.75)
 
@@ -290,7 +300,7 @@ def test_detect_metric_survives_turkish_casing_and_separators():
 
 
 def test_more_specific_metric_wins_over_the_generic_one():
-    """"Çağrı süresi" is AHT, not a call count — pattern order guarantees it."""
+    """ "Çağrı süresi" is AHT, not a call count — pattern order guarantees it."""
     assert detect_metric("Çağrı Süresi").key == "aht"
     assert detect_metric("Çağrı Adedi").key == "calls"
 
@@ -301,7 +311,17 @@ def test_more_specific_metric_wins_over_the_generic_one():
 def test_profile_reads_the_messy_column_without_losing_the_good_cells():
     table = profile_table(
         ["Tutar"],
-        [["1.234,56"], ["  2.000  "], ["%85"], ["N/A"], ["-"], [""], ["3,5"], ["abc"], ["(500)"]],
+        [
+            ["1.234,56"],
+            ["  2.000  "],
+            ["%85"],
+            ["N/A"],
+            ["-"],
+            [""],
+            ["3,5"],
+            ["abc"],
+            ["(500)"],
+        ],
     )
     column = table.column("Tutar")
     assert column.kind == KIND_NUMERIC
@@ -347,7 +367,10 @@ def test_percent_unit_is_taken_from_the_cells_or_the_header():
 
 
 def test_long_free_text_becomes_text_not_a_category():
-    rows = [[f"Müşteri {i} uzun uzun bir şikâyet metni yazdı ve bu satır kısa değil."] for i in range(12)]
+    rows = [
+        [f"Müşteri {i} uzun uzun bir şikâyet metni yazdı ve bu satır kısa değil."]
+        for i in range(12)
+    ]
     assert profile_table(["Not"], rows).column("Not").kind == KIND_TEXT
 
 
@@ -440,7 +463,11 @@ def test_fixture_is_recognised_as_call_centre_data():
     assert metrics["Vardiya"] == "shift"
     assert metrics["Kuyruk"] == "queue"
 
-    assert [c.name for c in table.dimension_columns()] == ["Temsilci", "Kuyruk", "Vardiya"]
+    assert [c.name for c in table.dimension_columns()] == [
+        "Temsilci",
+        "Kuyruk",
+        "Vardiya",
+    ]
 
 
 def test_fixture_first_row_is_parsed_cell_by_cell():
@@ -449,8 +476,8 @@ def test_fixture_first_row_is_parsed_cell_by_cell():
     assert first[table.index_of("Tarih")] == datetime(2026, 7, 1)
     assert first[table.index_of("Temsilci")] == "Ayşe Yılmaz"
     assert first[table.index_of("Çağrı Adedi")] == 58.0
-    assert first[table.index_of("AHT")] == 240.0          # "04:00"
-    assert first[table.index_of("SLA %")] == pytest.approx(73.2)   # "%73,2"
+    assert first[table.index_of("AHT")] == 240.0  # "04:00"
+    assert first[table.index_of("SLA %")] == pytest.approx(73.2)  # "%73,2"
     assert first[table.index_of("Doluluk %")] == pytest.approx(79.8)
     assert first[table.index_of("Memnuniyet")] == pytest.approx(3.63)
 
@@ -515,7 +542,12 @@ def test_load_any_routes_by_shape(tmp_path, monkeypatch):
 
 def test_sheet_id_from_url():
     file_id = "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms"
-    assert sheet_id_from_url(f"https://docs.google.com/spreadsheets/d/{file_id}/edit#gid=0") == file_id
+    assert (
+        sheet_id_from_url(
+            f"https://docs.google.com/spreadsheets/d/{file_id}/edit#gid=0"
+        )
+        == file_id
+    )
     assert sheet_id_from_url(file_id) == file_id
     assert sheet_id_from_url("https://example.com/") == ""
     assert sheet_id_from_url("") == ""
@@ -574,7 +606,9 @@ def test_load_excel_picks_the_busiest_sheet(tmp_path):
 
 
 def test_load_excel_reports_a_missing_sheet_in_turkish(tmp_path):
-    path = _write_workbook(tmp_path / "tek.xlsx", [["A", "B"], [1, 2], [3, 4]], title="Sayfa1")
+    path = _write_workbook(
+        tmp_path / "tek.xlsx", [["A", "B"], [1, 2], [3, 4]], title="Sayfa1"
+    )
     with pytest.raises(DatasetError) as excinfo:
         load_excel(path, sheet="Olmayan")
     assert "bulunamadı" in str(excinfo.value)
@@ -617,7 +651,11 @@ class _FakeSheetsService:
     def __init__(self, values, meta=None):
         self._sheets = _FakeSpreadsheets(
             values,
-            meta or {"properties": {"title": "Temmuz"}, "sheets": [{"properties": {"title": "Günlük"}}]},
+            meta
+            or {
+                "properties": {"title": "Temmuz"},
+                "sheets": [{"properties": {"title": "Günlük"}}],
+            },
         )
 
     def spreadsheets(self):
@@ -628,7 +666,9 @@ def test_load_google_sheet_uses_the_injected_service():
     service = _FakeSheetsService(
         [["Tarih", "Çağrı Adedi"], ["01.07.2026", "58"], ["02.07.2026", "66"]]
     )
-    table = load_google_sheet("https://docs.google.com/spreadsheets/d/" + "A" * 30, service=service)
+    table = load_google_sheet(
+        "https://docs.google.com/spreadsheets/d/" + "A" * 30, service=service
+    )
     assert table.source_kind == "google_sheet"
     assert table.name == "Temmuz"
     assert table.row_count == 2
@@ -638,17 +678,23 @@ def test_load_google_sheet_uses_the_injected_service():
 def test_load_google_sheet_reports_an_empty_sheet_in_turkish():
     service = _FakeSheetsService([["Tarih", "Çağrı"]])
     with pytest.raises(DatasetError) as excinfo:
-        load_google_sheet("https://docs.google.com/spreadsheets/d/" + "A" * 30, service=service)
+        load_google_sheet(
+            "https://docs.google.com/spreadsheets/d/" + "A" * 30, service=service
+        )
     assert "başlık dışında veri yok" in str(excinfo.value)
 
 
 def test_load_google_sheet_translates_a_scope_error_into_advice():
     class _Boom:
         def spreadsheets(self):
-            raise RuntimeError("HttpError 403: Request had insufficient authentication scopes.")
+            raise RuntimeError(
+                "HttpError 403: Request had insufficient authentication scopes."
+            )
 
     with pytest.raises(DatasetError) as excinfo:
-        load_google_sheet("https://docs.google.com/spreadsheets/d/" + "A" * 30, service=_Boom())
+        load_google_sheet(
+            "https://docs.google.com/spreadsheets/d/" + "A" * 30, service=_Boom()
+        )
     message = str(excinfo.value)
     assert "spreadsheets.readonly" in message
     assert "google_auth" in message

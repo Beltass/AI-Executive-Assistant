@@ -527,7 +527,12 @@ def _aggregate_agents(runs: Sequence[dict]) -> List[Dict[str, Any]]:
                 continue
             entry = bucket.setdefault(
                 key,
-                {"id": key, "name": str(row.get("name") or key), "tokens": 0, "chars": 0},
+                {
+                    "id": key,
+                    "name": str(row.get("name") or key),
+                    "tokens": 0,
+                    "chars": 0,
+                },
             )
             entry["tokens"] += _num(row.get("est_total_tokens"))
             entry["chars"] += _num(row.get("output_chars"))
@@ -548,7 +553,7 @@ def _aggregate_agents(runs: Sequence[dict]) -> List[Dict[str, Any]]:
 
 
 def _efficiency_tips(runs: Sequence[dict]) -> List[Dict[str, str]]:
-    """"This agent costs more than it delivers" — the headline finding."""
+    """ "This agent costs more than it delivers" — the headline finding."""
     tips: List[Dict[str, str]] = []
     for row in _aggregate_agents(runs)[:3]:
         if row["gap"] < EFFICIENCY_GAP_POINTS or row["token_share"] < MIN_TOKEN_SHARE:
@@ -612,7 +617,9 @@ def _incremental_tips(runs: Sequence[dict]) -> List[Dict[str, str]]:
         if r.get("mode") == MODE_INCREMENTAL and _num(r.get("total_tokens")) > 0
     ]
     full = [
-        r for r in runs if r.get("mode") == MODE_FULL and _num(r.get("total_tokens")) > 0
+        r
+        for r in runs
+        if r.get("mode") == MODE_FULL and _num(r.get("total_tokens")) > 0
     ]
     if not incremental:
         return []
@@ -754,9 +761,7 @@ def _efficiency_trend_tips(runs: Sequence[dict]) -> List[Dict[str, str]]:
     ]
 
 
-def recommendations(
-    runs: Sequence[dict], window: int = WINDOW
-) -> List[Dict[str, str]]:
+def recommendations(runs: Sequence[dict], window: int = WINDOW) -> List[Dict[str, str]]:
     """Turn the recorded history into concrete Turkish optimisation advice.
 
     Looks at the last ``window`` runs. Every sentence quotes a number that came

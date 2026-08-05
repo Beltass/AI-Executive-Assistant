@@ -156,7 +156,11 @@ class TrackedSource:
             report_id=str(data.get("report_id") or ""),
             sheet=str(data.get("sheet") or ""),
             created_at=str(data.get("created_at") or ""),
-            versions=[Version.from_dict(v) for v in (data.get("versions") or []) if isinstance(v, dict)],
+            versions=[
+                Version.from_dict(v)
+                for v in (data.get("versions") or [])
+                if isinstance(v, dict)
+            ],
         )
 
 
@@ -209,7 +213,9 @@ class SourceStore:
     def track(self, key: str, **fields: Any) -> TrackedSource:
         tracked = self.sources.get(key)
         if tracked is None:
-            tracked = TrackedSource(key=key, created_at=datetime.now(ISTANBUL).isoformat(timespec="seconds"))
+            tracked = TrackedSource(
+                key=key, created_at=datetime.now(ISTANBUL).isoformat(timespec="seconds")
+            )
             self.sources[key] = tracked
         for name, value in fields.items():
             if value:
@@ -260,14 +266,20 @@ def remote_state(source: str, service: Any = None) -> RemoteState:
     text = str(source or "").strip()
     if os.path.exists(text):
         try:
-            stamp = datetime.fromtimestamp(os.path.getmtime(text)).isoformat(timespec="seconds")
+            stamp = datetime.fromtimestamp(os.path.getmtime(text)).isoformat(
+                timespec="seconds"
+            )
         except OSError as exc:
-            return RemoteState(available=False, reason=f"Dosya zaman damgası okunamadı: {exc}")
+            return RemoteState(
+                available=False, reason=f"Dosya zaman damgası okunamadı: {exc}"
+            )
         return RemoteState(modified_time=stamp, name=os.path.basename(text))
 
     file_id = sheet_id_from_url(text)
     if not file_id:
-        return RemoteState(available=False, reason="Kaynak ne dosya ne de Google E-Tablo bağlantısı.")
+        return RemoteState(
+            available=False, reason="Kaynak ne dosya ne de Google E-Tablo bağlantısı."
+        )
 
     if service is None:
         try:
@@ -280,14 +292,27 @@ def remote_state(source: str, service: Any = None) -> RemoteState:
                 )
             from googleapiclient.discovery import build
 
-            service = build("drive", "v3", credentials=google_auth.get_credentials(), cache_discovery=False)
+            service = build(
+                "drive",
+                "v3",
+                credentials=google_auth.get_credentials(),
+                cache_discovery=False,
+            )
         except Exception as exc:
-            return RemoteState(available=False, reason=f"Drive bağlantısı kurulamadı: {exc}")
+            return RemoteState(
+                available=False, reason=f"Drive bağlantısı kurulamadı: {exc}"
+            )
 
     try:
-        meta = service.files().get(fileId=file_id, fields="id, name, modifiedTime").execute()
+        meta = (
+            service.files()
+            .get(fileId=file_id, fields="id, name, modifiedTime")
+            .execute()
+        )
     except Exception as exc:
-        return RemoteState(available=False, reason=f"Drive dosya bilgisi alınamadı: {exc}")
+        return RemoteState(
+            available=False, reason=f"Drive dosya bilgisi alınamadı: {exc}"
+        )
     return RemoteState(
         modified_time=str(meta.get("modifiedTime") or ""),
         name=str(meta.get("name") or ""),
@@ -312,23 +337,27 @@ def metric_snapshot(result: AnalysisResult) -> Dict[str, Dict[str, Any]]:
     return snapshot
 
 
-def describe_changes(previous: Optional[Version], dataset: Dataset, result: AnalysisResult) -> List[str]:
-    """"Son sürümden bu yana" satırları — yeni satırlar ve kayan göstergeler."""
+def describe_changes(
+    previous: Optional[Version], dataset: Dataset, result: AnalysisResult
+) -> List[str]:
+    """ "Son sürümden bu yana" satırları — yeni satırlar ve kayan göstergeler."""
     if previous is None:
-        return [
-            f"İlk sürüm: {dataset.row_count} satır analiz edildi."
-        ]
+        return [f"İlk sürüm: {dataset.row_count} satır analiz edildi."]
 
     lines: List[str] = []
     delta_rows = dataset.row_count - previous.row_count
     if delta_rows > 0:
-        lines.append(f"Kaynak tabloya {delta_rows} yeni satır eklendi (toplam {dataset.row_count}).")
+        lines.append(
+            f"Kaynak tabloya {delta_rows} yeni satır eklendi (toplam {dataset.row_count})."
+        )
     elif delta_rows < 0:
         lines.append(
             f"Kaynak tablodan {abs(delta_rows)} satır çıkarıldı (toplam {dataset.row_count})."
         )
     else:
-        lines.append(f"Satır sayısı değişmedi ({dataset.row_count}); değerler güncellenmiş.")
+        lines.append(
+            f"Satır sayısı değişmedi ({dataset.row_count}); değerler güncellenmiş."
+        )
 
     current = metric_snapshot(result)
     for key, now in current.items():
@@ -337,7 +366,9 @@ def describe_changes(previous: Optional[Version], dataset: Dataset, result: Anal
             continue
         old_value = before.get("value")
         new_value = now.get("value")
-        if not isinstance(old_value, (int, float)) or not isinstance(new_value, (int, float)):
+        if not isinstance(old_value, (int, float)) or not isinstance(
+            new_value, (int, float)
+        ):
             continue
         difference = new_value - old_value
         if not old_value and not difference:
@@ -354,7 +385,9 @@ def describe_changes(previous: Optional[Version], dataset: Dataset, result: Anal
 
     for key, now in current.items():
         if key not in previous.metrics:
-            lines.append(f"Yeni gösterge raporlanmaya başladı: {now.get('label') or key}.")
+            lines.append(
+                f"Yeni gösterge raporlanmaya başladı: {now.get('label') or key}."
+            )
     return lines
 
 
@@ -394,7 +427,9 @@ class SyncResult:
         }
 
 
-def check_source(source: str, store: Optional[SourceStore] = None, service: Any = None) -> Dict[str, Any]:
+def check_source(
+    source: str, store: Optional[SourceStore] = None, service: Any = None
+) -> Dict[str, Any]:
     """Veriyi indirmeden "değişmiş olabilir mi?" sorusunu yanıtlar."""
     keeper = store or SourceStore()
     key = source_key(source)
@@ -505,9 +540,7 @@ def sync_source(
         result.row_count = latest.row_count
         result.xlsx_path = latest.xlsx_path
         result.web_path = latest.web_path
-        result.message = (
-            f"Kaynak dosya güncellenmiş ama veri içeriği aynı; v{latest.number} sürümü geçerli."
-        )
+        result.message = f"Kaynak dosya güncellenmiş ama veri içeriği aynı; v{latest.number} sürümü geçerli."
         return result
 
     try:
@@ -524,17 +557,27 @@ def sync_source(
     if latest is not None:
         analysis.notes.insert(0, "Son sürümden bu yana: " + " ".join(changes))
 
-    document_id = report_id or (tracked.report_id if tracked else "") or web_report.DEFAULT_REPORT_ID
-    document_name = name or (tracked.name if tracked else "") or f"{dataset.name} — Veri Analizi"
+    document_id = (
+        report_id
+        or (tracked.report_id if tracked else "")
+        or web_report.DEFAULT_REPORT_ID
+    )
+    document_name = (
+        name or (tracked.name if tracked else "") or f"{dataset.name} — Veri Analizi"
+    )
 
     xlsx_path = ""
     wants_xlsx = request is None or "xlsx" in (request.formats or ["xlsx", "web"])
     if wants_xlsx:
-        directory = xlsx_dir or os.path.join("frontend", "reports", moment.strftime("%Y-%m-%d"))
+        directory = xlsx_dir or os.path.join(
+            "frontend", "reports", moment.strftime("%Y-%m-%d")
+        )
         filename = f"{document_id}_v{number}.xlsx"
         try:
             xlsx_path = excel_report.build_workbook(
-                analysis, os.path.join(directory, filename), moment=moment.replace(tzinfo=None)
+                analysis,
+                os.path.join(directory, filename),
+                moment=moment.replace(tzinfo=None),
             )
         except DatasetError as exc:
             analysis.notes.append(f"Excel çıktısı üretilemedi: {exc}")
@@ -560,15 +603,19 @@ def sync_source(
                 "previous_version": latest.number if latest else 0,
             },
         )
-        web_path = web_report.publish_document(document, root=reports_root, moment=moment)
+        web_path = web_report.publish_document(
+            document, root=reports_root, moment=moment
+        )
         route = document.route
 
     version = Version(
         number=number,
         published_at=moment.isoformat(timespec="seconds"),
-        published_at_istanbul=moment.astimezone(ISTANBUL).strftime("%d.%m.%Y %H:%M")
-        if moment.tzinfo
-        else moment.strftime("%d.%m.%Y %H:%M"),
+        published_at_istanbul=(
+            moment.astimezone(ISTANBUL).strftime("%d.%m.%Y %H:%M")
+            if moment.tzinfo
+            else moment.strftime("%d.%m.%Y %H:%M")
+        ),
         modified_time=state.modified_time,
         row_count=analysis.dataset.row_count,
         column_count=analysis.dataset.column_count,
@@ -598,7 +645,9 @@ def sync_source(
     result.changed = True
     result.version = number
     result.row_count = analysis.dataset.row_count
-    result.new_rows = max(0, analysis.dataset.row_count - (latest.row_count if latest else 0))
+    result.new_rows = max(
+        0, analysis.dataset.row_count - (latest.row_count if latest else 0)
+    )
     result.changes = changes
     result.xlsx_path = xlsx_path
     result.web_path = web_path

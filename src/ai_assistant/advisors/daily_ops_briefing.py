@@ -179,9 +179,7 @@ class DailyOpsBriefingAdvisor(Advisor):
         calendar_ok = self._collect_events(creds, facts)
 
         if not gmail_ok and not calendar_ok:
-            self._error = (
-                "Gmail ve Takvim verisi alınamadı: " + "; ".join(facts.notes)
-            )
+            self._error = "Gmail ve Takvim verisi alınamadı: " + "; ".join(facts.notes)
             return None
 
         self._facts = facts
@@ -226,9 +224,7 @@ class DailyOpsBriefingAdvisor(Advisor):
         try:
             from googleapiclient.discovery import build
 
-            service = build(
-                "calendar", "v3", credentials=creds, cache_discovery=False
-            )
+            service = build("calendar", "v3", credentials=creds, cache_discovery=False)
             start, end = _today_bounds()
             result = (
                 service.events()

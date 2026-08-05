@@ -319,9 +319,9 @@ def covered_advisor_keys() -> Tuple[str, ...]:
 
 
 #: Fail loudly at import time rather than silently under-provisioning.
-assert covered_advisor_keys() == tuple(ADVISOR_KEYS), (
-    "slack_setup.ADVISOR_CHANNELS is out of sync with channel_config.ADVISOR_KEYS"
-)
+assert covered_advisor_keys() == tuple(
+    ADVISOR_KEYS
+), "slack_setup.ADVISOR_CHANNELS is out of sync with channel_config.ADVISOR_KEYS"
 
 
 def all_specs(prefix: str = "", all_public: bool = False) -> List[ChannelSpec]:
@@ -336,7 +336,11 @@ def all_specs(prefix: str = "", all_public: bool = False) -> List[ChannelSpec]:
     for spec in specs:
         name = spec.name
         if prefix:
-            name = prefix + spec.name[len("ai-") :] if spec.name.startswith("ai-") else prefix + spec.name
+            name = (
+                prefix + spec.name[len("ai-") :]
+                if spec.name.startswith("ai-")
+                else prefix + spec.name
+            )
         out.append(
             ChannelSpec(
                 env_key=spec.env_key,
@@ -353,8 +357,20 @@ def all_specs(prefix: str = "", all_public: bool = False) -> List[ChannelSpec]:
 
 _NAME_ALLOWED = re.compile(r"[^a-z0-9_-]+")
 _TR_MAP = str.maketrans(
-    {"ı": "i", "İ": "i", "ş": "s", "Ş": "s", "ğ": "g", "Ğ": "g",
-     "ç": "c", "Ç": "c", "ö": "o", "Ö": "o", "ü": "u", "Ü": "u"}
+    {
+        "ı": "i",
+        "İ": "i",
+        "ş": "s",
+        "Ş": "s",
+        "ğ": "g",
+        "Ğ": "g",
+        "ç": "c",
+        "Ç": "c",
+        "ö": "o",
+        "Ö": "o",
+        "ü": "u",
+        "Ü": "u",
+    }
 )
 
 
@@ -374,7 +390,9 @@ def normalize_channel_name(name: str) -> str:
 class SlackApiError(Exception):
     """A Slack ``ok: false`` response, with the Turkish explanation attached."""
 
-    def __init__(self, method: str, code: str, explanation: str, raw: Optional[dict] = None):
+    def __init__(
+        self, method: str, code: str, explanation: str, raw: Optional[dict] = None
+    ):
         super().__init__(f"{method}: {code}")
         self.method = method
         self.code = code
@@ -463,8 +481,9 @@ class SlackApi:
                 f"Slack JSON olmayan yanıt verdi (HTTP {resp.status_code}).",
             )
         if not data.get("ok"):
-            raise SlackApiError(method, str(data.get("error") or "unknown"),
-                                explain(method, data), data)
+            raise SlackApiError(
+                method, str(data.get("error") or "unknown"), explain(method, data), data
+            )
         return data
 
 
@@ -515,7 +534,9 @@ class SetupResult:
         return [o for o in self.outcomes if o.action == "failed"]
 
 
-def list_existing_channels(api: SlackApi, include_private: bool = True) -> Dict[str, str]:
+def list_existing_channels(
+    api: SlackApi, include_private: bool = True
+) -> Dict[str, str]:
     """Every channel the bot can see, as ``name -> id``. Follows pagination.
 
     A missing ``groups:read`` scope costs the private half of the listing and
@@ -596,7 +617,9 @@ def provision_channel(
 
     if not apply:
         outcome.action = "would-create"
-        outcome.detail = f"#{spec.name} oluşturulacak" + (" (özel)" if spec.private else "")
+        outcome.detail = f"#{spec.name} oluşturulacak" + (
+            " (özel)" if spec.private else ""
+        )
         return outcome
 
     try:
@@ -605,7 +628,9 @@ def provision_channel(
         )
         outcome.channel_id = str((data.get("channel") or {}).get("id") or "")
         outcome.action = "created"
-        outcome.detail = f"#{spec.name} oluşturuldu" + (" (özel)" if spec.private else "")
+        outcome.detail = f"#{spec.name} oluşturuldu" + (
+            " (özel)" if spec.private else ""
+        )
     except SlackApiError as exc:
         if exc.code == "name_taken":
             # Someone (or an earlier run) created it between the listing and
@@ -669,7 +694,9 @@ def provision(
     for spec in specs:
         pinned = str(environment.get(spec.env_key) or "").strip()
         try:
-            outcome = provision_channel(api, spec, existing, pinned_id=pinned, apply=apply)
+            outcome = provision_channel(
+                api, spec, existing, pinned_id=pinned, apply=apply
+            )
         except SlackApiError as exc:  # pragma: no cover - provision_channel catches
             outcome = ChannelOutcome(spec=spec, action="failed", detail=exc.explanation)
         except Exception as exc:  # pragma: no cover - defensive only
@@ -700,9 +727,7 @@ def write_env_file(result: SetupResult, path: str = DEFAULT_ENV_FILE) -> List[st
     Idempotent: an existing ``KEY=`` line is REPLACED, not duplicated, and a
     line that already holds the same id is left untouched.
     """
-    values = {
-        o.spec.env_key: o.channel_id for o in result.outcomes if o.channel_id
-    }
+    values = {o.spec.env_key: o.channel_id for o in result.outcomes if o.channel_id}
     if not values:
         return []
 
@@ -870,7 +895,10 @@ def main(argv: Optional[List[str]] = None) -> int:
             f"bot @{whoami.get('user', '?')}"
         )
     except SlackApiError as exc:
-        print(f"\n❌ Slack'e bağlanılamadı ({exc.code}).\n   {exc.explanation}", file=sys.stderr)
+        print(
+            f"\n❌ Slack'e bağlanılamadı ({exc.code}).\n   {exc.explanation}",
+            file=sys.stderr,
+        )
         return 1
     except Exception as exc:
         print(f"\n❌ Slack'e bağlanılamadı: {exc}", file=sys.stderr)

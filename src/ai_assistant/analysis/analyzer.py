@@ -107,9 +107,15 @@ def format_duration(seconds: Optional[float]) -> str:
     return f"{sign}{secs} sn"
 
 
-def format_value(value: Optional[float], unit: str = "", digits: Optional[int] = None) -> str:
+def format_value(
+    value: Optional[float], unit: str = "", digits: Optional[int] = None
+) -> str:
     """Bir değeri birimiyle birlikte, insanın okuduğu gibi yazar."""
-    if value is None or not isinstance(value, (int, float)) or not math.isfinite(float(value)):
+    if (
+        value is None
+        or not isinstance(value, (int, float))
+        or not math.isfinite(float(value))
+    ):
         return "—"
     if unit == "sn":
         return format_duration(value)
@@ -171,7 +177,18 @@ def default_agg(profile: ColumnProfile) -> str:
     """
     if profile.unit == "%":
         return "mean"
-    if profile.metric in ("sla", "occupancy", "adherence", "fcr", "csat", "nps", "aht", "asa", "acw", "hold"):
+    if profile.metric in (
+        "sla",
+        "occupancy",
+        "adherence",
+        "fcr",
+        "csat",
+        "nps",
+        "aht",
+        "asa",
+        "acw",
+        "hold",
+    ):
         return "mean"
     if profile.metric in ("calls", "answered", "abandon", "transfer"):
         return "sum"
@@ -215,7 +232,10 @@ class Filter:
             values = target if isinstance(target, (list, tuple, set)) else [target]
             return any(_same(cell, item) for item in values)
         if op in ("contains", "içerir"):
-            return str(target or "").casefold() in str(cell if cell is not None else "").casefold()
+            return (
+                str(target or "").casefold()
+                in str(cell if cell is not None else "").casefold()
+            )
         if op in ("between", "arası"):
             try:
                 low, high = target  # type: ignore[misc]
@@ -238,13 +258,27 @@ class Filter:
 
     def label(self) -> str:
         words = {
-            "=": "=", "!=": "≠", "<>": "≠", ">": ">", ">=": "≥", "<": "<", "<=": "≤",
-            "in": "içinde", "contains": "içerir", "between": "arası",
+            "=": "=",
+            "!=": "≠",
+            "<>": "≠",
+            ">": ">",
+            ">=": "≥",
+            "<": "<",
+            "<=": "≤",
+            "in": "içinde",
+            "contains": "içerir",
+            "between": "arası",
         }
-        if self.op in ("between", "arası") and isinstance(self.value, (list, tuple)) and len(self.value) == 2:
+        if (
+            self.op in ("between", "arası")
+            and isinstance(self.value, (list, tuple))
+            and len(self.value) == 2
+        ):
             return f"{self.column}: {_pretty(self.value[0])} – {_pretty(self.value[1])}"
         if isinstance(self.value, (list, tuple, set)):
-            return f"{self.column} {words.get(self.op, self.op)} " + ", ".join(_pretty(v) for v in self.value)
+            return f"{self.column} {words.get(self.op, self.op)} " + ", ".join(
+                _pretty(v) for v in self.value
+            )
         return f"{self.column} {words.get(self.op, self.op)} {_pretty(self.value)}"
 
 
@@ -258,9 +292,10 @@ def _pretty(value: Any) -> str:
 
 def _same(cell: Any, target: Any) -> bool:
     if isinstance(cell, str) or isinstance(target, str):
-        return str(cell if cell is not None else "").strip().casefold() == str(
-            target if target is not None else ""
-        ).strip().casefold()
+        return (
+            str(cell if cell is not None else "").strip().casefold()
+            == str(target if target is not None else "").strip().casefold()
+        )
     return cell == target
 
 
@@ -415,17 +450,23 @@ def resolve_columns(dataset: Dataset, names: Sequence[str]) -> List[ColumnProfil
             continue
         found = dataset.column(text)
         if found is None:
-            found = next((c for c in dataset.columns if c.metric == text.casefold()), None)
+            found = next(
+                (c for c in dataset.columns if c.metric == text.casefold()), None
+            )
         if found is None:
             needle = text.casefold()
-            found = next((c for c in dataset.columns if needle in c.name.casefold()), None)
+            found = next(
+                (c for c in dataset.columns if needle in c.name.casefold()), None
+            )
         if found is not None and found.index not in seen:
             seen.add(found.index)
             out.append(found)
     return out
 
 
-def apply_request_filters(dataset: Dataset, request: "AnalysisRequest") -> Tuple[Dataset, List[str]]:
+def apply_request_filters(
+    dataset: Dataset, request: "AnalysisRequest"
+) -> Tuple[Dataset, List[str]]:
     """İsteğin süzgeçlerini ve tarih penceresini uygular.
 
     Süzgeç hiçbir satır bırakmazsa ORİJİNAL veri döner ve not düşülür: boş bir
@@ -435,7 +476,9 @@ def apply_request_filters(dataset: Dataset, request: "AnalysisRequest") -> Tuple
     rows = dataset.rows
     unknown = [f.column for f in request.filters if dataset.index_of(f.column) < 0]
     if unknown:
-        notes.append("Süzgeçte tanınmayan sütun(lar) yok sayıldı: " + ", ".join(unknown) + ".")
+        notes.append(
+            "Süzgeçte tanınmayan sütun(lar) yok sayıldı: " + ", ".join(unknown) + "."
+        )
 
     active = [f for f in request.filters if dataset.index_of(f.column) >= 0]
     if active:
@@ -443,7 +486,10 @@ def apply_request_filters(dataset: Dataset, request: "AnalysisRequest") -> Tuple
         rows = [
             row
             for row in rows
-            if all(item.matches(row[index] if index < len(row) else None) for index, item in indexes)
+            if all(
+                item.matches(row[index] if index < len(row) else None)
+                for index, item in indexes
+            )
         ]
 
     date_column = None
@@ -454,7 +500,12 @@ def apply_request_filters(dataset: Dataset, request: "AnalysisRequest") -> Tuple
 
     start = request.date_from
     end = request.date_to
-    if start is None and request.last_days and date_column is not None and date_column.last:
+    if (
+        start is None
+        and request.last_days
+        and date_column is not None
+        and date_column.last
+    ):
         start = date_column.last - timedelta(days=int(request.last_days))
     if (start or end) and date_column is not None:
         index = date_column.index
@@ -468,7 +519,9 @@ def apply_request_filters(dataset: Dataset, request: "AnalysisRequest") -> Tuple
             )
         ]
     elif (start or end) and date_column is None:
-        notes.append("Tarih aralığı istendi ama veride tarih sütunu yok; aralık uygulanmadı.")
+        notes.append(
+            "Tarih aralığı istendi ama veride tarih sütunu yok; aralık uygulanmadı."
+        )
 
     if not rows:
         notes.append(
@@ -569,7 +622,15 @@ def make_finding(
     tone = _tone(direction, better)
     if not interpretation:
         interpretation = _auto_interpretation(
-            metric, value, unit, baseline, baseline_label, delta, delta_pct, direction, better
+            metric,
+            value,
+            unit,
+            baseline,
+            baseline_label,
+            delta,
+            delta_pct,
+            direction,
+            better,
         )
     return Finding(
         metric=metric,
@@ -655,7 +716,9 @@ class PivotTable:
         for row in self.rows:
             item: Dict[str, Any] = {dim: row.get(dim, "") for dim in self.dimensions}
             for measure in self.measures:
-                item[measure.key] = format_value(row.get(measure.key), measure.unit, measure.digits)
+                item[measure.key] = format_value(
+                    row.get(measure.key), measure.unit, measure.digits
+                )
             out.append(item)
         return out
 
@@ -679,7 +742,9 @@ _AGGREGATORS: Dict[str, Callable[[Sequence[float]], Optional[float]]] = {
 }
 
 
-def _aggregate(agg: str, values: Sequence[float], weights: Optional[Sequence[float]] = None) -> Optional[float]:
+def _aggregate(
+    agg: str, values: Sequence[float], weights: Optional[Sequence[float]] = None
+) -> Optional[float]:
     if agg == "count":
         return float(len(values))
     if agg == "mean" and weights:
@@ -724,10 +789,10 @@ def group_by(
     fırlatmaz, çünkü bu çağrı çoğu zaman otomatik seçimle yapılır.
     """
     dims = [d for d in dimensions if dataset.index_of(d) >= 0]
-    used_measures = [m for m in measures if dataset.index_of(m.column) >= 0 or m.agg == "count"]
-    heading = title or (
-        (" × ".join(dims) + " kırılımı") if dims else "Genel toplam"
-    )
+    used_measures = [
+        m for m in measures if dataset.index_of(m.column) >= 0 or m.agg == "count"
+    ]
+    heading = title or ((" × ".join(dims) + " kırılımı") if dims else "Genel toplam")
     table = PivotTable(title=heading, dimensions=dims, measures=list(used_measures))
     if not dims or not used_measures or not dataset.rows:
         table.note = "Kırılım için uygun boyut ya da ölçüt bulunamadı."
@@ -735,7 +800,9 @@ def group_by(
 
     dim_indexes = [dataset.index_of(d) for d in dims]
     measure_indexes = [dataset.index_of(m.column) for m in used_measures]
-    weight_indexes = [dataset.index_of(m.weight) if m.weight else -1 for m in used_measures]
+    weight_indexes = [
+        dataset.index_of(m.weight) if m.weight else -1 for m in used_measures
+    ]
 
     buckets: Dict[Tuple[str, ...], List[List[float]]] = {}
     weights: Dict[Tuple[str, ...], List[List[float]]] = {}
@@ -758,9 +825,13 @@ def group_by(
             if isinstance(value, (int, float)):
                 buckets[key][position].append(float(value))
                 weight_index = weight_indexes[position]
-                weight_value = row[weight_index] if 0 <= weight_index < len(row) else None
+                weight_value = (
+                    row[weight_index] if 0 <= weight_index < len(row) else None
+                )
                 weights[key][position].append(
-                    float(weight_value) if isinstance(weight_value, (int, float)) else 0.0
+                    float(weight_value)
+                    if isinstance(weight_value, (int, float))
+                    else 0.0
                 )
 
     rows: List[Dict[str, Any]] = []
@@ -768,13 +839,18 @@ def group_by(
         entry: Dict[str, Any] = {dim: key[i] for i, dim in enumerate(dims)}
         for position, measure in enumerate(used_measures):
             entry[measure.key] = _aggregate(
-                measure.agg, buckets[key][position], weights[key][position] if measure.weight else None
+                measure.agg,
+                buckets[key][position],
+                weights[key][position] if measure.weight else None,
             )
         rows.append(entry)
 
     sort_field = sort_key or used_measures[0].key
     if any(sort_field == m.key for m in used_measures):
-        rows.sort(key=lambda r: (r.get(sort_field) is None, r.get(sort_field) or 0), reverse=descending)
+        rows.sort(
+            key=lambda r: (r.get(sort_field) is None, r.get(sort_field) or 0),
+            reverse=descending,
+        )
     else:
         rows.sort(key=lambda r: str(r.get(dims[0], "")))
 
@@ -796,8 +872,14 @@ def group_by(
             if isinstance(value, (int, float)):
                 values.append(float(value))
                 weight_index = weight_indexes[position]
-                weight_value = row[weight_index] if 0 <= weight_index < len(row) else None
-                weight_values.append(float(weight_value) if isinstance(weight_value, (int, float)) else 0.0)
+                weight_value = (
+                    row[weight_index] if 0 <= weight_index < len(row) else None
+                )
+                weight_values.append(
+                    float(weight_value)
+                    if isinstance(weight_value, (int, float))
+                    else 0.0
+                )
         totals[measure.key] = _aggregate(
             measure.agg, values, weight_values if measure.weight else None
         )
@@ -890,7 +972,11 @@ def _bucket(moment: datetime, period: str) -> Tuple[str, str, str]:
             monday.strftime("%d.%m"),
         )
     key_fmt, long_fmt, short_fmt = _PERIOD_KEYS.get(period, _PERIOD_KEYS["gün"])
-    return moment.strftime(key_fmt), moment.strftime(long_fmt), moment.strftime(short_fmt)
+    return (
+        moment.strftime(key_fmt),
+        moment.strftime(long_fmt),
+        moment.strftime(short_fmt),
+    )
 
 
 def time_series(
@@ -939,7 +1025,8 @@ def time_series(
         labels[key] = (long_label, short_label)
 
     series = TimeSeries(
-        title=title or f"{value_profile.metric_label or value_profile.name} ({AGG_LABELS.get(use_agg, use_agg)})",
+        title=title
+        or f"{value_profile.metric_label or value_profile.name} ({AGG_LABELS.get(use_agg, use_agg)})",
         column=value_profile.name,
         agg=use_agg,
         period=use_period,
@@ -1053,7 +1140,9 @@ def find_outliers(
     profile = dataset.column(column)
     report = OutlierReport(column=column)
     if not profile or profile.kind != KIND_NUMERIC:
-        report.interpretation = f"'{column}' sayısal bir sütun olmadığı için aykırı değer aranmadı."
+        report.interpretation = (
+            f"'{column}' sayısal bir sütun olmadığı için aykırı değer aranmadı."
+        )
         return report
     report.unit = profile.unit
 
@@ -1061,13 +1150,13 @@ def find_outliers(
     pairs = [
         (float(row[index]), position)
         for position, row in enumerate(dataset.rows)
-        if index < len(row) and isinstance(row[index], (int, float)) and not isinstance(row[index], bool)
+        if index < len(row)
+        and isinstance(row[index], (int, float))
+        and not isinstance(row[index], bool)
     ]
     if len(pairs) < 8:
         report.total = len(pairs)
-        report.interpretation = (
-            f"'{column}' için aykırı değer analizi en az 8 ölçüm ister; elde {len(pairs)} ölçüm var."
-        )
+        report.interpretation = f"'{column}' için aykırı değer analizi en az 8 ölçüm ister; elde {len(pairs)} ölçüm var."
         return report
 
     values = [v for v, _ in pairs]
@@ -1099,7 +1188,12 @@ def find_outliers(
                 )
             )
     report.count = len(hits)
-    hits.sort(key=lambda o: abs(o.value - (report.upper if o.side == "üst" else report.lower)), reverse=True)
+    hits.sort(
+        key=lambda o: abs(
+            o.value - (report.upper if o.side == "üst" else report.lower)
+        ),
+        reverse=True,
+    )
     report.examples = hits[:MAX_OUTLIER_EXAMPLES]
 
     label = profile.metric_label or column
@@ -1169,7 +1263,11 @@ class Correlation:
 
 
 def pearson(left: Sequence[float], right: Sequence[float]) -> Optional[float]:
-    pairs = [(a, b) for a, b in zip(left, right) if isinstance(a, (int, float)) and isinstance(b, (int, float))]
+    pairs = [
+        (a, b)
+        for a, b in zip(left, right)
+        if isinstance(a, (int, float)) and isinstance(b, (int, float))
+    ]
     if len(pairs) < 3:
         return None
     xs = [float(a) for a, _ in pairs]
@@ -1184,24 +1282,36 @@ def pearson(left: Sequence[float], right: Sequence[float]) -> Optional[float]:
     return cov / math.sqrt(var_x * var_y)
 
 
-def correlations(dataset: Dataset, threshold: float = CORRELATION_THRESHOLD) -> List[Correlation]:
+def correlations(
+    dataset: Dataset, threshold: float = CORRELATION_THRESHOLD
+) -> List[Correlation]:
     """Sayısal sütunlar arasındaki anlamlı ilişkiler, güçlüden zayıfa."""
     numeric = dataset.numeric_columns()
     out: List[Correlation] = []
     for i, left in enumerate(numeric):
         for right in numeric[i + 1 :]:
-            xs = [row[left.index] if left.index < len(row) else None for row in dataset.rows]
-            ys = [row[right.index] if right.index < len(row) else None for row in dataset.rows]
+            xs = [
+                row[left.index] if left.index < len(row) else None
+                for row in dataset.rows
+            ]
+            ys = [
+                row[right.index] if right.index < len(row) else None
+                for row in dataset.rows
+            ]
             usable = [
                 (x, y)
                 for x, y in zip(xs, ys)
-                if isinstance(x, (int, float)) and not isinstance(x, bool)
-                and isinstance(y, (int, float)) and not isinstance(y, bool)
+                if isinstance(x, (int, float))
+                and not isinstance(x, bool)
+                and isinstance(y, (int, float))
+                and not isinstance(y, bool)
             ]
             value = pearson([x for x, _ in usable], [y for _, y in usable])
             if value is None or abs(value) < threshold:
                 continue
-            item = Correlation(left=left.name, right=right.name, r=value, pairs=len(usable))
+            item = Correlation(
+                left=left.name, right=right.name, r=value, pairs=len(usable)
+            )
             way = "birlikte artıyor" if value > 0 else "ters yönde hareket ediyor"
             item.interpretation = (
                 f"{left.metric_label or left.name} ile {right.metric_label or right.name} arasında "
@@ -1215,7 +1325,9 @@ def correlations(dataset: Dataset, threshold: float = CORRELATION_THRESHOLD) -> 
 # --- çağrı merkezi KPI'ları --------------------------------------------------
 
 
-def _weighted_mean(dataset: Dataset, column: ColumnProfile, weight: Optional[ColumnProfile]) -> Optional[float]:
+def _weighted_mean(
+    dataset: Dataset, column: ColumnProfile, weight: Optional[ColumnProfile]
+) -> Optional[float]:
     values: List[float] = []
     weights: List[float] = []
     for row in dataset.rows:
@@ -1225,7 +1337,9 @@ def _weighted_mean(dataset: Dataset, column: ColumnProfile, weight: Optional[Col
         values.append(float(value))
         if weight is not None:
             weight_value = row[weight.index] if weight.index < len(row) else None
-            weights.append(float(weight_value) if isinstance(weight_value, (int, float)) else 0.0)
+            weights.append(
+                float(weight_value) if isinstance(weight_value, (int, float)) else 0.0
+            )
     if not values:
         return None
     if weights and math.fsum(weights) > 0:
@@ -1320,8 +1434,12 @@ def call_center_kpis(
                 )
                 finding.tone = TONE_GOOD
             else:
-                lost = (abandon.total or 0.0)
-                extra = f" Dönem içinde {format_number(lost, 0)} çağrı terk edilmiş." if lost else ""
+                lost = abandon.total or 0.0
+                extra = (
+                    f" Dönem içinde {format_number(lost, 0)} çağrı terk edilmiş."
+                    if lost
+                    else ""
+                )
                 finding.interpretation = (
                     f"Terk oranı %{format_number(rate, 1)}; %5 eşiğinin üzerinde.{extra} "
                     f"Bekleme süresini kısaltmadan bu oran düşmez."
@@ -1350,8 +1468,11 @@ def call_center_kpis(
             finding.interpretation = (
                 f"AHT {format_value(finding.value, finding.unit)}; dönemin ilk yarısına göre "
                 f"{format_duration(abs(delta))} {direction}. "
-                + ("Görüşme süresi uzuyor, bilgi tabanı ve yönlendirme gözden geçirilmeli."
-                   if delta > 0 else "Kısalan süre kapasiteyi rahatlatıyor.")
+                + (
+                    "Görüşme süresi uzuyor, bilgi tabanı ve yönlendirme gözden geçirilmeli."
+                    if delta > 0
+                    else "Kısalan süre kapasiteyi rahatlatıyor."
+                )
             )
         else:
             finding.interpretation = (
@@ -1386,9 +1507,7 @@ def call_center_kpis(
             )
             finding.tone = TONE_WARN
         elif value is not None:
-            finding.interpretation = (
-                f"Doluluk %{format_number(value, 1)} ile sağlıklı bant (%65–%90) içinde."
-            )
+            finding.interpretation = f"Doluluk %{format_number(value, 1)} ile sağlıklı bant (%65–%90) içinde."
             finding.tone = TONE_GOOD
         findings.append(finding)
 
@@ -1512,7 +1631,15 @@ class AnalysisResult:
 
 #: Kırılım ekseni olarak tercih sırası — çağrı merkezinde bu sıra rapora bakan
 #: yöneticinin sorduğu soru sırasıdır.
-_DIMENSION_PRIORITY = ("agent", "queue", "interval", "team", "shift", "channel", "reason")
+_DIMENSION_PRIORITY = (
+    "agent",
+    "queue",
+    "interval",
+    "team",
+    "shift",
+    "channel",
+    "reason",
+)
 
 
 def _pick_dimensions(dataset: Dataset, limit: int = 3) -> List[ColumnProfile]:
@@ -1520,7 +1647,11 @@ def _pick_dimensions(dataset: Dataset, limit: int = 3) -> List[ColumnProfile]:
     ranked = sorted(
         candidates,
         key=lambda c: (
-            _DIMENSION_PRIORITY.index(c.metric) if c.metric in _DIMENSION_PRIORITY else 99,
+            (
+                _DIMENSION_PRIORITY.index(c.metric)
+                if c.metric in _DIMENSION_PRIORITY
+                else 99
+            ),
             c.distinct,
         ),
     )
@@ -1543,7 +1674,9 @@ def _pick_measures(dataset: Dataset, weight: str = "", limit: int = 4) -> List[M
 _SERIES_PRIORITY = ("calls", "aht", "sla", "abandon", "asa", "csat", "occupancy", "fcr")
 
 
-def _series_measures(dataset: Dataset, measures: Sequence[Measure], limit: int = 4) -> List[Measure]:
+def _series_measures(
+    dataset: Dataset, measures: Sequence[Measure], limit: int = 4
+) -> List[Measure]:
     """Zaman serisi çizilecek ölçütler — aynı sorunun iki kopyası değil.
 
     Varsayılan ölçüt listesi "çağrı, cevaplanan, terk" gibi birbirinin türevi
@@ -1596,7 +1729,9 @@ def analyze(
     )
     result.notes.extend(source.notes)
     result.notes.extend(filter_notes)
-    result.is_call_center = source.call_center_score() >= 0.34 and bool(source.metric_columns())
+    result.is_call_center = source.call_center_score() >= 0.34 and bool(
+        source.metric_columns()
+    )
 
     numeric = source.numeric_columns()
     if not numeric:
@@ -1613,7 +1748,11 @@ def analyze(
         wanted = resolve_columns(source, spec.metrics)
         missing = [m for m in spec.metrics if not resolve_columns(source, [m])]
         if missing:
-            result.notes.append("İstenen ama veride bulunamayan gösterge(ler): " + ", ".join(missing) + ".")
+            result.notes.append(
+                "İstenen ama veride bulunamayan gösterge(ler): "
+                + ", ".join(missing)
+                + "."
+            )
         measures = [
             Measure(
                 column=column.name,
@@ -1631,14 +1770,20 @@ def analyze(
         if spec.agg:
             for measure in measures:
                 measure.agg = spec.agg
-                measure.label = f"{measure.column} ({AGG_LABELS.get(spec.agg, spec.agg)})"
+                measure.label = (
+                    f"{measure.column} ({AGG_LABELS.get(spec.agg, spec.agg)})"
+                )
 
     # --- kırılımlar: istek → otomatik seçim
     if spec.dimensions:
         dimensions = resolve_columns(source, spec.dimensions)
         unknown = [d for d in spec.dimensions if not resolve_columns(source, [d])]
         if unknown:
-            result.notes.append("İstenen ama veride bulunamayan kırılım(lar): " + ", ".join(unknown) + ".")
+            result.notes.append(
+                "İstenen ama veride bulunamayan kırılım(lar): "
+                + ", ".join(unknown)
+                + "."
+            )
         if not dimensions:
             dimensions = _pick_dimensions(source)
     else:
@@ -1695,13 +1840,19 @@ def analyze(
     date_columns = source.date_columns()
     requested_date = source.column(spec.date_column) if spec.date_column else None
     if requested_date is not None and requested_date.kind != KIND_DATE:
-        result.notes.append(f"'{spec.date_column}' bir tarih sütunu değil; zaman ekseni otomatik seçildi.")
+        result.notes.append(
+            f"'{spec.date_column}' bir tarih sütunu değil; zaman ekseni otomatik seçildi."
+        )
         requested_date = None
     date_column = requested_date or (date_columns[0] if date_columns else None)
 
     series_by_metric: Dict[str, TimeSeries] = {}
     if spec.wants("series") and date_column is not None and measures:
-        pool = measures if (spec.measures or spec.metrics) else _pick_measures(source, weight=weight, limit=12)
+        pool = (
+            measures
+            if (spec.measures or spec.metrics)
+            else _pick_measures(source, weight=weight, limit=12)
+        )
         for measure in _series_measures(source, pool):
             series = time_series(
                 source,
@@ -1721,7 +1872,11 @@ def analyze(
     # 3. Aykırı değerler
     if spec.wants("outliers"):
         context = dimensions[0].name if dimensions else ""
-        targets = [source.column(m.column) for m in measures] if (spec.measures or spec.metrics) else numeric[:4]
+        targets = (
+            [source.column(m.column) for m in measures]
+            if (spec.measures or spec.metrics)
+            else numeric[:4]
+        )
         for column in [c for c in targets if c is not None][:4]:
             report = find_outliers(source, column.name, context_column=context)
             if report.count or report.total >= 8:
@@ -1735,7 +1890,9 @@ def analyze(
     if spec.wants("kpi"):
         if result.is_call_center:
             result.findings.extend(
-                call_center_kpis(source, sla_target=spec.sla_target, series_by=series_by_metric)
+                call_center_kpis(
+                    source, sla_target=spec.sla_target, series_by=series_by_metric
+                )
             )
         if not result.findings:
             result.findings.extend(_generic_findings(source, result.series))
@@ -1799,9 +1956,7 @@ def _headline(result: AnalysisResult) -> str:
             )
     if result.findings:
         return result.findings[0].interpretation
-    return (
-        f"{dataset.summary_tr()} veri incelendi; öne çıkan bir sapma bulunmadı."
-    )
+    return f"{dataset.summary_tr()} veri incelendi; öne çıkan bir sapma bulunmadı."
 
 
 __all__ = [

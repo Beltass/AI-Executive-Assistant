@@ -102,8 +102,35 @@ _PERCENT_RE = re.compile(r"^\s*%\s*|\s*%\s*$")
 #: toplanabilir görünen anlamsız bir "ölçüt" çıkarır.
 _LEADING_ZERO_CODE = re.compile(r"^0\d+$")
 
-_TRUE_WORDS = {"evet", "var", "true", "yes", "doğru", "dogru", "e", "y", "1", "aktif", "açık", "acik"}
-_FALSE_WORDS = {"hayır", "hayir", "yok", "false", "no", "yanlış", "yanlis", "h", "n", "0", "pasif", "kapalı", "kapali"}
+_TRUE_WORDS = {
+    "evet",
+    "var",
+    "true",
+    "yes",
+    "doğru",
+    "dogru",
+    "e",
+    "y",
+    "1",
+    "aktif",
+    "açık",
+    "acik",
+}
+_FALSE_WORDS = {
+    "hayır",
+    "hayir",
+    "yok",
+    "false",
+    "no",
+    "yanlış",
+    "yanlis",
+    "h",
+    "n",
+    "0",
+    "pasif",
+    "kapalı",
+    "kapali",
+}
 
 _DATE_FORMATS = (
     "%Y-%m-%d %H:%M:%S",
@@ -139,7 +166,11 @@ def parse_number(value: Any) -> Optional[float]:
     if isinstance(value, bool):
         return None
     if isinstance(value, (int, float)):
-        return None if isinstance(value, float) and not math.isfinite(value) else float(value)
+        return (
+            None
+            if isinstance(value, float) and not math.isfinite(value)
+            else float(value)
+        )
     if isinstance(value, timedelta):
         return float(value.total_seconds())
     text = str(value).strip()
@@ -190,7 +221,12 @@ def _single_separator(text: str, sep: str) -> str:
     # "1.234.567" / "1,234,567" → binlik; "12.5" / "12,5" → ondalık.
     if len(parts) > 2 and all(len(p) == 3 for p in parts[1:]):
         return text.replace(sep, "")
-    if len(parts) == 2 and len(parts[1]) == 3 and len(parts[0]) <= 3 and parts[0].isdigit():
+    if (
+        len(parts) == 2
+        and len(parts[1]) == 3
+        and len(parts[0]) <= 3
+        and parts[0].isdigit()
+    ):
         # 1.234 ikircikli: binlik ayırıcı kabul edilir (nokta) ama virgülde
         # Türkçe ondalık daha olası değil — üç haneli kuruş yazılmaz.
         return text.replace(sep, "") if sep == "." else text.replace(sep, ".")
@@ -254,7 +290,16 @@ def is_blank(value: Any) -> bool:
     if value is None:
         return True
     if isinstance(value, str):
-        return not value.strip() or value.strip() in {"-", "—", "N/A", "n/a", "NULL", "null", "#YOK", "#N/A"}
+        return not value.strip() or value.strip() in {
+            "-",
+            "—",
+            "N/A",
+            "n/a",
+            "NULL",
+            "null",
+            "#YOK",
+            "#N/A",
+        }
     return False
 
 
@@ -277,55 +322,87 @@ class MetricHint:
 #: Sıra ÖNEMLİ: daha özel anahtar sözcük önce gelir, yoksa "çağrı süresi"
 #: "çağrı" sayısına takılır.
 METRIC_PATTERNS: Tuple[Tuple[str, MetricHint], ...] = (
-    (r"\baht\b|ortalama\s*(g[oö]r[uü][sş]me|[cç]a[gğ]r[ıi]|i[sş]lem)|handle\s*time|talk\s*time|"
-     r"g[oö]r[uü][sş]me\s*s[uü]re|konu[sş]ma\s*s[uü]re|[cç]a[gğ]r[ıi]\s*s[uü]re",
-     MetricHint("aht", "Ortalama Görüşme Süresi (AHT)", "down", "sn")),
-    (r"\basa\b|beklet?me\s*s[uü]re|bekleme|answer\s*speed|queue\s*time|kuyruk\s*s[uü]re|wait",
-     MetricHint("asa", "Ortalama Cevaplama Süresi (ASA)", "down", "sn")),
-    (r"\bacw\b|[cç]a[gğ]r[ıi]\s*sonras[ıi]|after\s*call",
-     MetricHint("acw", "Çağrı Sonrası İş (ACW)", "down", "sn")),
-    (r"\bhold\b|beklet(me)?\s*(s[uü]resi)?\b",
-     MetricHint("hold", "Bekletme Süresi", "down", "sn")),
-    (r"\bsla\b|servis\s*seviye|service\s*level|hizmet\s*seviye",
-     MetricHint("sla", "Servis Seviyesi (SLA)", "up", "%")),
-    (r"terk|abandon|vazge[cç]|kay[ıi]p\s*[cç]a[gğ]r[ıi]",
-     MetricHint("abandon", "Terk Edilen Çağrı", "down")),
-    (r"doluluk|occupancy|me[sş]guliyet|utilization",
-     MetricHint("occupancy", "Doluluk", "up", "%")),
-    (r"uyum|adherence|schedule\s*adher",
-     MetricHint("adherence", "Vardiya Uyumu", "up", "%")),
-    (r"csat|memnuniyet|satisfaction|puan|score|rating",
-     MetricHint("csat", "Müşteri Memnuniyeti (CSAT)", "up")),
-    (r"\bnps\b|tavsiye\s*skor",
-     MetricHint("nps", "Net Tavsiye Skoru (NPS)", "up")),
-    (r"\bfcr\b|ilk\s*(temas|[cç]a[gğ]r[ıi])|first\s*call\s*resolution|tek\s*seferde",
-     MetricHint("fcr", "İlk Temasta Çözüm (FCR)", "up", "%")),
-    (r"transfer|aktar[ıi]m|y[oö]nlendir",
-     MetricHint("transfer", "Aktarım", "down")),
-    (r"cevap(lanan|lama)|kar[sş][ıi]lanan|answered|handled|ba[gğ]lanan",
-     MetricHint("answered", "Cevaplanan Çağrı", "up")),
+    (
+        r"\baht\b|ortalama\s*(g[oö]r[uü][sş]me|[cç]a[gğ]r[ıi]|i[sş]lem)|handle\s*time|talk\s*time|"
+        r"g[oö]r[uü][sş]me\s*s[uü]re|konu[sş]ma\s*s[uü]re|[cç]a[gğ]r[ıi]\s*s[uü]re",
+        MetricHint("aht", "Ortalama Görüşme Süresi (AHT)", "down", "sn"),
+    ),
+    (
+        r"\basa\b|beklet?me\s*s[uü]re|bekleme|answer\s*speed|queue\s*time|kuyruk\s*s[uü]re|wait",
+        MetricHint("asa", "Ortalama Cevaplama Süresi (ASA)", "down", "sn"),
+    ),
+    (
+        r"\bacw\b|[cç]a[gğ]r[ıi]\s*sonras[ıi]|after\s*call",
+        MetricHint("acw", "Çağrı Sonrası İş (ACW)", "down", "sn"),
+    ),
+    (
+        r"\bhold\b|beklet(me)?\s*(s[uü]resi)?\b",
+        MetricHint("hold", "Bekletme Süresi", "down", "sn"),
+    ),
+    (
+        r"\bsla\b|servis\s*seviye|service\s*level|hizmet\s*seviye",
+        MetricHint("sla", "Servis Seviyesi (SLA)", "up", "%"),
+    ),
+    (
+        r"terk|abandon|vazge[cç]|kay[ıi]p\s*[cç]a[gğ]r[ıi]",
+        MetricHint("abandon", "Terk Edilen Çağrı", "down"),
+    ),
+    (
+        r"doluluk|occupancy|me[sş]guliyet|utilization",
+        MetricHint("occupancy", "Doluluk", "up", "%"),
+    ),
+    (
+        r"uyum|adherence|schedule\s*adher",
+        MetricHint("adherence", "Vardiya Uyumu", "up", "%"),
+    ),
+    (
+        r"csat|memnuniyet|satisfaction|puan|score|rating",
+        MetricHint("csat", "Müşteri Memnuniyeti (CSAT)", "up"),
+    ),
+    (r"\bnps\b|tavsiye\s*skor", MetricHint("nps", "Net Tavsiye Skoru (NPS)", "up")),
+    (
+        r"\bfcr\b|ilk\s*(temas|[cç]a[gğ]r[ıi])|first\s*call\s*resolution|tek\s*seferde",
+        MetricHint("fcr", "İlk Temasta Çözüm (FCR)", "up", "%"),
+    ),
+    (r"transfer|aktar[ıi]m|y[oö]nlendir", MetricHint("transfer", "Aktarım", "down")),
+    (
+        r"cevap(lanan|lama)|kar[sş][ıi]lanan|answered|handled|ba[gğ]lanan",
+        MetricHint("answered", "Cevaplanan Çağrı", "up"),
+    ),
     # "Çağrı Sebebi" / "Çağrı Konusu" bir SAYI değil bir KIRILIMDIR; genel
     # "çağrı" kalıbından ÖNCE gelmezse rapor bu sütunu "Çağrı Adedi" diye
     # etiketler ve tabloya bakan kişiye anlamsız bir başlık gösterir.
-    (r"sebe[pb]|neden|reason|konu|topic|kategori|category|t[uü]r|type|sonu[cç]|disposition",
-     MetricHint("reason", "Konu / Sebep", "", dimension=True)),
-    (r"[cç]a[gğ]r[ıi]|\bcall\b|\bcalls\b|arama|contact|etkile[sş]im|i[sş]lem\s*adedi|hacim|volume|adet",
-     MetricHint("calls", "Çağrı Adedi", "")),
+    (
+        r"sebe[pb]|neden|reason|konu|topic|kategori|category|t[uü]r|type|sonu[cç]|disposition",
+        MetricHint("reason", "Konu / Sebep", "", dimension=True),
+    ),
+    (
+        r"[cç]a[gğ]r[ıi]|\bcall\b|\bcalls\b|arama|contact|etkile[sş]im|i[sş]lem\s*adedi|hacim|volume|adet",
+        MetricHint("calls", "Çağrı Adedi", ""),
+    ),
     # Kırılımlar (ölçüt değil, eksen).
-    (r"temsilci|agent|m[uü][sş]teri\s*temsilcisi|personel|dan[ıi][sş]man|operat[oö]r|[cç]al[ıi][sş]an",
-     MetricHint("agent", "Temsilci", "", dimension=True)),
-    (r"vardiya|shift|mesai",
-     MetricHint("shift", "Vardiya", "", dimension=True)),
-    (r"kuyruk|queue|beceri|skill|kampanya|proje",
-     MetricHint("queue", "Kuyruk", "", dimension=True)),
-    (r"kanal|channel|medya|ortam",
-     MetricHint("channel", "Kanal", "", dimension=True)),
-    (r"saat\s*dilim|interval|zaman\s*dilim|periy[oa]t|yar[ıi]m\s*saat|time\s*slot|\bsaat\b|\bhour\b",
-     MetricHint("interval", "Saat Dilimi", "", dimension=True)),
-    (r"tak[ıi]m|team|ekip|grup|group|departman|birim",
-     MetricHint("team", "Takım", "", dimension=True)),
-    (r"tarih|\bdate\b|\bg[uü]n\b|\bday\b|hafta|week|\bay\b|month",
-     MetricHint("date", "Tarih", "", dimension=True)),
+    (
+        r"temsilci|agent|m[uü][sş]teri\s*temsilcisi|personel|dan[ıi][sş]man|operat[oö]r|[cç]al[ıi][sş]an",
+        MetricHint("agent", "Temsilci", "", dimension=True),
+    ),
+    (r"vardiya|shift|mesai", MetricHint("shift", "Vardiya", "", dimension=True)),
+    (
+        r"kuyruk|queue|beceri|skill|kampanya|proje",
+        MetricHint("queue", "Kuyruk", "", dimension=True),
+    ),
+    (r"kanal|channel|medya|ortam", MetricHint("channel", "Kanal", "", dimension=True)),
+    (
+        r"saat\s*dilim|interval|zaman\s*dilim|periy[oa]t|yar[ıi]m\s*saat|time\s*slot|\bsaat\b|\bhour\b",
+        MetricHint("interval", "Saat Dilimi", "", dimension=True),
+    ),
+    (
+        r"tak[ıi]m|team|ekip|grup|group|departman|birim",
+        MetricHint("team", "Takım", "", dimension=True),
+    ),
+    (
+        r"tarih|\bdate\b|\bg[uü]n\b|\bday\b|hafta|week|\bay\b|month",
+        MetricHint("date", "Tarih", "", dimension=True),
+    ),
 )
 
 #: Yüzde biriminde olduğu ad ından anlaşılan sütunlar.
@@ -457,7 +534,9 @@ class ColumnProfile:
                 "p90": self.p90,
             }
         if self.top_values:
-            payload["top_values"] = [{"value": v, "count": c} for v, c in self.top_values]
+            payload["top_values"] = [
+                {"value": v, "count": c} for v, c in self.top_values
+            ]
         if self.kind == KIND_DATE:
             payload["period"] = {
                 "first": self.first.isoformat() if self.first else "",
@@ -524,7 +603,9 @@ class Dataset:
 
     def metric_columns(self) -> List[ColumnProfile]:
         """Çağrı merkezi göstergesi olarak tanınan SAYISAL sütunlar."""
-        return [c for c in self.columns if c.metric and not c.is_dimension and c.is_numeric]
+        return [
+            c for c in self.columns if c.metric and not c.is_dimension and c.is_numeric
+        ]
 
     def call_center_score(self) -> float:
         """Verinin çağrı merkezi verisine benzeme oranı (0–1)."""
@@ -561,7 +642,13 @@ class Dataset:
                 better=profile.better,
                 is_dimension=profile.is_dimension,
             )
-            _recompute(fresh, [row[profile.index] if profile.index < len(row) else None for row in clone.rows])
+            _recompute(
+                fresh,
+                [
+                    row[profile.index] if profile.index < len(row) else None
+                    for row in clone.rows
+                ],
+            )
             clone.columns.append(fresh)
         return clone
 
@@ -600,10 +687,9 @@ class Dataset:
         for column in self.columns:
             kinds[column.kind_label] = kinds.get(column.kind_label, 0) + 1
         parts = ", ".join(f"{count} {label}" for label, count in kinds.items())
-        return (
-            f"{self.row_count:,} satır × {self.column_count} sütun".replace(",", ".")
-            + (f" ({parts})" if parts else "")
-        )
+        return f"{self.row_count:,} satır × {self.column_count} sütun".replace(
+            ",", "."
+        ) + (f" ({parts})" if parts else "")
 
 
 def _hash_cell(cell: Any) -> str:
@@ -639,8 +725,7 @@ def _granularity(moments: Sequence[datetime]) -> str:
     if len(unique) < 2:
         return "tek nokta"
     deltas = [
-        (unique[i + 1] - unique[i]).total_seconds()
-        for i in range(len(unique) - 1)
+        (unique[i + 1] - unique[i]).total_seconds() for i in range(len(unique) - 1)
     ]
     deltas = [d for d in deltas if d > 0]
     if not deltas:
@@ -683,7 +768,10 @@ def _pick_kind(raw: Sequence[Any], name: str) -> Tuple[str, str]:
         return KIND_EMPTY, ""
 
     booleans = sum(1 for v in sample if parse_bool(v) is not None)
-    if booleans / len(sample) >= 0.95 and len({str(v).strip().casefold() for v in sample}) <= 4:
+    if (
+        booleans / len(sample) >= 0.95
+        and len({str(v).strip().casefold() for v in sample}) <= 4
+    ):
         return KIND_BOOLEAN, ""
 
     dates = sum(1 for v in sample if parse_datetime(v) is not None)
@@ -693,11 +781,15 @@ def _pick_kind(raw: Sequence[Any], name: str) -> Tuple[str, str]:
     numbers = sum(1 for v in sample if parse_number(v) is not None)
     if numbers / len(sample) >= TYPE_THRESHOLD and not _looks_like_code(sample):
         unit = ""
-        if any(isinstance(v, str) and "%" in v for v in sample) or _PERCENT_NAME.search(str(name or "")):
+        if any(isinstance(v, str) and "%" in v for v in sample) or _PERCENT_NAME.search(
+            str(name or "")
+        ):
             unit = "%"
         elif any(isinstance(v, str) and _DURATION_RE.match(v.strip()) for v in sample):
             unit = "sn"
-        elif any(isinstance(v, str) and any(sym in v for sym in _CURRENCY) for v in sample):
+        elif any(
+            isinstance(v, str) and any(sym in v for sym in _CURRENCY) for v in sample
+        ):
             unit = "₺"
         return KIND_NUMERIC, unit
 
@@ -762,7 +854,12 @@ def _fill_stats(profile: ColumnProfile, values: Sequence[Any]) -> None:
         profile.p25 = _percentile(numbers, 0.25)
         profile.p75 = _percentile(numbers, 0.75)
         profile.p90 = _percentile(numbers, 0.90)
-        if not profile.unit and profile.metric in ("sla", "occupancy", "adherence", "fcr"):
+        if not profile.unit and profile.metric in (
+            "sla",
+            "occupancy",
+            "adherence",
+            "fcr",
+        ):
             if profile.maximum is not None and profile.maximum <= 100:
                 profile.unit = "%"
     elif profile.kind == KIND_DATE and moments:
@@ -796,13 +893,17 @@ def profile_table(
     """
     clean_headers = _unique_headers(headers)
     if not clean_headers:
-        raise DatasetError("Tabloda hiç sütun başlığı bulunamadı; ilk satırın başlık satırı olduğundan emin olun.")
+        raise DatasetError(
+            "Tabloda hiç sütun başlığı bulunamadı; ilk satırın başlık satırı olduğundan emin olun."
+        )
 
     notes: List[str] = []
     body = [list(row) for row in rows]
     if len(body) > MAX_ROWS:
         notes.append(
-            f"Veri {len(body):,} satır olduğu için ilk {MAX_ROWS:,} satır analiz edildi.".replace(",", ".")
+            f"Veri {len(body):,} satır olduğu için ilk {MAX_ROWS:,} satır analiz edildi.".replace(
+                ",", "."
+            )
         )
         body = body[:MAX_ROWS]
 
@@ -858,15 +959,23 @@ def profile_table(
     )
 
     if not dataset.rows:
-        raise DatasetError("Veri kaynağında başlık dışında hiç satır yok; analiz edilecek bir şey bulunamadı.")
+        raise DatasetError(
+            "Veri kaynağında başlık dışında hiç satır yok; analiz edilecek bir şey bulunamadı."
+        )
 
     empty = [c.name for c in columns if c.kind == KIND_EMPTY]
     if empty:
-        dataset.notes.append("Tamamen boş sütun(lar) analiz dışı bırakıldı: " + ", ".join(empty[:8]) + ".")
+        dataset.notes.append(
+            "Tamamen boş sütun(lar) analiz dışı bırakıldı: "
+            + ", ".join(empty[:8])
+            + "."
+        )
     high_null = [c.name for c in columns if 0.4 < c.null_rate < 1.0]
     if high_null:
         dataset.notes.append(
-            "Boşluk oranı %40'ın üstünde olan sütun(lar): " + ", ".join(high_null[:8]) + "."
+            "Boşluk oranı %40'ın üstünde olan sütun(lar): "
+            + ", ".join(high_null[:8])
+            + "."
         )
     return dataset
 
@@ -924,7 +1033,9 @@ def load_text(
     """Yapıştırılmış TSV/CSV metnini okur (ayırıcı otomatik saptanır)."""
     body = str(text or "").strip("﻿\n\r ")
     if not body.strip():
-        raise DatasetError("Yapıştırılan metin boş; en az bir başlık satırı ve bir veri satırı gerekiyor.")
+        raise DatasetError(
+            "Yapıştırılan metin boş; en az bir başlık satırı ve bir veri satırı gerekiyor."
+        )
     sep = delimiter or _sniff_delimiter(body)
     try:
         reader = csv.reader(io.StringIO(body), delimiter=sep)
@@ -936,7 +1047,9 @@ def load_text(
         raise DatasetError(
             "Yapıştırılan metinde başlık satırının altında veri yok; en az iki satır gerekiyor."
         )
-    return profile_table(table[0], table[1:], name=name, source="yapıştırılan metin", source_kind="text")
+    return profile_table(
+        table[0], table[1:], name=name, source="yapıştırılan metin", source_kind="text"
+    )
 
 
 def load_csv(path: str, name: str = "", encoding: str = "") -> Dataset:
@@ -954,7 +1067,9 @@ def load_csv(path: str, name: str = "", encoding: str = "") -> Dataset:
             last_error = exc
             continue
         except OSError as exc:
-            raise DatasetError(f"Dosya okunamadı ({os.path.basename(path)}): {exc}") from exc
+            raise DatasetError(
+                f"Dosya okunamadı ({os.path.basename(path)}): {exc}"
+            ) from exc
     else:
         raise DatasetError(
             f"Dosyanın karakter kodlaması çözülemedi ({os.path.basename(path)}): {last_error}"
@@ -966,10 +1081,14 @@ def load_csv(path: str, name: str = "", encoding: str = "") -> Dataset:
     try:
         table = [row for row in csv.reader(io.StringIO(body), delimiter=sep)]
     except csv.Error as exc:
-        raise DatasetError(f"CSV çözümlenemedi ({os.path.basename(path)}): {exc}") from exc
+        raise DatasetError(
+            f"CSV çözümlenemedi ({os.path.basename(path)}): {exc}"
+        ) from exc
     table = [row for row in table if any(str(cell).strip() for cell in row)]
     if len(table) < 2:
-        raise DatasetError(f"CSV dosyasında başlık dışında satır yok: {os.path.basename(path)}")
+        raise DatasetError(
+            f"CSV dosyasında başlık dışında satır yok: {os.path.basename(path)}"
+        )
     return profile_table(
         table[0],
         table[1:],
@@ -1019,7 +1138,9 @@ def load_excel(path: str, sheet: str = "", name: str = "") -> Dataset:
         else:
             worksheet = _busiest_sheet(workbook)
         if worksheet is None:
-            raise DatasetError(f"Excel dosyasında dolu bir sayfa yok: {os.path.basename(path)}")
+            raise DatasetError(
+                f"Excel dosyasında dolu bir sayfa yok: {os.path.basename(path)}"
+            )
         table = [list(row) for row in worksheet.iter_rows(values_only=True)]
     finally:
         try:
@@ -1101,7 +1222,11 @@ def load_google_sheet(
     target = sheet or ""
     try:
         if not target:
-            meta = service.spreadsheets().get(spreadsheetId=file_id, fields="properties.title,sheets.properties").execute()
+            meta = (
+                service.spreadsheets()
+                .get(spreadsheetId=file_id, fields="properties.title,sheets.properties")
+                .execute()
+            )
             title = str((meta.get("properties") or {}).get("title") or "")
             sheets = [s.get("properties", {}) for s in (meta.get("sheets") or [])]
             visible = [s for s in sheets if not s.get("hidden")] or sheets
@@ -1113,7 +1238,11 @@ def load_google_sheet(
         response = (
             service.spreadsheets()
             .values()
-            .get(spreadsheetId=file_id, range=target, valueRenderOption="UNFORMATTED_VALUE")
+            .get(
+                spreadsheetId=file_id,
+                range=target,
+                valueRenderOption="UNFORMATTED_VALUE",
+            )
             .execute()
         )
     except DatasetError:

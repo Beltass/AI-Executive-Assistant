@@ -85,9 +85,7 @@ class InnovationLabAdvisor(Advisor):
 
     def _generate(self) -> Briefing:
         if not llm.is_configured():
-            return self.skipped(
-                "missing env var(s): GEMINI_API_KEY or OPENAI_API_KEY"
-            )
+            return self.skipped("missing env var(s): GEMINI_API_KEY or OPENAI_API_KEY")
 
         try:
             text = llm.generate_text(self.system_prompt, self._user_prompt())
@@ -180,9 +178,15 @@ class InnovationLabAdvisor(Advisor):
             findings = []
             # List date directories sorted by name (descending for recent first)
             entries = sorted(
-                [d for d in os.listdir(reports_dir) if os.path.isdir(os.path.join(reports_dir, d))],
+                [
+                    d
+                    for d in os.listdir(reports_dir)
+                    if os.path.isdir(os.path.join(reports_dir, d))
+                ],
                 reverse=True,
-            )[:3]  # Last 3 days
+            )[
+                :3
+            ]  # Last 3 days
 
             for day_dir in entries:
                 day_path = os.path.join(reports_dir, day_dir)
@@ -190,7 +194,9 @@ class InnovationLabAdvisor(Advisor):
                     if not advisor_file.endswith(".json"):
                         continue
                     try:
-                        with open(os.path.join(day_path, advisor_file), "r", encoding="utf-8") as f:
+                        with open(
+                            os.path.join(day_path, advisor_file), "r", encoding="utf-8"
+                        ) as f:
                             data = json.load(f)
                             title = data.get("title", "").strip()
                             headline = data.get("headline", "").strip()
@@ -215,7 +221,11 @@ class InnovationLabAdvisor(Advisor):
 
             # Look for sector_intel.json in the most recent date
             entries = sorted(
-                [d for d in os.listdir(reports_dir) if os.path.isdir(os.path.join(reports_dir, d))],
+                [
+                    d
+                    for d in os.listdir(reports_dir)
+                    if os.path.isdir(os.path.join(reports_dir, d))
+                ],
                 reverse=True,
             )[:1]
 
@@ -279,9 +289,11 @@ class InnovationLabAdvisor(Advisor):
                         "rationale": idea.get("rationale", ""),
                         "effort": max(1, min(5, int(idea.get("effort", 3)))),
                         "impact": max(1, min(5, int(idea.get("impact", 3)))),
-                        "next_steps": idea.get("next_steps", [])
-                        if isinstance(idea.get("next_steps"), list)
-                        else [],
+                        "next_steps": (
+                            idea.get("next_steps", [])
+                            if isinstance(idea.get("next_steps"), list)
+                            else []
+                        ),
                     }
                     if validated_idea["title"]:  # Only include if has title
                         validated_ideas.append(validated_idea)
