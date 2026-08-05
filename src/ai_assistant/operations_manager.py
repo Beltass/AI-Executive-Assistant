@@ -37,10 +37,26 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from .advisors import Advisor, Briefing, all_advisors, is_quiet
-from .advisors._batch import last_outcome, per_advisor_fallback_enabled, run_batch
+from . import memory
+from .advisors import Advisor, BatchSection, Briefing, all_advisors, is_quiet
+from .advisors._batch import (
+    batch_mode_enabled,
+    collect_sections,
+    last_outcome,
+    per_advisor_fallback_enabled,
+    run_batch,
+)
 from .config import MODE_FULL, briefing_mode, mode_label
 from .integrations import STATUS_FAILED, STATUS_OK, STATUS_SKIPPED, llm
+from .status_report import (
+    ADVISOR_META,
+    TRIGGER_ALWAYS,
+    TRIGGER_DATA,
+    TRIGGER_USER_REQUESTED,
+    TRIGGER_WEEKLY,
+    advisor_data_owner,
+    advisor_trigger,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +87,103 @@ _SKIP_NOTE = {
     SKIP_DATA_UNCHANGED: "kaynak verisi son çalıştırmadan beri değişmedi",
     SKIP_NOT_TRIGGERED: "bu çalıştırmada tetiklenmedi",
 }
+
+
+# --- WHO runs on THIS run ----------------------------------------------------
+#
+# Every advisor used to run on every run, four times a day, whatever it had to
+# say. "Bu haftanın liderlik dersi" does not change between 07:00 and 10:00, and
+# a career feed that has not published anything since breakfast has nothing to
+# add either — but both still cost their slice of a batched prompt.
+#
+# So the manifest's ``trigger`` field now decides, and this is where it is read
+# (:mod:`ai_assistant.status_report`):
+#
+#   always          every run — the briefing is useless without it
+#   data_triggered  only when its ``data_owner`` source actually changed
+#   weekly          only on the weekly slot
+#   user_requested  only when named explicitly
+#
+# TWO DELIBERATE ESCAPE HATCHES.
+#   * ``DIGEST_FORCE_ADVISORS`` names advisors that must run regardless of their
+#     trigger (``all`` forces the whole roster). This is the manual path a
+#     workflow_dispatch input maps onto, and it is what makes a
+#     ``user_requested`` advisor reachable at all.
+#   * An advisor that is NOT in the manifest — a test double, a locally
+#     registered one — is always treated as ``always``. The filter may not
+#     silence something it knows nothing about.
+
+#: Comma-separated advisor keys to run no matter what their trigger says.
+FORCE_ADVISORS_ENV = "DIGEST_FORCE_ADVISORS"
+#: Value that forces the ENTIRE roster.
+FORCE_ALL = "all"
+
+#: Explicit yes/no for "is this the weekly slot?"; overrides the weekday check.
+WEEKLY_RUN_ENV = "DIGEST_WEEKLY_RUN"
+#: Which weekday IS the weekly slot (0 = Monday), when the env above is unset.
+WEEKLY_DAY_ENV = "DIGEST_WEEKLY_DAY"
+DEFAULT_WEEKLY_DAY = 0  # Monday: the week's plan is worth having on day one.
+
+_TRUTHY = {"1", "true", "yes", "on", "evet"}
+_FALSY = {"0", "false", "no", "off", "hayir", "hayır"}
+
+
+def forced_advisors() -> frozenset:
+    """Advisor keys the user explicitly asked for (``DIGEST_FORCE_ADVISORS``).
+
+    Returns ``frozenset({"all"})`` when the whole roster was forced, so callers
+    check with :func:`_is_forced` rather than by membership.
+    """
+    raw = (os.getenv(FORCE_ADVISORS_ENV) or "").strip()
+    if not raw:
+        return frozenset()
+    keys = {part.strip().lower() for part in raw.replace(";", ",").split(",")}
+    return frozenset(key for key in keys if key)
+
+
+def _is_forced(key: str, forced: frozenset) -> bool:
+    return FORCE_ALL in forced or key in forced
+
+
+def weekly_due(now: Optional[datetime] = None) -> bool:
+    """Whether THIS run is the weekly slot.
+
+    ``DIGEST_WEEKLY_RUN`` answers outright when set (that is how the scheduled
+    weekly workflow says "this is the one"). Otherwise the weekday decides, so
+    a repository with no extra configuration still gets its weekly sections
+    exactly once a week instead of never.
+    """
+    raw = (os.getenv(WEEKLY_RUN_ENV) or "").strip().lower()
+    if raw in _TRUTHY:
+        return True
+    if raw in _FALSY:
+        return False
+    try:
+        day = int((os.getenv(WEEKLY_DAY_ENV) or "").strip() or DEFAULT_WEEKLY_DAY)
+    except ValueError:
+        day = DEFAULT_WEEKLY_DAY
+    if not 0 <= day <= 6:
+        day = DEFAULT_WEEKLY_DAY
+    return (now or datetime.now()).weekday() == day
+
+
+def trigger_allows(key: str, forced: frozenset, weekly: bool) -> bool:
+    """Whether ``key``'s trigger lets it run on this run.
+
+    ``data_triggered`` returns ``True`` here: whether its SOURCE moved is a
+    separate, more expensive question, answered later by the data gate once the
+    material has actually been gathered.
+    """
+    if _is_forced(key, forced):
+        return True
+    if key not in ADVISOR_META:
+        return True  # unknown advisor: never silenced by a rule about others
+    trigger = advisor_trigger(key)
+    if trigger == TRIGGER_WEEKLY:
+        return weekly
+    if trigger == TRIGGER_USER_REQUESTED:
+        return False
+    return True  # always, data_triggered, or an unrecognised value: run it
 
 
 @dataclass
@@ -143,9 +256,23 @@ class OperationsManager:
     All integrations are optional and degrade gracefully on failure.
     """
 
-    def __init__(self, advisors: Optional[List[Advisor]] = None) -> None:
+    def __init__(
+        self,
+        advisors: Optional[List[Advisor]] = None,
+        use_manifest_filters: Optional[bool] = None,
+    ) -> None:
         # Auto-discover the full advisor team unless an explicit list is given.
-        self.advisors: List[Advisor] = list(advisors) if advisors is not None else all_advisors()
+        explicit = advisors is not None
+        self.advisors: List[Advisor] = list(advisors) if explicit else all_advisors()
+
+        # The manifest-driven gates — run by trigger, skip on unchanged data —
+        # govern the AUTO-DISCOVERED team. Handing this class an explicit list
+        # is itself a request to run exactly those advisors (that is how the
+        # chat and test entry points use it), so the gates stay out of the way
+        # unless asked for. ``use_manifest_filters`` overrides either default.
+        self.use_manifest_filters: bool = (
+            (not explicit) if use_manifest_filters is None else bool(use_manifest_filters)
+        )
 
         # Distribution status tracking (per-advisor)
         self.distribution_status: Dict[str, Dict[str, Any]] = {}
@@ -195,7 +322,17 @@ class OperationsManager:
         briefings: List[Briefing] = []
         executed: List[str] = []
         skipped: Dict[str, str] = {}
-        batched = run_batch(self.advisors)
+
+        if self.use_manifest_filters:
+            forced = forced_advisors()
+            weekly = weekly_due()
+            due, not_triggered = self._by_trigger(forced, weekly)
+            sections, unchanged = self._data_gate(due, forced)
+        else:
+            due, not_triggered, sections, unchanged = self.advisors, {}, None, {}
+        runnable = [a for a in due if a.key not in unchanged]
+
+        batched = run_batch(runnable, sections=sections)
         batch = last_outcome()
         allow_fallback = per_advisor_fallback_enabled()
         if batch.failed:
@@ -214,6 +351,13 @@ class OperationsManager:
                 # the other personas' "✅ Bugünün görevi" items; for everyone
                 # else it is a no-op.
                 self._observe(advisor, briefings)
+                reason = not_triggered.get(advisor.key) or unchanged.get(advisor.key)
+                if reason:
+                    # Its trigger is not due, or its source has not moved since
+                    # the last delivered run. Either way: no prompt, no call.
+                    briefings.append(advisor.skipped(_SKIP_NOTE[reason]))
+                    skipped[advisor.key] = reason
+                    continue
                 if is_quiet(advisor):
                     # Incremental run, nothing new from this advisor: say so in
                     # one line instead of repeating this morning's section.
@@ -265,6 +409,103 @@ class OperationsManager:
             executed_advisors=executed,
             skipped_advisors=skipped,
         )
+
+    # -- who runs --------------------------------------------------------
+    def _by_trigger(
+        self, forced: frozenset, weekly: bool
+    ) -> "tuple[List[Advisor], Dict[str, str]]":
+        """Split the team into "due on this run" and "not triggered".
+
+        Reads the manifest's ``trigger`` field only — no gathering happens
+        here, so an advisor whose trigger is not due costs nothing at all, not
+        even the fetch it would have summarised.
+        """
+        due: List[Advisor] = []
+        not_triggered: Dict[str, str] = {}
+        for advisor in self.advisors:
+            key = getattr(advisor, "key", "")
+            if trigger_allows(key, forced, weekly):
+                due.append(advisor)
+            else:
+                not_triggered[key] = SKIP_NOT_TRIGGERED
+        if not_triggered:
+            logger.info(
+                "tetiklenmediği için atlanan danışmanlar (haftalık slot %s): %s",
+                "açık" if weekly else "kapalı",
+                ", ".join(sorted(not_triggered)),
+            )
+        return due, not_triggered
+
+    def _data_gate(
+        self, due: List[Advisor], forced: frozenset
+    ) -> "tuple[Optional[List[BatchSection]], Dict[str, str]]":
+        """Drop the ``data_triggered`` advisors whose SOURCE did not change.
+
+        HOW IT KNOWS. Each advisor's batch section carries everything it
+        gathered — the headlines, the calendar entries, the mail subjects —
+        because that material IS the prompt. Hashing the sections of one
+        ``data_owner`` therefore hashes that owner's raw data, with no second
+        collection pass and no advisor-side bookkeeping: the sections collected
+        here are handed straight to :func:`run_batch`.
+
+        Identical hash to the last DELIVERED run means the model would be asked
+        the same question again and would produce the section the user already
+        read this morning, so its advisors are skipped with the reason
+        ``veri_degismedi``. The hash is only staged; it is committed with the
+        findings ledger after the digest actually goes out.
+
+        Returns ``(sections, {advisor_key: reason})``. ``sections`` is ``None``
+        when nothing was collected (batching off), which tells
+        :func:`run_batch` to collect them itself exactly as before.
+        """
+        if not batch_mode_enabled():
+            # Per-advisor mode does not build a shared prompt, so there is no
+            # gathered material to hash without fetching everything twice.
+            return None, {}
+
+        sections = collect_sections(due)
+        by_key = {section.key: section for section in sections}
+
+        # Only the data-triggered members define their owner's content. An
+        # ``always`` advisor sharing the source must never be able to invalidate
+        # the gate (its prompt carries the date, so it changes every day).
+        owners: Dict[str, List[str]] = {}
+        for advisor in due:
+            key = getattr(advisor, "key", "")
+            if key not in ADVISOR_META or advisor_trigger(key) != TRIGGER_DATA:
+                continue
+            if _is_forced(key, forced):
+                continue  # explicitly asked for: the gate does not apply
+            owner = advisor_data_owner(key)
+            if owner and key in by_key:
+                owners.setdefault(owner, []).append(key)
+
+        ledger = memory.shared()
+        unchanged: Dict[str, str] = {}
+        for owner, keys in owners.items():
+            payload = {
+                key: (by_key[key].system_prompt or "") + (by_key[key].user_prompt or "")
+                for key in sorted(keys)
+            }
+            try:
+                changed = ledger.source_changed(owner, payload)
+            except Exception as exc:  # a broken ledger must not skip anyone
+                logger.warning("veri kapısı okunamadı (%s): %s", owner, exc)
+                continue
+            if changed:
+                ledger.stage_source(owner, payload)
+                continue
+            logger.info(
+                "'%s' kaynağı son çalıştırmadan beri değişmedi: %s atlanıyor",
+                owner,
+                ", ".join(sorted(keys)),
+            )
+            for key in keys:
+                unchanged[key] = SKIP_DATA_UNCHANGED
+
+        if unchanged:
+            sections = [s for s in sections if s.key not in unchanged]
+        return sections, unchanged
 
     def _distribute_results(
         self,

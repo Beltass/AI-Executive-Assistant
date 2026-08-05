@@ -48,7 +48,7 @@ import logging
 import os
 import re
 from dataclasses import dataclass, field, replace
-from typing import Dict, List, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 from . import Advisor, BatchSection, is_quiet
 from ..config import is_incremental
@@ -400,7 +400,10 @@ def parse_batch_response(text: str, valid_keys: Sequence[str]) -> Dict[str, str]
     return result
 
 
-def run_batch(advisors: Sequence[Advisor]) -> Dict[str, str]:
+def run_batch(
+    advisors: Sequence[Advisor],
+    sections: Optional[Sequence[BatchSection]] = None,
+) -> Dict[str, str]:
     """Run the whole team in ONE LLM call. Returns ``{key: text}``.
 
     Returns an empty dict whenever batching is off, not worth it (fewer than
@@ -409,6 +412,13 @@ def run_batch(advisors: Sequence[Advisor]) -> Dict[str, str]:
     :func:`last_outcome` (``failure_reason``/``failure_detail``) and logged —
     the caller reads it to decide between "run the per-advisor path, that is
     normal" and "the model is down, do not make fifteen more calls".
+
+    ``sections`` lets a caller that has ALREADY collected the sections hand
+    them over instead of having them collected again. The Operations Manager
+    does exactly that: it hashes each source's gathered material to decide who
+    still has work to do (see :mod:`ai_assistant.memory`), and gathering a
+    second time would re-hit Google and every RSS feed. ``None`` — the default
+    — collects them here, unchanged.
 
     This function never raises.
     """
@@ -421,7 +431,9 @@ def run_batch(advisors: Sequence[Advisor]) -> Dict[str, str]:
         logger.info("toplu brifing kapalı (DIGEST_BATCH_MODE): tekil mod kullanılacak")
         return {}
 
-    sections = collect_sections(advisors)
+    sections = (
+        collect_sections(advisors) if sections is None else [s for s in sections if s]
+    )
     _last_outcome.sections_requested = len(sections)
     if len(sections) < 2:
         # One section is no cheaper batched, and zero means nothing to ask.
