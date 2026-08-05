@@ -337,6 +337,40 @@ def _gemini_max_output_tokens() -> int:
     return tokens if tokens > 0 else DEFAULT_GEMINI_MAX_OUTPUT_TOKENS
 
 
+def _gemini_thinking_budget(override: Optional[int] = None) -> Optional[int]:
+    """Thinking-token budget for a Gemini call, or ``None`` to leave it alone.
+
+    Gemini 2.5 models spend "thinking" tokens that are billed but never shown;
+    across 25 measured runs they were 44% of all tokens consumed. Structured
+    extraction does not need that budget, free-form advice does — hence a knob
+    rather than a constant.
+
+    ``None`` means DO NOT SEND ``thinkingConfig`` at all, so the API keeps its
+    own default and existing behaviour is bit-for-bit unchanged. That is the
+    default: the budget is opt-in via ``GEMINI_THINKING_BUDGET`` or the
+    per-call ``override``, which wins over the env var.
+
+    ``0`` is a meaningful value (thinking off) and is NOT treated as "unset",
+    so every check here is ``is None`` rather than truthiness. A negative or
+    unparsable value is ignored rather than sent — a malformed env var should
+    not turn every call into a 400.
+    """
+    if override is not None:
+        return override if override >= 0 else None
+    raw = (os.getenv("GEMINI_THINKING_BUDGET") or "").strip()
+    if not raw:
+        return None
+    try:
+        budget = int(raw)
+    except ValueError:
+        logger.warning("GEMINI_THINKING_BUDGET sayı değil, yok sayılıyor: %r", raw)
+        return None
+    if budget < 0:
+        logger.warning("GEMINI_THINKING_BUDGET negatif, yok sayılıyor: %d", budget)
+        return None
+    return budget
+
+
 def _gemini_model_chain() -> List[str]:
     """Ordered list of models to try: primary first, then the fallbacks.
 
@@ -481,6 +515,7 @@ def generate_text(
     system_prompt: str,
     user_prompt: str,
     max_output_tokens: Optional[int] = None,
+    thinking_budget: Optional[int] = None,
 ) -> str:
     """Generate a completion from the configured LLM provider.
 
@@ -491,13 +526,22 @@ def generate_text(
     ``RuntimeError`` if no provider is configured, and lets transport/HTTP
     errors propagate (key-redacted) so callers can convert them into a
     graceful ``failed`` result.
+
+    ``thinking_budget`` caps Gemini's invisible-but-billed reasoning tokens and
+    overrides ``GEMINI_THINKING_BUDGET``; pass a low value (or ``0``) from
+    structured-extraction callers and leave it unset for free-form advice.
+    ``None`` on both sides sends no ``thinkingConfig`` at all, which is the
+    default and preserves today's behaviour. OpenAI has no equivalent knob, so
+    the argument is ignored on that path.
     """
     provider = configured_provider()
     if provider is None:
         raise RuntimeError("no LLM provider configured (GEMINI_API_KEY or OPENAI_API_KEY)")
 
     if provider == "gemini":
-        return _generate_gemini(system_prompt, user_prompt, max_output_tokens)
+        return _generate_gemini(
+            system_prompt, user_prompt, max_output_tokens, thinking_budget
+        )
     return _generate_openai(system_prompt, user_prompt, max_output_tokens)
 
 
@@ -514,6 +558,7 @@ def _generate_gemini(
     system_prompt: str,
     user_prompt: str,
     max_output_tokens: Optional[int] = None,
+    thinking_budget: Optional[int] = None,
 ) -> str:
     """Generate with Gemini, retrying transients and falling back per model.
 
@@ -527,13 +572,20 @@ def _generate_gemini(
     # Send the key via header (Google's recommended method) so it never lands
     # in the URL and therefore never leaks into httpx error strings/logs.
     headers = {"X-goog-api-key": key}
+    generation_config: Dict[str, Any] = {
+        "temperature": 0.7,
+        "maxOutputTokens": max_output_tokens or _gemini_max_output_tokens(),
+    }
+    # Only present when explicitly configured. An absent ``thinkingConfig``
+    # leaves the model on its own default, so unconfigured deployments keep
+    # sending exactly the body they sent before this knob existed.
+    budget = _gemini_thinking_budget(thinking_budget)
+    if budget is not None:
+        generation_config["thinkingConfig"] = {"thinkingBudget": budget}
     payload = {
         "system_instruction": {"parts": [{"text": system_prompt}]},
         "contents": [{"role": "user", "parts": [{"text": user_prompt}]}],
-        "generationConfig": {
-            "temperature": 0.7,
-            "maxOutputTokens": max_output_tokens or _gemini_max_output_tokens(),
-        },
+        "generationConfig": generation_config,
     }
 
     models = _gemini_model_chain()
