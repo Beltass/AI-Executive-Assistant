@@ -484,15 +484,26 @@ class TestMeetingNotesAgent:
         assert "Urgent task" in briefing.text
         assert "John" in briefing.text
 
-    def test_agent_transcribe_audio(self, agent: MeetingNotesAgent):
-        """Test audio transcription (mock)."""
+    def test_agent_transcribe_audio(self, agent: MeetingNotesAgent, monkeypatch):
+        """Transcription returns what the MODEL said, not a placeholder.
+
+        This test used to hand in a URL and assert only that *something*
+        non-empty came back — which a hard-coded string satisfied for as long
+        as the function never opened the audio. See
+        ``tests/test_meeting_transcription.py`` for the full set.
+        """
         import asyncio
-        audio_url = "https://example.com/meeting.mp3"
 
-        result = asyncio.run(agent.transcribe_audio(audio_url))
+        from ai_assistant.integrations import llm
 
-        assert isinstance(result, str)
-        assert len(result) > 0
+        monkeypatch.setattr(llm, "is_configured", lambda: True)
+        monkeypatch.setattr(
+            llm, "generate_from_audio", lambda *a, **k: "Konuşmacı 1: ZEBRA."
+        )
+
+        result = asyncio.run(agent.transcribe_audio(b"fake-audio-bytes"))
+
+        assert result == "Konuşmacı 1: ZEBRA."
 
     def test_agent_analyze_meeting(self, agent: MeetingNotesAgent):
         """Test meeting analysis."""

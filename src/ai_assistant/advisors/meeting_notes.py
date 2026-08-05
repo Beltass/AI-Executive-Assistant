@@ -1,7 +1,7 @@
 """Meeting Notes Agent - Transcription, analysis, and reporting.
 
 Handles:
-- Audio transcription (mock for now, can be replaced with Google Speech-to-Text)
+- Audio transcription (Gemini, audio sent inline)
 - Meeting analysis with LLM
 - Action item extraction
 - Report generation (PDF, Google Doc, Excel)
@@ -11,6 +11,7 @@ Handles:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -21,11 +22,35 @@ from pathlib import Path
 from typing import List, Optional, Dict, Any
 
 from . import Advisor, Briefing
+from ..integrations import llm
 from ..integrations.google_drive_manager import GoogleDriveManager
 from ..integrations.task_tracker import Task, TaskTracker, TaskStatus
 from ..integrations import STATUS_OK, STATUS_FAILED, STATUS_SKIPPED
 
 logger = logging.getLogger(__name__)
+
+#: What the model is told to do with a recording. Verbatim, in the language
+#: actually spoken — a meeting held in Turkish must come back in Turkish, not
+#: translated, because every downstream step (action items, owners, deadlines)
+#: reads names and dates straight out of these words.
+TRANSCRIPTION_SYSTEM_PROMPT = (
+    "Sen bir toplantı kaydı deşifre uzmanısın. Sana verilen ses kaydını "
+    "kelimesi kelimesine yazıya dök.\n"
+    "Kurallar:\n"
+    "- Kaydın dilini KORU. Türkçe konuşulduysa Türkçe yaz, çevirme.\n"
+    "- Konuşmacıları ayırt edebiliyorsan her replikten önce 'Konuşmacı 1:' "
+    "gibi bir etiket koy.\n"
+    "- Özetleme, yorum ekleme, düzeltme yapma; sadece söyleneni yaz.\n"
+    "- Anlaşılmayan yerler için [anlaşılmıyor] yaz.\n"
+    "- Sadece deşifre metnini döndür, başka hiçbir açıklama ekleme."
+)
+
+TRANSCRIPTION_USER_PROMPT = "Bu toplantı kaydını deşifre et."
+
+#: Transcripts are long: an hour of speech is well past the default 8k output
+#: budget, and a truncated transcript silently loses the action items at the
+#: end of a meeting — exactly the part this whole pipeline exists for.
+DEFAULT_TRANSCRIPTION_MAX_OUTPUT_TOKENS = 32768
 
 
 @dataclass
@@ -171,6 +196,9 @@ class MeetingNotesAgent(Advisor):
         self.state_dir = Path(".assistant_state")
         self.state_dir.mkdir(exist_ok=True)
         self.meetings_file = self.state_dir / "meetings.json"
+        # Why the last transcript came back empty (skipped vs. failed), for
+        # callers to log. ``None`` means "nothing has gone wrong yet".
+        self.last_transcription_error: Optional[str] = None
 
     def _generate(self) -> Briefing:
         """Generate meeting notes briefing.
@@ -215,41 +243,105 @@ class MeetingNotesAgent(Advisor):
             self.logger.error(f"Meeting notes generation failed: {e}")
             return self.failed(f"toplantı notları hatası: {e}")
 
-    async def transcribe_audio(self, audio_url: str) -> str:
-        """Transcribe audio to text.
+    @staticmethod
+    def _transcription_max_output_tokens() -> int:
+        """Output budget for one transcript, read at call time."""
+        try:
+            tokens = int(
+                os.getenv("MEETING_TRANSCRIPTION_MAX_OUTPUT_TOKENS")
+                or DEFAULT_TRANSCRIPTION_MAX_OUTPUT_TOKENS
+            )
+        except ValueError:
+            tokens = DEFAULT_TRANSCRIPTION_MAX_OUTPUT_TOKENS
+        return tokens if tokens > 0 else DEFAULT_TRANSCRIPTION_MAX_OUTPUT_TOKENS
 
-        For now, returns a mock transcript. In production, would use
-        Google Cloud Speech-to-Text or similar service.
+    async def transcribe_audio(
+        self,
+        audio_bytes: bytes,
+        *,
+        mime_type: str = "audio/mpeg",
+        source_label: str = "",
+        thinking_budget: Optional[int] = None,
+    ) -> str:
+        """Transcribe a recording with Gemini.
+
+        Takes BYTES, not a URL: the recording lives behind Gmail/Drive
+        credentials this advisor does not hold, so downloading is the
+        poller's job (``fetch_audio_bytes``) and transcription is this one's.
+
+        Returns ``""`` when no transcript could be produced — never a
+        placeholder. Anything downstream that treats an empty string as "keep
+        going" would otherwise file action items invented out of thin air.
+        The reason is left on :attr:`last_transcription_error` so the caller
+        can log WHY (skipped for lack of a key vs. a failed request).
 
         Args:
-            audio_url: URL or path to audio file
+            audio_bytes: Raw audio file contents.
+            mime_type: Concrete audio MIME type, e.g. ``audio/mpeg``.
+            source_label: Where the audio came from; logging only.
+            thinking_budget: Passed through to Gemini; ``None`` leaves the
+                model's own default alone.
 
         Returns:
-            Transcript text
-        """
-        try:
-            self.logger.info(f"Transcribing audio from {audio_url}")
+            Transcript text, or ``""`` when transcription was skipped or failed.
 
-            # Mock implementation - in production, call Google Speech-to-Text API
-            # or use a service like Rev or Otter.ai
-            mock_transcript = (
-                "Selamlar herkese. Bugünün toplantısında üç ana konuyu ele aldık.\n"
-                "Birincisi, Q3 pazarlama stratejisi. İkincisi, yeni ürün lansmanı. "
-                "Üçüncüsü ise rakip analizi.\n"
-                "Pazarlama stratejisinde, sosyal medya bütçesini %25 artırmalıyız. "
-                "Bu konuda John sorumlu olacak.\n"
-                "Ürün lansmanı için, teknik specifikasyonlar hazırlanmalı. "
-                "Sarah ve Mike bununla ilgilenecek.\n"
-                "Rakip analizi gösterdi ki, XYZ şirketi yeni bir özellik piyasaya sürüyor. "
-                "Biz de 2 hafta içinde benzer bir özellik çıkarmalıyız."
+        Raises:
+            TypeError: when handed a URL/path instead of bytes.
+        """
+        self.last_transcription_error = None
+        label = source_label or "audio"
+
+        if isinstance(audio_bytes, str):
+            raise TypeError(
+                "transcribe_audio() takes audio BYTES, not a URL; download the "
+                "recording first with "
+                "ai_assistant.integrations.meeting_notes_poller.fetch_audio_bytes()"
             )
 
-            self.logger.info("Audio transcribed successfully")
-            return mock_transcript
-
-        except Exception as e:
-            self.logger.error(f"Transcription failed: {e}")
+        if not audio_bytes:
+            self.last_transcription_error = f"boş ses verisi ({label})"
+            self.logger.error(self.last_transcription_error)
             return ""
+
+        if not llm.is_configured():
+            # Skipped, not failed: nothing is broken, a key is simply absent.
+            self.last_transcription_error = (
+                "transkripsiyon atlandı — missing env var(s): GEMINI_API_KEY "
+                "or OPENAI_API_KEY"
+            )
+            self.logger.warning(self.last_transcription_error)
+            return ""
+
+        self.logger.info(
+            f"Transcribing {len(audio_bytes)} bytes of {mime_type} from {label}"
+        )
+
+        try:
+            # Off the event loop: this is a minutes-long blocking HTTP call.
+            transcript = await asyncio.to_thread(
+                llm.generate_from_audio,
+                audio_bytes,
+                mime_type,
+                TRANSCRIPTION_SYSTEM_PROMPT,
+                TRANSCRIPTION_USER_PROMPT,
+                max_output_tokens=self._transcription_max_output_tokens(),
+                thinking_budget=thinking_budget,
+            )
+        except Exception as e:
+            self.last_transcription_error = f"transkripsiyon başarısız ({label}): {e}"
+            self.logger.error(self.last_transcription_error)
+            return ""
+
+        transcript = (transcript or "").strip()
+        if not transcript:
+            self.last_transcription_error = (
+                f"model boş transkript döndürdü ({label})"
+            )
+            self.logger.error(self.last_transcription_error)
+            return ""
+
+        self.logger.info(f"Transcribed {label}: {len(transcript)} characters")
+        return transcript
 
     async def analyze_meeting(
         self,
