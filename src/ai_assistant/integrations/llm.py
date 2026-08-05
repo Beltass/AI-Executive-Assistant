@@ -97,9 +97,15 @@ _budget_started_at: Optional[float] = None
 
 
 def start_time_budget() -> None:
-    """Start (or restart) the shared LLM time budget for this run."""
+    """Start (or restart) the shared LLM time budget for this run.
+
+    Also zeroes the generation counter (:func:`call_count`): a run's budget and
+    its call count begin at the same moment, and the metrics layer reports the
+    count for THIS run.
+    """
     global _budget_started_at
     _budget_started_at = time.monotonic()
+    reset_call_count()
 
 
 def clear_time_budget() -> None:
@@ -197,9 +203,29 @@ class CallStats:
 _last_call: Optional[CallStats] = None
 
 
+# How many generations this run has made. ``last_call_stats`` only describes
+# the LAST one, so it cannot tell "one batched call served the whole team" from
+# "the batch failed and fifteen advisors each called on their own" — which is
+# the single most expensive thing that can happen on a free tier, and therefore
+# the number the metrics file has to carry.
+_call_count: int = 0
+
+
 def _record_call(stats: CallStats) -> None:
-    global _last_call
+    global _last_call, _call_count
     _last_call = stats
+    _call_count += 1
+
+
+def call_count() -> int:
+    """How many generations were made since the run's budget started."""
+    return _call_count
+
+
+def reset_call_count() -> None:
+    """Zero the generation counter (start of a run, and in tests)."""
+    global _call_count
+    _call_count = 0
 
 
 def last_call_stats() -> Optional[CallStats]:
@@ -212,9 +238,14 @@ def last_call_stats() -> Optional[CallStats]:
 
 
 def reset_call_stats() -> None:
-    """Forget the recorded call — used by tests and by long-lived processes."""
+    """Forget the recorded call — used by tests and by long-lived processes.
+
+    Resets the generation counter too, so a test that clears the stats does not
+    inherit the previous test's call count.
+    """
     global _last_call
     _last_call = None
+    reset_call_count()
 
 
 def _int(value: Any) -> int:

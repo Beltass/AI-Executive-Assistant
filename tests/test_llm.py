@@ -602,3 +602,42 @@ def test_openai_usage_is_captured_too(monkeypatch):
     assert stats.provider == "openai"
     assert (stats.prompt_tokens, stats.output_tokens, stats.total_tokens) == (90, 40, 130)
     assert stats.thoughts_tokens == 12
+
+
+# --- counting the calls, and paying for no thinking on structured work -------
+
+
+def test_every_generation_is_counted(monkeypatch, gemini_env):
+    """``last_call_stats`` describes the last call; this counts them all.
+
+    One batched call for the whole team and fifteen per-advisor retries after
+    a failed batch look identical in the token record of the LAST call — the
+    count is what makes the difference visible in the metrics file.
+    """
+    monkeypatch.setattr(llm, "http_post", lambda *a, **k: _resp(200))
+    monkeypatch.setattr(
+        httpx.Response, "json", lambda self: _usage_payload(), raising=False
+    )
+
+    llm.start_time_budget()
+    assert llm.call_count() == 0
+
+    llm.generate_text("sys", "user")
+    llm.generate_text("sys", "user")
+
+    assert llm.call_count() == 2
+
+    llm.start_time_budget()  # a new run starts from zero
+    assert llm.call_count() == 0
+
+
+def test_a_failed_generation_is_counted_too(monkeypatch, gemini_env):
+    """A call that cost quota and returned nothing still cost quota."""
+    monkeypatch.setattr(llm, "http_post", lambda *a, **k: _resp(400, "bad"))
+    llm.start_time_budget()
+
+    with pytest.raises(Exception):
+        llm.generate_text("sys", "user")
+
+    assert llm.call_count() == 1
+

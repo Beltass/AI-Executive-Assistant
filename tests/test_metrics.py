@@ -439,3 +439,82 @@ def test_no_secret_can_reach_the_metrics_file(monkeypatch, tmp_path):
     assert "hooks.slack.com" not in raw
     # And no free text from a briefing body either — only counts.
     assert "HTTP 400" not in raw
+
+
+# --- what the run SPENT and WHO spent it ------------------------------------
+#
+# Tokens alone cannot explain a run: a tenth of yesterday's cost is a triumph
+# when nine advisors had no new data and an outage when the batch died. These
+# three fields are what tell the two apart.
+
+
+def test_llm_call_count_is_read_from_the_llm_layer(monkeypatch):
+    """ONE batched call or fifteen per-advisor ones — the number says which."""
+    from ai_assistant.integrations import llm as llm_module
+
+    llm_module.reset_call_count()
+    monkeypatch.setattr(llm_module, "call_count", lambda: 15)
+
+    record = metrics.build_run_metrics(_supervision({"alpha": 100}), call_stats=_stats())
+
+    assert record["llm_call_count"] == 15
+
+
+def test_llm_call_count_is_zero_when_nothing_was_called():
+    from ai_assistant.integrations import llm as llm_module
+
+    llm_module.reset_call_count()
+    record = metrics.build_run_metrics(_supervision({}), call_stats=None)
+
+    assert record["llm_call_count"] == 0
+
+
+def test_an_explicit_call_count_wins_over_the_counter():
+    record = metrics.build_run_metrics(
+        _supervision({"alpha": 100}), call_stats=_stats(), llm_call_count=1
+    )
+    assert record["llm_call_count"] == 1
+
+
+def test_skipped_advisors_are_recorded_with_their_reasons():
+    supervision = _supervision({"alpha": 400})
+    supervision.executed_advisors = ["alpha"]
+    supervision.skipped_advisors = {
+        "market_intelligence": "veri_degismedi",
+        "executive_coaching": "tetiklenmedi",
+        "career_development": "batch_failed",
+    }
+
+    record = metrics.build_run_metrics(supervision, call_stats=_stats())
+
+    assert record["executed_advisors"] == ["alpha"]
+    assert record["skipped_advisors"] == {
+        "market_intelligence": "veri_degismedi",
+        "executive_coaching": "tetiklenmedi",
+        "career_development": "batch_failed",
+    }
+
+
+def test_the_reasons_reach_the_history_file(tmp_path):
+    supervision = _supervision({"alpha": 400})
+    supervision.skipped_advisors = {"market_intelligence": "veri_degismedi"}
+    target = tmp_path / "metrics.json"
+
+    metrics.record_run(supervision, call_stats=_stats(), path=str(target))
+
+    run = json.loads(target.read_text(encoding="utf-8"))["runs"][0]
+    assert run["skipped_advisors"] == {"market_intelligence": "veri_degismedi"}
+    assert "llm_call_count" in run
+
+
+def test_a_supervision_without_the_new_fields_still_records():
+    """Anything shaped like a supervision keeps working — never raises."""
+
+    class Bare:
+        briefings = []
+        counts = {STATUS_OK: 0, STATUS_FAILED: 0, STATUS_SKIPPED: 0}
+
+    record = metrics.build_run_metrics(Bare(), call_stats=None)
+
+    assert record["executed_advisors"] == []
+    assert record["skipped_advisors"] == {}
