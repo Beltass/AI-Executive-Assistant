@@ -204,7 +204,7 @@ class SlackAdvisorBridge:
         thread_ts = await self.thread_manager.get_advisor_thread(
             advisor_key, user_id, self.slack_client
         )
-        request_id = f"{advisor_key}_{user_id}_{int(datetime.now().timestamp())}"
+        request_id = f"{advisor_key}_{user_id}_{int(datetime.now().timestamp() * 1000)}"
 
         try:
             # 1. Show processing status
