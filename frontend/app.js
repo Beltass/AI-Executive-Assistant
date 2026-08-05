@@ -31,13 +31,17 @@
   var METRICS_URL = "./metrics.json";
   var HEALTH_URL = "./health.json";
   var ARCHIVE_URL = "./reports/index.json";
+  /* Canlı ajan listesi. `ai_assistant.frontend_manifest` bunu ADVISOR_META'dan
+   * üretir (`python -m ai_assistant.frontend_manifest`), yani roster burada
+   * ELLE tutulmaz. Dosya yoksa aşağıdaki gömülü yedek kullanılır. */
+  var ADVISORS_URL = "./advisors.json";
 
   var REFRESH_MS = 60000; // live monitor: re-read the files every minute
   var CLOCK_MS = 20000; // how often the "x dk önce" label is recomputed
   var STALE_HOURS = 12; // older than this and we say so, loudly
 
-  var TABS = ["sistem", "icerik", "performans", "isler", "fikirler", "entegrasyonlar", "gmail", "analiz"];
-  var DEFAULT_TAB = "sistem";
+  var TABS = ["aksiyon", "sistem", "icerik", "performans", "isler", "fikirler", "entegrasyonlar", "gmail", "analiz"];
+  var DEFAULT_TAB = "aksiyon";
 
   var STATUS_LABEL = { ok: "Çalıştı", failed: "Hata", skipped: "Atlandı" };
   var STATUS_ICON = { ok: "✅", failed: "⚠️", skipped: "⏭️" };
@@ -143,14 +147,15 @@
     }
   };
 
-  /* The live advisor roster, grouped by konu (topic) and uzmanlık (expertise).
+  /* YEDEK roster — advisors.json okunamazsa kullanılır.
    *
-   * `advisor_id`, `name_tr`, `emoji` and `category` mirror ADVISOR_META in
-   * ai_assistant/status_report.py — that module is the source of truth, so a
-   * new advisor there needs one new entry here and nothing else. `topic` is
-   * the TOPICS key this expertise is filed under in the "Konuya göre" view.
+   * Tek kaynak ADVISOR_META (ai_assistant/status_report.py); pano onu
+   * `frontend/advisors.json` üzerinden okur ve EXPERTISE_AREAS'i çalışma
+   * anında ondan TÜRETİR (bkz. applyAdvisorManifest). Buradaki liste artık
+   * senkronize tutulması gereken ikinci bir kayıt değil, dosya sunulamadığında
+   * panonun boş kalmaması için bir emniyet ağıdır.
    */
-  var EXPERTISE_AREAS = {
+  var FALLBACK_EXPERTISE_AREAS = {
     /* -- İş Analitikleri ------------------------------------------------- */
     "morning-operations": {
       id: "morning-operations",
@@ -328,10 +333,56 @@
     }
   };
 
+  /* Çalışma anındaki roster. Manifest gelene kadar yedek; geldiğinde
+   * applyAdvisorManifest() bunu manifestten yeniden kurar. */
+  var EXPERTISE_AREAS = FALLBACK_EXPERTISE_AREAS;
+
+  /** advisors.json -> EXPERTISE_AREAS. Bozuk/eksik dosyada yedeği korur.
+   *
+   * Sıra `dashboard_order`dan gelir; alan yoksa dosyadaki sıraya düşer, çünkü
+   * eski bir manifest sürümünü okurken panonun listesi kaybolmamalı.
+   */
+  function applyAdvisorManifest(manifest) {
+    var rows = manifest && Array.isArray(manifest.advisors) ? manifest.advisors : [];
+    var usable = rows.filter(function (row) {
+      return row && typeof row.advisor_id === "string" && row.advisor_id;
+    });
+    if (!usable.length) return false;
+
+    usable = usable.slice().sort(function (a, b) {
+      var left = typeof a.dashboard_order === "number" ? a.dashboard_order : 0;
+      var right = typeof b.dashboard_order === "number" ? b.dashboard_order : 0;
+      if (left === right) return usable.indexOf(a) - usable.indexOf(b);
+      return left - right;
+    });
+
+    var built = {};
+    usable.forEach(function (row, index) {
+      var key = row.id || row.advisor_id.replace(/_/g, "-");
+      var previous = FALLBACK_EXPERTISE_AREAS[key] || {};
+      built[key] = {
+        id: key,
+        name_tr: row.name_tr || previous.name_tr || row.advisor_id,
+        name_en: previous.name_en || row.name_tr || row.advisor_id,
+        emoji: row.emoji || previous.emoji || "📄",
+        advisor_id: row.advisor_id,
+        color: row.color || previous.color || "#4A90E2",
+        category: row.category || previous.category || "",
+        topic: row.topic || previous.topic || "business-analytics",
+        trigger: row.trigger || "",
+        token_ceiling: row.token_ceiling || 0,
+        order: typeof row.dashboard_order === "number" ? row.dashboard_order : index + 1
+      };
+    });
+    EXPERTISE_AREAS = built;
+    return true;
+  }
+
   var state = {
     status: null,
     metrics: null,
     health: null,
+    advisors: null, // advisors.json (manifestten üretilen canlı roster)
     archive: null,
     days: {}, // date -> day index
     docs: {}, // "date/id" -> document
@@ -568,6 +619,383 @@
     // The charts read their colours from CSS custom properties, so they must be
     // rebuilt for the new theme's values.
     if (state.loaded) renderCharts();
+  }
+
+  /* ====================================================================== */
+  /* TAB 0 — 🎯 Aksiyon Merkezi                                             */
+  /*                                                                        */
+  /* Altı bölümün HEPSİ gerçek dosyalardan okur:                            */
+  /*   · günün rapor index'i (reports/<gün>/index.json -> card.actions)     */
+  /*   · status.json (takvim, Gmail, KPI, alarmlar, ajan durumları)         */
+  /*   · metrics.json (token, çağrı, gecikme, yedeğe düşme)                 */
+  /* Sabit örnek veri YOK: veri gelmediyse bölüm bunu yazar.                */
+  /* ====================================================================== */
+
+  var PRIORITY_ORDER = { P0: 0, P1: 1, P2: 2, P3: 3 };
+  var TOP_PRIORITY_LIMIT = 3;
+  /* 5. bölüm bu kategorilerin raporlarına bakar; kategori manifestten gelir,
+   * yani yeni bir gelişim danışmanı eklendiğinde burada iş yok. */
+  var GROWTH_CATEGORIES = ["kariyer", "kişisel gelişim"];
+
+  /** Günün index'indeki her rapordan aksiyonları toplar (advisor bilgisiyle). */
+  function collectActions() {
+    var date = latestDay();
+    var day = state.days[date];
+    var entries = day && Array.isArray(day.reports) ? day.reports : [];
+    var out = [];
+    entries.forEach(function (entry) {
+      var actions = Array.isArray(entry.actions) ? entry.actions : [];
+      actions.forEach(function (action) {
+        if (!action || !action.title) return;
+        out.push({
+          title: action.title,
+          priority: PRIORITY_ORDER[action.priority] != null ? action.priority : "P2",
+          owner: action.owner || "",
+          due: action.due_date || "",
+          approval: action.approval_status || "not_required",
+          advisor: action.source_advisor || entry.id || "",
+          advisorName: entry.name || "",
+          emoji: entry.emoji || "",
+          category: entry.category || "",
+          route: "#/rapor/" + date + "/" + entry.id
+        });
+      });
+    });
+    return out;
+  }
+
+  /** Bir aksiyonu checklist satırına çevirir — rozetler: öncelik, tarih, sahip. */
+  function actionRow(action) {
+    var row = make("div", "checklist__item");
+    row.appendChild(make("span", "checklist__box", "☐"));
+    var body = make("div", "checklist__body");
+    body.appendChild(make("p", "checklist__text", action.title));
+
+    var badges = make("div", "checklist__badges");
+    badges.appendChild(
+      make("span", "badge badge--" + action.priority.toLowerCase(), action.priority)
+    );
+    if (action.due) {
+      badges.appendChild(make("span", "badge badge--deadline", "📅 " + action.due));
+    }
+    if (action.owner) {
+      badges.appendChild(make("span", "badge badge--owner", "👤 " + action.owner));
+    }
+    if (action.approval === "pending") {
+      badges.appendChild(make("span", "badge badge--approval", "🖊️ onay bekliyor"));
+    }
+    var source = make("a", "badge badge--source",
+      (action.emoji ? action.emoji + " " : "") + (action.advisorName || action.advisor));
+    source.href = action.route;
+    badges.appendChild(source);
+    body.appendChild(badges);
+    row.appendChild(body);
+    return row;
+  }
+
+  /** Boş bölüm: neden boş olduğunu YAZAR, sessizce boş kalmaz. */
+  function fillList(host, rows, emptyText) {
+    host.innerHTML = "";
+    if (!rows.length) {
+      host.appendChild(make("p", "section-note", emptyText));
+      return 0;
+    }
+    rows.forEach(function (row) {
+      host.appendChild(row);
+    });
+    return rows.length;
+  }
+
+  function byPriority(a, b) {
+    var left = PRIORITY_ORDER[a.priority];
+    var right = PRIORITY_ORDER[b.priority];
+    if (left !== right) return left - right;
+    return (advisorOrder(a.advisor) - advisorOrder(b.advisor));
+  }
+
+  /** Ajanın manifestteki sırası; tanımadığı ajan listenin sonuna gider. */
+  function advisorOrder(advisorId) {
+    var found = 999;
+    Object.keys(EXPERTISE_AREAS).forEach(function (key) {
+      var area = EXPERTISE_AREAS[key];
+      if (area.advisor_id === advisorId && typeof area.order === "number") {
+        found = area.order;
+      }
+    });
+    return found;
+  }
+
+  function advisorCategory(advisorId) {
+    var category = "";
+    Object.keys(EXPERTISE_AREAS).forEach(function (key) {
+      if (EXPERTISE_AREAS[key].advisor_id === advisorId) {
+        category = EXPERTISE_AREAS[key].category || "";
+      }
+    });
+    return category;
+  }
+
+  /* --- 1 & 2: öncelikler ve onay bekleyenler ---------------------------- */
+
+  function renderActionPriorities(actions) {
+    var top = actions
+      .filter(function (action) {
+        return action.priority === "P0" || action.priority === "P1";
+      })
+      .sort(byPriority)
+      .slice(0, TOP_PRIORITY_LIMIT);
+
+    var count = fillList(
+      $("ac-priorities"),
+      top.map(actionRow),
+      "Bugünün raporlarında P0/P1 seviyesinde bir aksiyon yok."
+    );
+    text(
+      $("ac-priorities-meta"),
+      count + " / " + actions.length + " aksiyon"
+    );
+    return count;
+  }
+
+  function renderActionApprovals(actions) {
+    var waiting = actions
+      .filter(function (action) {
+        return action.approval === "pending";
+      })
+      .sort(byPriority);
+    var count = fillList(
+      $("ac-approvals"),
+      waiting.map(actionRow),
+      "Karar veya onay bekleyen aksiyon yok."
+    );
+    text($("ac-approvals-meta"), count + " madde");
+    return count;
+  }
+
+  /* --- 3: takvim ve operasyon riskleri ---------------------------------- */
+
+  function renderActionRisks() {
+    var data = state.status || {};
+    var calendar = data.calendar || {};
+    var gmail = data.gmail || {};
+    var run = data.run || {};
+    var rows = [];
+
+    if (calendar.today_meetings) {
+      var hours = calendar.total_meeting_time_hours;
+      rows.push(
+        renderAlertItem(
+          hours != null && hours >= 4 ? "warning" : "info",
+          "Bugün " + calendar.today_meetings + " toplantı" +
+            (hours != null ? " · " + hours.toFixed(1) + " saat" : "") +
+            (calendar.focus_blocks != null
+              ? " · " + calendar.focus_blocks + " odak bloğu"
+              : "")
+        )
+      );
+    }
+    if (calendar.next_meeting) {
+      rows.push(renderAlertItem("info", "Sıradaki toplantı: " + calendar.next_meeting));
+    }
+    if (gmail.urgent_count) {
+      rows.push(
+        renderAlertItem("warning", gmail.urgent_count + " acil e-posta yanıt bekliyor")
+      );
+    }
+
+    var failed = (Array.isArray(data.advisors) ? data.advisors : []).filter(
+      function (advisor) {
+        return advisor.status === "failed";
+      }
+    );
+    failed.forEach(function (advisor) {
+      rows.push(
+        renderAlertItem(
+          "critical",
+          (advisor.emoji ? advisor.emoji + " " : "") + (advisor.name || advisor.id) +
+            " çalışmadı: " + (advisor.detail || "hata")
+        )
+      );
+    });
+    if (run.conclusion === "failed") {
+      rows.push(renderAlertItem("critical", "Son koşu hata ile bitti."));
+    }
+
+    return fillList(
+      $("ac-risks"),
+      rows,
+      "Takvim ve operasyon tarafında işaretlenmiş bir risk yok."
+    );
+  }
+
+  /* --- 4: KPI sapmaları ve alarmlar ------------------------------------- */
+
+  /** Son değerin kendi 7 günlük ortalamasından yüzde kaç saptığı. */
+  function deviation(series, current) {
+    if (!Array.isArray(series) || series.length < 2) return null;
+    var history = series.slice(0, -1);
+    var sum = history.reduce(function (acc, value) {
+      return acc + value;
+    }, 0);
+    var mean = sum / history.length;
+    if (!mean) return null;
+    return ((current - mean) / mean) * 100;
+  }
+
+  function renderActionKpis() {
+    var performance = (state.status && state.status.performance) || {};
+    var daily = performance.daily_metrics || {};
+    var trends = performance.trends || {};
+    var host = $("ac-kpi");
+    host.innerHTML = "";
+
+    var specs = [
+      { key: "completion_rate", label: "Tamamlanma", series: "completion_7d", unit: "%" },
+      { key: "deadline_adherence", label: "Termine uyum", series: "deadline_7d", unit: "%" },
+      { key: "success_rate", label: "Başarı", series: "success_7d", unit: "%" },
+      { key: "token_efficiency", label: "Token verimi", series: "token_efficiency_7d", unit: "" }
+    ];
+
+    var deviations = [];
+    specs.forEach(function (spec) {
+      if (daily[spec.key] == null) return;
+      var series = trendSeries(trends, spec.key, spec.series);
+      var drift = series ? deviation(series, Number(daily[spec.key])) : null;
+      var arrow = drift == null ? "" : (drift >= 0 ? "▲ " : "▼ ") + Math.abs(drift).toFixed(0) + "%";
+      if (drift != null && Math.abs(drift) >= 20) {
+        deviations.push({ label: spec.label, drift: drift });
+      }
+      mountMetricCard(
+        host,
+        renderMetricCard(
+          spec.label,
+          Number(daily[spec.key]).toFixed(1),
+          spec.unit,
+          arrow,
+          series,
+          "var(--series-1)"
+        )
+      );
+    });
+
+    var rows = [];
+    deviations.forEach(function (item) {
+      rows.push(
+        renderAlertItem(
+          Math.abs(item.drift) >= 40 ? "critical" : "warning",
+          item.label + " 7 günlük ortalamasından %" +
+            Math.abs(item.drift).toFixed(0) + " " +
+            (item.drift < 0 ? "aşağıda" : "yukarıda")
+        )
+      );
+    });
+    (performance.alerts || []).forEach(function (alert) {
+      rows.push(renderAlertItem(alert.severity || "info", alert.message || ""));
+    });
+
+    if (!host.children.length) {
+      host.appendChild(make("p", "section-note", "KPI ölçümü henüz yazılmadı."));
+    }
+    return fillList($("ac-kpi-alerts"), rows, "Eşiği aşan bir KPI sapması yok.");
+  }
+
+  /* --- 5: kariyer / öğrenme -------------------------------------------- */
+
+  function renderActionGrowth(actions) {
+    var rows = actions.filter(function (action) {
+      var category = action.category || advisorCategory(action.advisor);
+      return GROWTH_CATEGORIES.indexOf(category) !== -1;
+    });
+    return fillList(
+      $("ac-growth"),
+      rows.sort(byPriority).map(actionRow),
+      "Bugün kariyer veya öğrenme tarafından bir aksiyon gelmedi."
+    );
+  }
+
+  /* --- 6: token, çağrı, maliyet, sistem sağlığı ------------------------- */
+
+  function renderActionSystem() {
+    var runs = metricRuns();
+    var totals = (state.metrics && state.metrics.totals) || {};
+    var last = runs.length ? runs[runs.length - 1] : null;
+    var run = (state.status && state.status.run) || {};
+    var host = $("ac-system");
+    host.innerHTML = "";
+
+    if (!last) {
+      host.appendChild(make("p", "section-note", "Ölçüm dosyası (metrics.json) henüz yok."));
+      text($("ac-system-meta"), "");
+      return 0;
+    }
+
+    var series = runs.slice(-7).map(function (entry) {
+      return Number(entry.total_tokens) || 0;
+    });
+    mountMetricCard(
+      host,
+      renderMetricCard("Son koşu tokeni", trNumber(last.total_tokens), "token", "", series, "var(--series-1)", true)
+    );
+    mountMetricCard(
+      host,
+      renderMetricCard(
+        "LLM çağrısı",
+        String((run.tokens && run.tokens.called ? 1 : 0) + (last.retries || 0)),
+        "çağrı",
+        (last.fallback_used ? "yedek model" : ""),
+        null,
+        "var(--series-2)",
+        true
+      )
+    );
+    mountMetricCard(
+      host,
+      renderMetricCard("Koşu başı ortalama", trNumber(totals.avg_tokens_per_run || 0), "token", "", null, "var(--series-3)", true)
+    );
+    mountMetricCard(
+      host,
+      renderMetricCard("Gecikme", (last.latency_seconds || 0).toFixed(0), "sn", "", null, "var(--series-4)", true)
+    );
+
+    text(
+      $("ac-system-meta"),
+      (last.model || "—") + " · " + (run.conclusion ? (CONCLUSION[run.conclusion] || {}).label || run.conclusion : "—") +
+        " · " + (totals.runs || runs.length) + " kayıtlı koşu"
+    );
+    return 4;
+  }
+
+  function renderAksiyon() {
+    if (!$("aksiyon-body")) return;
+    var actions = collectActions();
+    var hasData = !!(state.status || state.metrics || actions.length);
+
+    show($("aksiyon-empty"), !hasData);
+    show($("aksiyon-body"), hasData);
+    if (!hasData) return;
+
+    var date = latestDay();
+    text(
+      $("aksiyon-note"),
+      (date ? prettyDate(date) + " · " : "") + actions.length +
+        " aksiyon, " + Object.keys(EXPERTISE_AREAS).length + " canlı ajan" +
+        (state.advisors ? " (manifestten)" : " (yedek liste)")
+    );
+
+    var urgent = renderActionPriorities(actions);
+    var approvals = renderActionApprovals(actions);
+    renderActionRisks();
+    renderActionKpis();
+    renderActionGrowth(actions);
+    renderActionSystem();
+
+    var badge = $("badge-aksiyon");
+    if (badge) {
+      var pending = urgent + approvals;
+      badge.hidden = !pending;
+      badge.className = "tab__badge";
+      badge.textContent = String(pending);
+    }
   }
 
   /* ====================================================================== */
@@ -1705,6 +2133,7 @@
       if (!date) {
         renderReports();
         renderIdeas();
+        renderAksiyon();
         return null;
       }
       // Always re-read the newest day: an incremental run adds to it.
@@ -1712,6 +2141,8 @@
       return loadDay(date).then(function (day) {
         renderReports();
         renderIdeas();
+        // Aksiyon Merkezi günün index'inden beslenir; gün gelmeden çizilemez.
+        renderAksiyon();
         return day;
       });
     });
@@ -2898,6 +3329,7 @@
 
   function renderAll() {
     state.loaded = true;
+    renderAksiyon();
     renderSistem();
     renderPerformans();
     renderIsler();
@@ -2935,12 +3367,16 @@
         return { __error: error };
       }),
       fetchOptional(METRICS_URL),
-      fetchOptional(HEALTH_URL)
+      fetchOptional(HEALTH_URL),
+      fetchOptional(ADVISORS_URL)
     ])
       .then(function (results) {
         state.lastFetch = new Date().toISOString();
         state.metrics = results[1];
         state.health = results[2];
+        if (results[3] && applyAdvisorManifest(results[3])) {
+          state.advisors = results[3];
+        }
 
         if (results[0] && results[0].__error) {
           // Keep showing the last good data; only freshness changes.
@@ -2953,6 +3389,7 @@
         else {
           renderPerformans();
           renderIsler();
+          renderAksiyon();
         }
       })
       .then(function () {

@@ -52,7 +52,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional
 
-from .action_center import ActionItem
+from .action_center import ActionItem, priority_to_rank
 from .config import MODE_FULL, mode_label
 from .integrations import STATUS_OK
 from .status_report import ADVISOR_META, DEFAULT_META, ISTANBUL, sanitize
@@ -852,6 +852,49 @@ def read_minutes(words: int) -> int:
     return max(1, round(words / WORDS_PER_MINUTE)) if words else 1
 
 
+# --- action center enrichment ------------------------------------------------
+#
+# Bir rapor satırı ("- [ ] Şunu yap (son tarih: bugün)") panonun Aksiyon
+# Merkezi'ne girerken bir önceliğe ve bir onay durumuna ihtiyaç duyar.
+# Danışman bunları ayrıca yazmıyor, bu yüzden İKİSİ DE danışmanın KENDİ
+# kelimelerinden okunur; uydurma bir sıralama yerine metnin söylediği kadarı.
+
+#: "bugün", "acil" — bugün bitmesi gereken iş. P0.
+_URGENT_RE = re.compile(
+    r"(bugün|bugun|acil|derhal|hemen|today|asap)", re.IGNORECASE
+)
+
+#: Onay/karar bekleyen iş: bir başkasının "olur"u olmadan ilerlemez.
+_APPROVAL_RE = re.compile(
+    r"(onay|onaylat|imza|karar\s+bekl|approval|sign[- ]?off)", re.IGNORECASE
+)
+
+#: Panonun bir rapordan aldığı en fazla aksiyon sayısı.
+MAX_CARD_ACTIONS = 5
+
+
+def _infer_priority(item: ActionItem) -> str:
+    """Aksiyonun P kodu: metin "bugün/acil" diyorsa P0, tarih varsa P1, yoksa P2.
+
+    Danışman ``priority`` yazdıysa ona dokunulmaz.
+    """
+    if item.priority not in (None, "", 3):
+        return item.priority_code
+    haystack = f"{item.title} {item.due_date or ''}"
+    if _URGENT_RE.search(haystack):
+        return "P0"
+    if item.due_date:
+        return "P1"
+    return "P2"
+
+
+def _infer_approval(item: ActionItem) -> str:
+    """Metinde onay/karar geçiyorsa aksiyon onay bekliyor demektir."""
+    if item.approval_status != "not_required":
+        return item.approval_status
+    return "pending" if _APPROVAL_RE.search(item.title or "") else "not_required"
+
+
 # --- the published document -------------------------------------------------
 
 
@@ -888,8 +931,29 @@ class PublishedReport:
         """The dashboard's hash route for this document."""
         return f"#/rapor/{self.date}/{self.id}"
 
+    def action_center_items(self) -> List[Dict[str, Any]]:
+        """Bu raporun aksiyonları, Action Center şemasında.
+
+        ``source_advisor`` raporun kendi id'si — pano hangi ajanın istediğini
+        böyle bilir. Öncelik ve onay durumu danışmanın kendi cümlesinden
+        okunur (:func:`_infer_priority`, :func:`_infer_approval`).
+        """
+        out: List[Dict[str, Any]] = []
+        for item in self.action_items[:MAX_CARD_ACTIONS]:
+            payload = item.to_dict()
+            payload["priority"] = _infer_priority(item)
+            payload["priority_rank"] = priority_to_rank(payload["priority"])
+            payload["approval_status"] = _infer_approval(item)
+            payload["source_advisor"] = item.source_advisor or self.id
+            out.append(payload)
+        return out
+
     def card(self) -> Dict[str, Any]:
-        """The compact entry stored in the day's index (no body)."""
+        """The compact entry stored in the day's index (no body).
+
+        ``actions`` panoyu tek dosyadan besler: Aksiyon Merkezi gününü açmak
+        için 16 rapor belgesini tek tek indirmek zorunda kalmaz.
+        """
         return {
             "id": self.id,
             "name": self.name,
@@ -900,6 +964,7 @@ class PublishedReport:
             "words": self.words,
             "read_minutes": self.read_minutes,
             "action_count": len(self.action_items),
+            "actions": self.action_center_items(),
             "generated_at": self.generated_at,
             "generated_at_istanbul": self.generated_at_istanbul,
             "path": f"{self.id}.json",
