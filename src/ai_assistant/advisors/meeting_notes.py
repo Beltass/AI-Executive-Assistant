@@ -15,13 +15,15 @@ import asyncio
 import json
 import logging
 import os
+import re
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 
 from . import Advisor, Briefing
+from ._turkish_dates import parse_iso_date, parse_turkish_date
 from ..integrations import llm
 from ..integrations.google_drive_manager import GoogleDriveManager
 from ..integrations.task_tracker import Task, TaskTracker, TaskStatus
@@ -52,6 +54,168 @@ TRANSCRIPTION_USER_PROMPT = "Bu toplantı kaydını deşifre et."
 #: budget, and a truncated transcript silently loses the action items at the
 #: end of a meeting — exactly the part this whole pipeline exists for.
 DEFAULT_TRANSCRIPTION_MAX_OUTPUT_TOKENS = 32768
+
+#: What the model is asked to pull OUT of a transcript. The schema below is the
+#: contract between this prompt and :func:`_apply_analysis`: every key names a
+#: field that actually exists on :class:`MeetingNotes`, :class:`ActionItem` or
+#: :class:`CompetitiveAction`, so a well-formed answer maps across with no
+#: guesswork and an ill-formed one is REJECTED rather than half-applied.
+#:
+#: Deadlines are asked for TWICE on purpose: ``deadline_text`` is the phrase as
+#: it was actually spoken ("cuma gününe kadar"), which
+#: :mod:`ai_assistant.advisors._turkish_dates` resolves deterministically
+#: against the meeting's own date; ``deadline_iso`` is the model's own guess and
+#: is used only when the grammar does not recognise the phrase. Models miscount
+#: days silently, so the guess is the fallback, never the primary.
+MEETING_ANALYSIS_SYSTEM_PROMPT = (
+    "Sen bir toplantı analistisin. Sana verilen toplantı deşifre metnini "
+    "okuyup yapılandırılmış JSON çıkarırsın.\n"
+    "\n"
+    "Kurallar:\n"
+    "- SADECE deşifre metninde geçenleri yaz. Bilgi UYDURMA; metinde yoksa "
+    "ilgili listeyi boş bırak.\n"
+    "- Metnin dilinde yaz (Türkçe toplantı → Türkçe çıktı).\n"
+    "- İsimleri metinde geçtiği gibi kullan. Örnek isim veya yer tutucu isim "
+    "KULLANMA.\n"
+    "- 'deadline_text' alanına tarihi konuşmada söylendiği HÂLİYLE yaz "
+    "(\"cuma gününe kadar\", \"iki hafta içinde\", \"ayın 15'i\"). Tarih "
+    "söylenmediyse boş string bırak.\n"
+    "- 'deadline_iso' alanına aynı tarihin YYYY-MM-DD tahminini yaz; emin "
+    "değilsen boş string bırak.\n"
+    "- 'priority' 1 (düşük) ile 5 (kritik) arası bir tam sayıdır.\n"
+    "- 'impact' ve 'urgency' yalnızca \"low\", \"medium\" veya \"high\" "
+    "olabilir.\n"
+    "- 'competitive_actions' yalnızca RAKİPLERLE ilgili bir şey konuşulduysa "
+    "doldurulur; konuşulmadıysa boş liste döndür.\n"
+    "\n"
+    "Yanıtın SADECE şu şemadaki JSON nesnesi olsun, başka hiçbir metin ekleme:\n"
+    "{\n"
+    '  "summary": "toplantının birkaç cümlelik özeti",\n'
+    '  "findings": ["önemli bulgu", ...],\n'
+    '  "action_items": [\n'
+    "    {\n"
+    '      "description": "yapılacak iş",\n'
+    '      "owner": "sorumlu kişi",\n'
+    '      "deadline_text": "konuşmada geçtiği hâliyle tarih ifadesi",\n'
+    '      "deadline_iso": "YYYY-MM-DD",\n'
+    '      "priority": 3\n'
+    "    }\n"
+    "  ],\n"
+    '  "competitive_actions": [\n'
+    "    {\n"
+    '      "description": "rakibin yaptığı şey",\n'
+    '      "impact": "medium",\n'
+    '      "urgency": "medium",\n'
+    '      "recommended_action": "bizim ne yapmamız gerektiği"\n'
+    "    }\n"
+    "  ],\n"
+    '  "next_steps": ["sonraki adım", ...]\n'
+    "}"
+)
+
+#: An hour of meeting yields a page of JSON, not a book; 8k is the provider
+#: default and has room to spare. Overridable for unusually long recordings.
+DEFAULT_ANALYSIS_MAX_OUTPUT_TOKENS = 8192
+
+#: Structured extraction, not advice. The answer is copied out of the
+#: transcript against a fixed schema, so paying for a "thinking" pass buys
+#: nothing but billed tokens and latency — and the one genuinely hard part
+#: (turning "cuma gününe kadar" into a date) is done in code, not by the model.
+ANALYSIS_THINKING_BUDGET = 0
+
+#: Levels the downstream report renderer understands. Anything else the model
+#: invents ("critical", "çok yüksek") falls back to ``medium``.
+ANALYSIS_LEVELS = ("low", "medium", "high")
+
+_JSON_FENCE_RE = re.compile(r"\A\s*```[a-zA-Z]*\s*|\s*```\s*\Z")
+
+
+def _strip_json_fence(text: str) -> str:
+    """Remove a ```json … ``` wrapper the model may have added."""
+    stripped = (text or "").strip()
+    if stripped.startswith("```"):
+        stripped = _JSON_FENCE_RE.sub("", stripped).strip()
+    return stripped
+
+
+def _parse_analysis_json(raw: str) -> Dict[str, Any]:
+    """Read the model's answer into a dict, or raise ``ValueError``.
+
+    Raising rather than returning ``{}`` is the point: a response that cannot
+    be read is a FAILURE, and the caller has to be able to say so instead of
+    quietly filing an empty meeting.
+    """
+    text = _strip_json_fence(raw)
+    if not text:
+        raise ValueError("model boş yanıt döndürdü")
+
+    try:
+        payload = json.loads(text)
+    except ValueError:
+        # Some models still wrap the object in a sentence; take the outermost
+        # braces and try once more. A second failure propagates.
+        start, end = text.find("{"), text.rfind("}")
+        if start == -1 or end <= start:
+            raise ValueError("yanıtta JSON nesnesi bulunamadı")
+        payload = json.loads(text[start : end + 1])
+
+    if not isinstance(payload, dict):
+        raise ValueError(f"JSON nesnesi bekleniyordu, {type(payload).__name__} geldi")
+    return payload
+
+
+def _text(value: Any) -> str:
+    """A trimmed string, whatever the model put in the field."""
+    if value is None or isinstance(value, (list, dict)):
+        return ""
+    return str(value).strip()
+
+
+def _string_list(value: Any) -> List[str]:
+    """Non-empty strings from a list field; anything else yields ``[]``."""
+    if not isinstance(value, list):
+        return []
+    return [item for item in (_text(entry) for entry in value) if item]
+
+
+def _dict_list(value: Any) -> List[Dict[str, Any]]:
+    if not isinstance(value, list):
+        return []
+    return [entry for entry in value if isinstance(entry, dict)]
+
+
+def _coerce_priority(value: Any) -> int:
+    """Clamp the model's priority into the 1-5 range ``ActionItem`` documents."""
+    try:
+        priority = int(float(value))
+    except (TypeError, ValueError):
+        return 3
+    return max(1, min(5, priority))
+
+
+def _coerce_level(value: Any) -> str:
+    level = _text(value).lower()
+    return level if level in ANALYSIS_LEVELS else "medium"
+
+
+def _resolve_deadline(item: Dict[str, Any], anchor: datetime) -> Optional[datetime]:
+    """Turn one action item's date fields into a real ``datetime`` or ``None``.
+
+    The spoken phrase is resolved in code first (deterministic, testable
+    offline); the model's ISO guess is consulted only when the grammar does
+    not recognise the phrase. When neither works the deadline stays ``None`` —
+    an empty deadline beats an invented one.
+    """
+    spoken = _text(item.get("deadline_text"))
+    if spoken:
+        resolved = parse_turkish_date(spoken, anchor)
+        if resolved is not None:
+            return resolved
+
+    guess = _text(item.get("deadline_iso")) or _text(item.get("deadline"))
+    if guess:
+        return parse_iso_date(guess, anchor)
+    return None
 
 
 @dataclass
@@ -175,7 +339,7 @@ class MeetingNotesAgent(Advisor):
     """Agent for managing meeting notes, transcription, and action tracking.
 
     Key capabilities:
-    - Transcribe audio files (mock implementation)
+    - Transcribe audio files with Gemini
     - Analyze meeting transcript with LLM
     - Extract action items with owners and deadlines
     - Identify competitive intelligence
@@ -201,6 +365,9 @@ class MeetingNotesAgent(Advisor):
         # Why the last transcript came back empty (skipped vs. failed), for
         # callers to log. ``None`` means "nothing has gone wrong yet".
         self.last_transcription_error: Optional[str] = None
+        # Same, for the last analysis: why the notes came back without action
+        # items (no key, no transcript, failed request, unreadable answer).
+        self.last_analysis_error: Optional[str] = None
 
     def _generate(self) -> Briefing:
         """Generate meeting notes briefing.
@@ -345,85 +512,179 @@ class MeetingNotesAgent(Advisor):
         self.logger.info(f"Transcribed {label}: {len(transcript)} characters")
         return transcript
 
+    @staticmethod
+    def _analysis_max_output_tokens() -> int:
+        """Output budget for one analysis, read at call time."""
+        try:
+            tokens = int(
+                os.getenv("MEETING_ANALYSIS_MAX_OUTPUT_TOKENS")
+                or DEFAULT_ANALYSIS_MAX_OUTPUT_TOKENS
+            )
+        except ValueError:
+            tokens = DEFAULT_ANALYSIS_MAX_OUTPUT_TOKENS
+        return tokens if tokens > 0 else DEFAULT_ANALYSIS_MAX_OUTPUT_TOKENS
+
+    @staticmethod
+    def _analysis_user_prompt(
+        transcript: str,
+        meeting_title: str,
+        attendees: List[str],
+        meeting_date: datetime,
+    ) -> str:
+        """The turn's text: what meeting this is, plus the words themselves."""
+        people = ", ".join(name for name in attendees if name) or "belirtilmemiş"
+        return (
+            f"Toplantı başlığı: {meeting_title}\n"
+            f"Toplantı tarihi: {meeting_date.strftime('%Y-%m-%d')}\n"
+            f"Katılımcılar: {people}\n"
+            "\n"
+            "Deşifre metni:\n"
+            f"{transcript}"
+        )
+
     async def analyze_meeting(
         self,
         transcript: str,
         meeting_title: str = "Toplantı",
         attendees: List[str] = None,
     ) -> MeetingNotes:
-        """Analyze meeting transcript with LLM.
+        """Analyze a meeting transcript with the LLM.
 
-        Extracts:
-        - Key findings
-        - Action items with owners and deadlines
-        - Competitive intelligence
-        - Next steps
+        Everything in the returned notes is derived from THIS transcript:
+        summary, findings, action items (owner, priority, deadline),
+        competitive intelligence and next steps. Deadlines are resolved from
+        the phrase as it was spoken by :mod:`._turkish_dates`, anchored on the
+        meeting's own date, and fall back to the model's ISO guess only when
+        that grammar does not recognise the phrase.
+
+        Nothing is invented when the analysis cannot run. Without a provider
+        key, without a transcript, or after a failed/unreadable response the
+        notes come back EMPTY — the transcript and the title are kept, the
+        analysis fields are not filled in, and the reason is left on
+        :attr:`last_analysis_error` so the caller can log WHY. A plausible but
+        fabricated action item would be filed as a real task, chased in a real
+        Slack reminder, and trusted; an empty one is visibly empty.
 
         Args:
-            transcript: Meeting transcript text
-            meeting_title: Title of the meeting
-            attendees: List of meeting attendees
+            transcript: Meeting transcript text.
+            meeting_title: Title of the meeting.
+            attendees: List of meeting attendees.
 
         Returns:
-            MeetingNotes object with analysis
+            MeetingNotes object with analysis, or with the analysis fields left
+            empty when the analysis was skipped or failed.
         """
-        try:
-            self.logger.info(f"Analyzing meeting: {meeting_title}")
+        self.last_analysis_error = None
+        attendees = attendees or ["Unknown"]
+        meeting_notes = MeetingNotes(
+            title=meeting_title,
+            attendees=attendees,
+            transcript_text=transcript or "",
+        )
 
-            attendees = attendees or ["Unknown"]
-            meeting_notes = MeetingNotes(
-                title=meeting_title,
-                attendees=attendees,
-                transcript_text=transcript,
-            )
-
-            # Mock implementation - in production would call LLM
-            # For now, extract key phrases and generate mock analysis
-            meeting_notes.summary = "Toplantıda Q3 stratejisi, ürün lansmanı ve rakip analizi tartışıldı."
-            meeting_notes.findings = [
-                "Pazarlama bütçesi %25 artırılmalı",
-                "Yeni ürün lansmanı 2 hafta içinde yapılmalı",
-                "Rakip XYZ önemli bir özellik çıkardı",
-            ]
-            meeting_notes.action_items = [
-                ActionItem(
-                    description="Pazarlama bütçesi planını hazırla",
-                    owner="John",
-                    deadline=datetime.now(timezone.utc) + timedelta(days=3),
-                    priority=4,
-                ),
-                ActionItem(
-                    description="Teknik specifikasyonları dokümante et",
-                    owner="Sarah",
-                    deadline=datetime.now(timezone.utc) + timedelta(days=5),
-                    priority=4,
-                ),
-                ActionItem(
-                    description="Yeni özelliği geliştir",
-                    owner="Mike",
-                    deadline=datetime.now(timezone.utc) + timedelta(days=14),
-                    priority=5,
-                ),
-            ]
-            meeting_notes.competitive_actions = [
-                CompetitiveAction(
-                    description="XYZ şirketi yeni AI özelliğini piyasaya sürdü",
-                    impact="high",
-                    urgency="high",
-                    recommended_action="Benzer özelliği hızlıca geliştir",
-                ),
-            ]
-            meeting_notes.next_steps = [
-                "Pazarlama planını önümüzdeki pazartesi sunmak",
-                "Ürün lansmanı için geri sayımı başlatmak",
-            ]
-
-            self.logger.info(f"Meeting analysis completed: {len(meeting_notes.action_items)} action items")
+        body = (transcript or "").strip()
+        if not body:
+            self.last_analysis_error = "boş transkript — analiz atlandı"
+            self.logger.info(self.last_analysis_error)
             return meeting_notes
 
+        if not llm.is_configured():
+            # Skipped, not failed: nothing is broken, a key is simply absent.
+            self.last_analysis_error = (
+                "analiz atlandı — missing env var(s): GEMINI_API_KEY "
+                "or OPENAI_API_KEY"
+            )
+            self.logger.info(
+                "LLM yapılandırılmamış, analiz atlandı (%s)", meeting_title
+            )
+            return meeting_notes
+
+        self.logger.info(
+            f"Analyzing meeting: {meeting_title} ({len(body)} characters)"
+        )
+
+        try:
+            # Off the event loop: a blocking HTTP call with retries behind it.
+            raw = await asyncio.to_thread(
+                llm.generate_text,
+                MEETING_ANALYSIS_SYSTEM_PROMPT,
+                self._analysis_user_prompt(
+                    body, meeting_title, attendees, meeting_notes.date
+                ),
+                max_output_tokens=self._analysis_max_output_tokens(),
+                thinking_budget=ANALYSIS_THINKING_BUDGET,
+            )
         except Exception as e:
-            self.logger.error(f"Meeting analysis failed: {e}")
-            return MeetingNotes()
+            self.last_analysis_error = f"analiz isteği başarısız ({meeting_title}): {e}"
+            self.logger.error(self.last_analysis_error)
+            return meeting_notes
+
+        try:
+            payload = _parse_analysis_json(raw)
+        except ValueError as e:
+            self.last_analysis_error = (
+                f"analiz yanıtı okunamadı ({meeting_title}): {e}"
+            )
+            self.logger.error(
+                "%s — ham yanıt %d karakter", self.last_analysis_error, len(raw or "")
+            )
+            return meeting_notes
+
+        self._apply_analysis(meeting_notes, payload)
+
+        self.logger.info(
+            "Meeting analysis completed: %d action items, %d findings",
+            len(meeting_notes.action_items),
+            len(meeting_notes.findings),
+        )
+        return meeting_notes
+
+    @staticmethod
+    def _apply_analysis(
+        meeting_notes: MeetingNotes,
+        payload: Dict[str, Any],
+    ) -> None:
+        """Copy a parsed analysis onto the notes, field by field.
+
+        Every value is coerced to the type its dataclass field promises, and
+        entries without a description are dropped: an owner and a deadline
+        attached to nothing is not a task anybody can do.
+        """
+        anchor = meeting_notes.date
+
+        meeting_notes.summary = _text(payload.get("summary"))
+        meeting_notes.findings = _string_list(payload.get("findings"))
+        meeting_notes.next_steps = _string_list(payload.get("next_steps"))
+
+        action_items: List[ActionItem] = []
+        for raw_item in _dict_list(payload.get("action_items")):
+            description = _text(raw_item.get("description"))
+            if not description:
+                continue
+            action_items.append(
+                ActionItem(
+                    description=description,
+                    owner=_text(raw_item.get("owner")),
+                    deadline=_resolve_deadline(raw_item, anchor),
+                    priority=_coerce_priority(raw_item.get("priority")),
+                )
+            )
+        meeting_notes.action_items = action_items
+
+        competitive_actions: List[CompetitiveAction] = []
+        for raw_action in _dict_list(payload.get("competitive_actions")):
+            description = _text(raw_action.get("description"))
+            if not description:
+                continue
+            competitive_actions.append(
+                CompetitiveAction(
+                    description=description,
+                    impact=_coerce_level(raw_action.get("impact")),
+                    urgency=_coerce_level(raw_action.get("urgency")),
+                    recommended_action=_text(raw_action.get("recommended_action")),
+                )
+            )
+        meeting_notes.competitive_actions = competitive_actions
 
     async def generate_report(self, meeting_notes: MeetingNotes) -> Dict[str, str]:
         """Generate meeting reports (PDF, Google Doc, Excel).

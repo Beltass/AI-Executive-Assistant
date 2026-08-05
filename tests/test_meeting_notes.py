@@ -15,13 +15,15 @@ from __future__ import annotations
 import json
 import tempfile
 import uuid
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Generator
+from typing import Any, Dict, Generator, List, Optional
 from unittest.mock import Mock, patch, MagicMock, AsyncMock
 
 import pytest
 
+import ai_assistant.advisors.meeting_notes as meeting_notes_module
 from ai_assistant.advisors.meeting_notes import (
     MeetingNotesAgent,
     MeetingNotes,
@@ -34,6 +36,55 @@ from ai_assistant.integrations.task_tracker import (
     TaskStatus,
 )
 from ai_assistant.integrations.google_drive_manager import GoogleDriveManager
+
+
+# ============================================================================
+# Analysis helpers
+#
+# analyze_meeting() derives everything it returns from what the LLM answers,
+# so a test that does not stand in for the LLM cannot say anything about the
+# analysis. These helpers put a KNOWN answer on the wire; the assertions then
+# check that this answer — and nothing baked into the source — is what comes
+# out the other end.
+# ============================================================================
+
+
+def analysis_response(
+    summary: str = "",
+    findings: Optional[List[str]] = None,
+    action_items: Optional[List[Dict[str, Any]]] = None,
+    competitive_actions: Optional[List[Dict[str, Any]]] = None,
+    next_steps: Optional[List[str]] = None,
+    fenced: bool = False,
+) -> str:
+    """Build one model answer in the schema analyze_meeting() expects."""
+    payload = {
+        "summary": summary,
+        "findings": findings or [],
+        "action_items": action_items or [],
+        "competitive_actions": competitive_actions or [],
+        "next_steps": next_steps or [],
+    }
+    body = json.dumps(payload, ensure_ascii=False)
+    return f"```json\n{body}\n```" if fenced else body
+
+
+@contextmanager
+def mocked_analysis(response: Any, configured: bool = True):
+    """Make ``llm.generate_text`` return ``response`` for the duration.
+
+    ``response`` may be a string (the answer) or a callable taking the
+    ``(system_prompt, user_prompt)`` the advisor actually sent — the callable
+    form is what lets a test prove the TRANSCRIPT reached the model.
+    """
+    generate = Mock(side_effect=response) if callable(response) else Mock(
+        return_value=response
+    )
+    with patch.object(
+        meeting_notes_module.llm, "is_configured", return_value=configured
+    ):
+        with patch.object(meeting_notes_module.llm, "generate_text", generate):
+            yield generate
 
 
 class TestTask:
@@ -506,20 +557,42 @@ class TestMeetingNotesAgent:
         assert result == "Konuşmacı 1: ZEBRA."
 
     def test_agent_analyze_meeting(self, agent: MeetingNotesAgent):
-        """Test meeting analysis."""
+        """Analysis carries the model's answer, field by field, into the notes."""
         import asyncio
-        transcript = "Meeting transcript with action items and decisions."
+        transcript = "Alice: Planı Bob hazırlayacak, pazartesiye kadar."
 
-        notes = asyncio.run(agent.analyze_meeting(
-            transcript,
-            meeting_title="Planning Meeting",
-            attendees=["Alice", "Bob"],
-        ))
+        response = analysis_response(
+            summary="Plan hazırlığı konuşuldu.",
+            findings=["Plan eksik"],
+            action_items=[
+                {
+                    "description": "Planı hazırla",
+                    "owner": "Bob",
+                    "deadline_text": "pazartesi",
+                    "deadline_iso": "",
+                    "priority": 4,
+                }
+            ],
+            next_steps=["Planı gözden geçir"],
+        )
+
+        with mocked_analysis(response):
+            notes = asyncio.run(agent.analyze_meeting(
+                transcript,
+                meeting_title="Planning Meeting",
+                attendees=["Alice", "Bob"],
+            ))
 
         assert isinstance(notes, MeetingNotes)
         assert notes.title == "Planning Meeting"
         assert len(notes.attendees) == 2
-        assert len(notes.action_items) > 0
+        assert notes.summary == "Plan hazırlığı konuşuldu."
+        assert notes.findings == ["Plan eksik"]
+        assert notes.next_steps == ["Planı gözden geçir"]
+        assert len(notes.action_items) == 1
+        assert notes.action_items[0].owner == "Bob"
+        assert notes.action_items[0].description == "Planı hazırla"
+        assert notes.action_items[0].priority == 4
 
     def test_agent_generate_report(self, agent: MeetingNotesAgent):
         """Test report generation."""
@@ -937,29 +1010,68 @@ class TestMeetingNotesPipelineEndToEnd:
         assert len(mock_transcription) > 0
         assert "cuma gününe kadar" in mock_transcription
 
-        # Step 2: Analyze meeting
-        meeting_notes = await agent_with_mocks.analyze_meeting(
-            mock_transcription,
-            meeting_title="Proje Toplantısı",
-            attendees=["Konuşmacı 1", "Konuşmacı 2"],
+        # Step 2: Analyze meeting — the model sees the transcript and answers
+        # with items drawn from it.
+        response = analysis_response(
+            summary="Bütçe planı ve kampanya materyali konuşuldu.",
+            findings=["Bütçe planı bekliyor"],
+            action_items=[
+                {
+                    "description": "Bütçe planını hazırla",
+                    "owner": "Konuşmacı 2",
+                    "deadline_text": "cuma gününe kadar",
+                    "deadline_iso": "",
+                    "priority": 4,
+                },
+                {
+                    "description": "Kampanya materyalini hazırla",
+                    "owner": "Konuşmacı 2",
+                    "deadline_text": "ayın 15'i",
+                    "deadline_iso": "",
+                    "priority": 3,
+                },
+            ],
+            next_steps=["Kodu yazmaya başla"],
         )
+
+        with mocked_analysis(response) as generate:
+            meeting_notes = await agent_with_mocks.analyze_meeting(
+                mock_transcription,
+                meeting_title="Proje Toplantısı",
+                attendees=["Konuşmacı 1", "Konuşmacı 2"],
+            )
+
+        # The transcript itself must reach the model — otherwise the analysis
+        # cannot be about this meeting.
+        sent_user_prompt = generate.call_args[0][1]
+        assert "cuma gününe kadar" in sent_user_prompt
+        assert "Kampanya materyali" in sent_user_prompt
 
         # Step 3: Verify analysis output
         assert isinstance(meeting_notes, MeetingNotes)
         assert meeting_notes.title == "Proje Toplantısı"
         assert len(meeting_notes.attendees) == 2
+        assert [item.description for item in meeting_notes.action_items] == [
+            "Bütçe planını hazırla",
+            "Kampanya materyalini hazırla",
+        ]
+        # Spoken Turkish dates become real deadlines.
+        assert all(item.deadline is not None for item in meeting_notes.action_items)
+        assert all(
+            item.deadline > meeting_notes.date
+            for item in meeting_notes.action_items
+        )
 
         # Step 4: Create tasks from action items
-        if meeting_notes.action_items:
-            agent_with_mocks.task_tracker.add_task.side_effect = lambda t: t.id
+        agent_with_mocks.task_tracker.add_task.side_effect = lambda t: t.id
 
-            task_ids = await agent_with_mocks.create_tasks_in_tracker(
-                meeting_notes.action_items,
-                meeting_notes.meeting_id
-            )
+        task_ids = await agent_with_mocks.create_tasks_in_tracker(
+            meeting_notes.action_items,
+            meeting_notes.meeting_id
+        )
 
-            assert len(task_ids) > 0
-            assert agent_with_mocks.task_tracker.add_task.called
+        assert len(task_ids) == 2
+        assert agent_with_mocks.task_tracker.add_task.called
 
     @pytest.mark.asyncio
     async def test_pipeline_with_realistic_meeting_transcript(self, agent_with_mocks):
@@ -979,18 +1091,50 @@ class TestMeetingNotesPipelineEndToEnd:
             "Konuşmacı 3: Benim deadline'ım 20 Eylül."
         )
 
-        meeting_notes = await agent_with_mocks.analyze_meeting(
-            transcript,
-            meeting_title="Aylık Hedefler Toplantısı",
-            attendees=["Müdür", "Pazarlama", "Geliştirme"],
+        response = analysis_response(
+            summary="Aylık hedefler gözden geçirildi.",
+            findings=["Kampanya yarın başlıyor"],
+            action_items=[
+                {
+                    "description": "Sosyal medya kampanyasını başlat",
+                    "owner": "Pazarlama",
+                    "deadline_text": "yarın",
+                    "deadline_iso": "",
+                    "priority": 5,
+                },
+                {
+                    "description": "API entegrasyonunu bitir",
+                    "owner": "Geliştirme",
+                    "deadline_text": "iki hafta içinde",
+                    "deadline_iso": "",
+                    "priority": 4,
+                },
+            ],
+            fenced=True,  # models routinely wrap JSON in a ```json fence
         )
+
+        with mocked_analysis(response):
+            meeting_notes = await agent_with_mocks.analyze_meeting(
+                transcript,
+                meeting_title="Aylık Hedefler Toplantısı",
+                attendees=["Müdür", "Pazarlama", "Geliştirme"],
+            )
 
         # Verify the transcript was processed
         assert meeting_notes.transcript_text == transcript
         assert meeting_notes.title == "Aylık Hedefler Toplantısı"
 
         # Verify action items were extracted (not empty)
-        assert len(meeting_notes.action_items) > 0
+        assert len(meeting_notes.action_items) == 2
+        owners = {item.owner for item in meeting_notes.action_items}
+        assert owners == {"Pazarlama", "Geliştirme"}
+
+        # "yarın" is one day out, "iki hafta içinde" is fourteen.
+        by_owner = {item.owner: item for item in meeting_notes.action_items}
+        tomorrow = by_owner["Pazarlama"].deadline
+        two_weeks = by_owner["Geliştirme"].deadline
+        assert (tomorrow.date() - meeting_notes.date.date()).days == 1
+        assert (two_weeks.date() - meeting_notes.date.date()).days == 14
 
 
 class TestTurkishDateParsingIntegration:
@@ -1091,26 +1235,49 @@ class TestActionItemExtraction:
             "Konuşmacı 2: Pazartesi başlıyorum, cuma bitecek."
         )
 
-        meeting_notes = await agent.analyze_meeting(
-            transcript,
-            meeting_title="Test",
-            attendees=["Konuşmacı 1", "Konuşmacı 2", "Konuşmacı 3"],
+        response = analysis_response(
+            action_items=[
+                {
+                    "description": "Sunumu hazırla",
+                    "owner": "Konuşmacı 2",
+                    "deadline_text": "bir hafta içinde",
+                    "deadline_iso": "",
+                    "priority": 3,
+                },
+                {
+                    "description": "Tam test paketini yaz",
+                    "owner": "Konuşmacı 3",
+                    "deadline_text": "iki hafta içinde",
+                    "deadline_iso": "",
+                    "priority": 4,
+                },
+            ],
         )
+
+        with mocked_analysis(response):
+            meeting_notes = await agent.analyze_meeting(
+                transcript,
+                meeting_title="Test",
+                attendees=["Konuşmacı 1", "Konuşmacı 2", "Konuşmacı 3"],
+            )
 
         # Action items should be extracted
         assert isinstance(meeting_notes.action_items, list)
-        assert len(meeting_notes.action_items) > 0
+        assert len(meeting_notes.action_items) == 2
 
         # Each action item should have required fields
         for item in meeting_notes.action_items:
             assert isinstance(item, ActionItem)
             assert item.description  # Should have description from transcript
             assert item.owner  # Should have owner name
-            assert item.deadline or item.deadline is None  # May or may not have deadline
+            assert item.deadline is not None  # Turkish phrase resolved to a date
+
+        assert meeting_notes.action_items[0].description == "Sunumu hazırla"
+        assert meeting_notes.action_items[1].owner == "Konuşmacı 3"
 
     @pytest.mark.asyncio
     async def test_action_items_have_realistic_owners(self, agent):
-        """Test that action item owners come from attendees, not hardcoded."""
+        """Owners are whoever the model named — never a name baked into the code."""
         attendees = ["Alice", "Bob", "Charlie"]
         transcript = (
             "Alice: Veritabanı şeması Alice'in yapması gerekli. "
@@ -1118,19 +1285,24 @@ class TestActionItemExtraction:
             "Charlie frontend UI hazırlayacak."
         )
 
-        meeting_notes = await agent.analyze_meeting(
-            transcript,
-            meeting_title="Backend Planning",
-            attendees=attendees,
+        response = analysis_response(
+            action_items=[
+                {"description": "Veritabanı şemasını çıkar", "owner": "Alice"},
+                {"description": "API endpointlerini yaz", "owner": "Bob"},
+                {"description": "Frontend arayüzünü hazırla", "owner": "Charlie"},
+            ],
         )
 
-        # If we have action items, owners should be reasonable
-        # (not hardcoded John/Sarah/Mike if the implementation is correct)
-        if meeting_notes.action_items:
-            for item in meeting_notes.action_items:
-                # Owner should be one of the attendees or at least not obviously hardcoded
-                assert item.owner  # Must have an owner
-                # If it's from a real LLM, it should vary
+        with mocked_analysis(response):
+            meeting_notes = await agent.analyze_meeting(
+                transcript,
+                meeting_title="Backend Planning",
+                attendees=attendees,
+            )
+
+        assert [item.owner for item in meeting_notes.action_items] == attendees
+        # No deadline was spoken and none was guessed, so none is invented.
+        assert all(item.deadline is None for item in meeting_notes.action_items)
 
 
 class TestStatePersistenceAndDeduplication:
@@ -1202,7 +1374,18 @@ class TestStatePersistenceAndDeduplication:
 
 
 class TestHardcodedDataValidation:
-    """Validation tests to catch hardcoded data regression."""
+    """Guards against sample data creeping back into the analysis.
+
+    The advisor once returned a fixed cast of characters (John/Sarah/Mike) and
+    a fixed competitor for EVERY meeting. These tests come at that failure
+    from both ends: the output must track whatever the model actually said,
+    and the source file must not contain the old sample names at all.
+    """
+
+    #: The names and company the mock implementation used to emit. If any of
+    #: these ever appears again, something is being made up rather than read.
+    FORBIDDEN_NAMES = ("John", "Sarah", "Mike")
+    FORBIDDEN_COMPANIES = ("XYZ şirketi", "XYZ")
 
     @pytest.fixture
     def agent(self):
@@ -1213,16 +1396,7 @@ class TestHardcodedDataValidation:
 
     @pytest.mark.asyncio
     async def test_no_hardcoded_names_in_action_items(self, agent):
-        """Validate that action items don't contain hardcoded names like John, Sarah, Mike.
-
-        REGRESSION TEST: This test should pass once the mock implementation
-        of analyze_meeting() is replaced with a real LLM-based implementation.
-        Currently documents that hardcoded names exist.
-        """
-        # These names should never appear unless extracted from real transcript
-        forbidden_names = {"John", "Sarah", "Mike"}
-
-        # Use attendees that definitely don't match forbidden names
+        """Owners come from the model's answer, not from the source file."""
         attendees = ["Alice", "Bob", "Charlie"]
         transcript = (
             "Alice: Biz bu işi yapalım.\n"
@@ -1230,74 +1404,150 @@ class TestHardcodedDataValidation:
             "Charlie: Kodlamayı ben yapacağım."
         )
 
-        meeting_notes = await agent.analyze_meeting(
-            transcript,
-            meeting_title="Test Meeting",
-            attendees=attendees,
+        response = analysis_response(
+            summary="Görev paylaşımı yapıldı.",
+            action_items=[
+                {"description": "Kodlamayı yap", "owner": "Charlie", "priority": 4},
+                {"description": "Destek ol", "owner": "Bob", "priority": 2},
+            ],
         )
 
-        # Track any hardcoded names found
-        hardcoded_found = []
-        for item in meeting_notes.action_items:
-            if item.owner in forbidden_names:
-                hardcoded_found.append((item.owner, item.description))
+        with mocked_analysis(response):
+            meeting_notes = await agent.analyze_meeting(
+                transcript,
+                meeting_title="Test Meeting",
+                attendees=attendees,
+            )
 
-        # Document findings but don't fail test yet (known issue in mock)
-        # This will fail when mock is replaced with real implementation
-        if hardcoded_found:
-            # For now, just log - once real LLM is used, uncomment assertion below
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.warning(f"REGRESSION: Found hardcoded names: {hardcoded_found}")
-            # TODO: Uncomment when switching to real LLM implementation
-            # assert len(hardcoded_found) == 0, f"Found hardcoded names: {hardcoded_found}"
+        owners = [item.owner for item in meeting_notes.action_items]
+        assert owners == ["Charlie", "Bob"]
+        assert not [name for name in owners if name in self.FORBIDDEN_NAMES]
+
+    @pytest.mark.asyncio
+    async def test_different_transcripts_produce_different_analyses(self, agent):
+        """The same advisor, two meetings, two different sets of notes.
+
+        This is the assertion a fixed-output implementation cannot pass: it
+        would return identical owners and findings for both calls.
+        """
+        first = analysis_response(
+            summary="Rapor konuşuldu.",
+            findings=["Rapor gecikti"],
+            action_items=[
+                {
+                    "description": "Raporu bitir",
+                    "owner": "Ayşe",
+                    "deadline_text": "pazartesi",
+                    "priority": 5,
+                }
+            ],
+        )
+        second = analysis_response(
+            summary="Sunum konuşuldu.",
+            findings=["Sunum taslağı yok"],
+            action_items=[
+                {
+                    "description": "Sunumu hazırla",
+                    "owner": "Mert",
+                    "deadline_text": "iki hafta içinde",
+                    "priority": 2,
+                }
+            ],
+        )
+
+        with mocked_analysis(first):
+            notes_a = await agent.analyze_meeting(
+                "Ayşe pazartesiye kadar raporu bitirecek.",
+                meeting_title="Rapor Toplantısı",
+                attendees=["Ayşe"],
+            )
+
+        with mocked_analysis(second):
+            notes_b = await agent.analyze_meeting(
+                "Mert iki hafta içinde sunumu hazırlayacak.",
+                meeting_title="Sunum Toplantısı",
+                attendees=["Mert"],
+            )
+
+        assert notes_a.action_items[0].owner == "Ayşe"
+        assert notes_b.action_items[0].owner == "Mert"
+        assert notes_a.action_items[0].description == "Raporu bitir"
+        assert notes_b.action_items[0].description == "Sunumu hazırla"
+        assert notes_a.action_items[0].priority == 5
+        assert notes_b.action_items[0].priority == 2
+        assert notes_a.summary != notes_b.summary
+        assert notes_a.findings != notes_b.findings
 
     @pytest.mark.asyncio
     async def test_no_hardcoded_company_names(self, agent):
-        """Validate that analysis doesn't contain hardcoded company names.
-
-        REGRESSION TEST: This test should pass once the mock implementation
-        of analyze_meeting() is replaced with a real LLM-based implementation.
-        Currently documents that hardcoded company names exist.
-        """
-        forbidden_companies = {"XYZ", "XYZ şirketi"}
-
+        """Competitive intelligence tracks the answer, and stays empty when absent."""
         transcript = (
             "Konuşmacı 1: Bizim şirketimiz hakkında konuşalım.\n"
             "Konuşmacı 2: Rekabet ortamını analiz ettik."
         )
 
-        meeting_notes = await agent.analyze_meeting(
-            transcript,
-            meeting_title="Meeting",
-            attendees=["Speaker1", "Speaker2"],
+        # No competitor was named in this meeting, so none may appear.
+        with mocked_analysis(analysis_response(summary="Genel değerlendirme.")):
+            meeting_notes = await agent.analyze_meeting(
+                transcript,
+                meeting_title="Meeting",
+                attendees=["Speaker1", "Speaker2"],
+            )
+
+        assert meeting_notes.competitive_actions == []
+        assert meeting_notes.findings == []
+
+        # When one IS named, that is the one that shows up.
+        response = analysis_response(
+            findings=["Delta Yazılım fiyat kırdı"],
+            competitive_actions=[
+                {
+                    "description": "Delta Yazılım fiyatlarını düşürdü",
+                    "impact": "high",
+                    "urgency": "high",
+                    "recommended_action": "Fiyat stratejisini gözden geçir",
+                }
+            ],
+        )
+        with mocked_analysis(response):
+            named = await agent.analyze_meeting(
+                "Konuşmacı 1: Delta Yazılım fiyatlarını düşürmüş.",
+                meeting_title="Rekabet",
+                attendees=["Konuşmacı 1"],
+            )
+
+        assert len(named.competitive_actions) == 1
+        assert named.competitive_actions[0].description == (
+            "Delta Yazılım fiyatlarını düşürdü"
         )
 
-        # Check findings for hardcoded company names
-        hardcoded_companies_found = []
-        for finding in meeting_notes.findings:
-            for company in forbidden_companies:
-                if company in finding:
-                    hardcoded_companies_found.append((company, finding))
+        haystack = " ".join(
+            named.findings
+            + [action.description for action in named.competitive_actions]
+        )
+        assert not [c for c in self.FORBIDDEN_COMPANIES if c in haystack]
 
-        # Check competitive actions
-        for comp_action in meeting_notes.competitive_actions:
-            for company in forbidden_companies:
-                if company in comp_action.description:
-                    hardcoded_companies_found.append((company, comp_action.description))
+    def test_source_file_contains_no_sample_data(self):
+        """The old fixed cast must not exist in the source at all.
 
-        # Document findings but don't fail test yet (known issue in mock)
-        # This will fail when mock is replaced with real implementation
-        if hardcoded_companies_found:
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.warning(f"REGRESSION: Found hardcoded companies: {hardcoded_companies_found}")
-            # TODO: Uncomment when switching to real LLM implementation
-            # assert len(hardcoded_companies_found) == 0, f"Found hardcoded companies: {hardcoded_companies_found}"
+        Asserting on OUTPUT alone is not enough: a fixed fallback path that
+        only fires on some branch would slip through. Nothing in this module
+        has any business naming a person or a competitor.
+        """
+        source = Path(meeting_notes_module.__file__).read_text(encoding="utf-8")
+
+        found = [
+            token
+            for token in (*self.FORBIDDEN_NAMES, *self.FORBIDDEN_COMPANIES)
+            if token in source
+        ]
+        assert not found, (
+            f"meeting_notes.py hâlâ sabit örnek veri içeriyor: {found}"
+        )
 
     @pytest.mark.asyncio
     async def test_action_items_match_attendees_or_transcript(self, agent):
-        """Validate that action item owners relate to attendees or transcript."""
+        """Owners named in the transcript are the owners that come back."""
         attendees = ["Emma", "Frank", "Grace"]
         transcript = (
             "Emma: Frank, makefile yazabilir misin?\n"
@@ -1306,20 +1556,27 @@ class TestHardcodedDataValidation:
             "Frank: Evet, kontrol edilecek."
         )
 
-        meeting_notes = await agent.analyze_meeting(
-            transcript,
-            meeting_title="Build Meeting",
-            attendees=attendees,
+        response = analysis_response(
+            action_items=[
+                {
+                    "description": "Makefile yaz",
+                    "owner": "Frank",
+                    "deadline_text": "yarın",
+                    "priority": 3,
+                }
+            ],
         )
 
-        # All owners should either be in attendees or transcript
-        all_expected_names = set(attendees) | {"Emma", "Frank", "Grace"}
+        with mocked_analysis(response):
+            meeting_notes = await agent.analyze_meeting(
+                transcript,
+                meeting_title="Build Meeting",
+                attendees=attendees,
+            )
 
         for item in meeting_notes.action_items:
-            # Owner might be extracted from transcript or attendee list
-            # At minimum, should not be obviously hardcoded
-            assert item.owner  # Must have owner
-            assert len(item.owner) > 0
+            assert item.owner in attendees
+            assert item.owner in transcript
 
 
 class TestGeminiUnconfiguredGracefulDegradation:
@@ -1365,6 +1622,172 @@ class TestGeminiUnconfiguredGracefulDegradation:
                     await agent.transcribe_audio("not-bytes-url")
 
 
+class TestAnalysisGracefulDegradation:
+    """What analyze_meeting returns when it CANNOT analyse.
+
+    In every one of these cases the honest answer is "nothing" — an invented
+    action item would be filed as a real task and chased in a real Slack
+    reminder. The notes come back empty and the reason is recorded.
+    """
+
+    @pytest.fixture
+    def agent(self):
+        with patch('ai_assistant.advisors.meeting_notes.GoogleDriveManager'):
+            with patch('ai_assistant.advisors.meeting_notes.TaskTracker'):
+                return MeetingNotesAgent()
+
+    @pytest.mark.asyncio
+    async def test_no_llm_key_returns_empty_notes_not_fabricated_data(
+        self, agent, caplog
+    ):
+        """Without a provider key nothing is analysed and nothing is invented."""
+        transcript = "Konuşmacı 1: Bütçe planı cuma gününe kadar hazırlanmalı."
+
+        with patch.object(
+            meeting_notes_module.llm, "is_configured", return_value=False
+        ):
+            with patch.object(
+                meeting_notes_module.llm, "generate_text"
+            ) as generate:
+                with caplog.at_level("INFO"):
+                    notes = await agent.analyze_meeting(
+                        transcript,
+                        meeting_title="Bütçe",
+                        attendees=["Konuşmacı 1"],
+                    )
+
+        # The model was never asked.
+        generate.assert_not_called()
+
+        # Nothing was made up.
+        assert notes.action_items == []
+        assert notes.competitive_actions == []
+        assert notes.findings == []
+        assert notes.next_steps == []
+        assert notes.summary == ""
+
+        # But the real input is preserved and the reason is recorded.
+        assert notes.transcript_text == transcript
+        assert notes.title == "Bütçe"
+        assert agent.last_analysis_error is not None
+        assert "atlandı" in agent.last_analysis_error
+        assert "yapılandırılmamış" in caplog.text
+
+    @pytest.mark.asyncio
+    async def test_empty_transcript_is_not_sent_to_the_model(self, agent):
+        """An empty transcript is a skip, not a request."""
+        with mocked_analysis(analysis_response(summary="olmamalı")) as generate:
+            notes = await agent.analyze_meeting("   ", meeting_title="Boş")
+
+        generate.assert_not_called()
+        assert notes.action_items == []
+        assert notes.summary == ""
+        assert agent.last_analysis_error is not None
+        assert "boş transkript" in agent.last_analysis_error
+
+    @pytest.mark.asyncio
+    async def test_failed_request_is_recorded_not_swallowed(self, agent, caplog):
+        """A raising provider leaves empty notes AND a logged reason."""
+        def boom(*args, **kwargs):
+            raise RuntimeError("429 rate limited")
+
+        with mocked_analysis(boom):
+            with caplog.at_level("ERROR"):
+                notes = await agent.analyze_meeting(
+                    "Konuşmacı 1: Bir şeyler konuşuldu.",
+                    meeting_title="Hata",
+                )
+
+        assert notes.action_items == []
+        assert notes.summary == ""
+        assert agent.last_analysis_error is not None
+        assert "429 rate limited" in agent.last_analysis_error
+        assert "429 rate limited" in caplog.text
+
+    @pytest.mark.asyncio
+    async def test_unreadable_answer_is_recorded_not_swallowed(self, agent, caplog):
+        """Prose where JSON was expected is a failure, not an empty meeting."""
+        with mocked_analysis("Üzgünüm, bu kaydı analiz edemiyorum."):
+            with caplog.at_level("ERROR"):
+                notes = await agent.analyze_meeting(
+                    "Konuşmacı 1: Bir şeyler konuşuldu.",
+                    meeting_title="Bozuk",
+                )
+
+        assert notes.action_items == []
+        assert agent.last_analysis_error is not None
+        assert "okunamadı" in agent.last_analysis_error
+        assert "okunamadı" in caplog.text
+
+    @pytest.mark.asyncio
+    async def test_successful_analysis_clears_previous_error(self, agent):
+        """A good run must not inherit the last run's failure marker."""
+        with mocked_analysis("not json at all"):
+            await agent.analyze_meeting("bir şey", meeting_title="1")
+        assert agent.last_analysis_error is not None
+
+        with mocked_analysis(
+            analysis_response(
+                summary="Tamam.",
+                action_items=[{"description": "Yap", "owner": "Ayşe"}],
+            )
+        ):
+            notes = await agent.analyze_meeting("bir şey", meeting_title="2")
+
+        assert agent.last_analysis_error is None
+        assert notes.action_items[0].owner == "Ayşe"
+
+    @pytest.mark.asyncio
+    async def test_analysis_uses_a_low_thinking_budget(self, agent):
+        """Structured extraction must not pay for a reasoning pass."""
+        with mocked_analysis(analysis_response(summary="Özet")) as generate:
+            await agent.analyze_meeting("bir şey", meeting_title="Bütçe")
+
+        assert generate.call_args.kwargs["thinking_budget"] == 0
+
+    @pytest.mark.asyncio
+    async def test_malformed_entries_are_dropped_and_values_clamped(self, agent):
+        """Junk in the answer degrades to sane values, never to an exception."""
+        raw = json.dumps(
+            {
+                "summary": "Özet",
+                "findings": ["gerçek bulgu", "", None, 42],
+                "action_items": [
+                    {"description": "", "owner": "Kimse"},  # no description
+                    "bu bir sözlük değil",
+                    {
+                        "description": "Geçerli iş",
+                        "owner": "Ayşe",
+                        "priority": 99,  # out of range
+                        "deadline_text": "anlaşılmayan bir ifade",
+                        "deadline_iso": "kesinlikle tarih değil",
+                    },
+                ],
+                "competitive_actions": [
+                    {
+                        "description": "Rakip hamlesi",
+                        "impact": "çok yüksek",  # not a known level
+                        "urgency": "high",
+                    }
+                ],
+                "next_steps": "liste değil",
+            },
+            ensure_ascii=False,
+        )
+
+        with mocked_analysis(raw):
+            notes = await agent.analyze_meeting("bir şey", meeting_title="Karışık")
+
+        assert notes.findings == ["gerçek bulgu", "42"]
+        assert len(notes.action_items) == 1
+        assert notes.action_items[0].description == "Geçerli iş"
+        assert notes.action_items[0].priority == 5  # clamped into 1..5
+        assert notes.action_items[0].deadline is None  # never invented
+        assert notes.competitive_actions[0].impact == "medium"  # unknown → default
+        assert notes.competitive_actions[0].urgency == "high"
+        assert notes.next_steps == []
+
+
 class TestAsyncPatterns:
     """Tests for proper async/await patterns."""
 
@@ -1385,13 +1808,16 @@ class TestAsyncPatterns:
     async def test_analyze_meeting_is_async(self, agent):
         """Test that analyze_meeting is properly async."""
         transcript = "Toplantı notu"
-        result = await agent.analyze_meeting(
-            transcript,
-            meeting_title="Test",
-            attendees=["A"],
-        )
+
+        with mocked_analysis(analysis_response(summary="Özet")):
+            result = await agent.analyze_meeting(
+                transcript,
+                meeting_title="Test",
+                attendees=["A"],
+            )
 
         assert isinstance(result, MeetingNotes)
+        assert result.summary == "Özet"
 
     @pytest.mark.asyncio
     async def test_create_tasks_in_tracker_is_async(self, agent):
@@ -1412,22 +1838,39 @@ class TestAsyncPatterns:
 
     @pytest.mark.asyncio
     async def test_multiple_concurrent_analyses(self, agent):
-        """Test that multiple meeting analyses can run concurrently."""
+        """Concurrent analyses keep their own transcripts apart."""
         import asyncio
 
-        tasks = [
-            agent.analyze_meeting(
-                f"Transcript {i}",
-                meeting_title=f"Meeting {i}",
-                attendees=[f"Person {i}"],
+        def per_transcript(system_prompt, user_prompt, **kwargs):
+            index = user_prompt.rsplit("Transcript ", 1)[1].strip()
+            return analysis_response(
+                summary=f"Özet {index}",
+                action_items=[
+                    {"description": f"İş {index}", "owner": f"Person {index}"}
+                ],
             )
-            for i in range(3)
-        ]
 
-        results = await asyncio.gather(*tasks)
+        with mocked_analysis(per_transcript):
+            tasks = [
+                agent.analyze_meeting(
+                    f"Transcript {i}",
+                    meeting_title=f"Meeting {i}",
+                    attendees=[f"Person {i}"],
+                )
+                for i in range(3)
+            ]
+
+            results = await asyncio.gather(*tasks)
 
         assert len(results) == 3
         assert all(isinstance(r, MeetingNotes) for r in results)
+        # Each result belongs to ITS transcript, not to whichever finished last.
+        assert [r.summary for r in results] == ["Özet 0", "Özet 1", "Özet 2"]
+        assert [r.action_items[0].owner for r in results] == [
+            "Person 0",
+            "Person 1",
+            "Person 2",
+        ]
 
     @pytest.mark.asyncio
     async def test_send_deadline_reminders_async(self, agent):
