@@ -1,14 +1,14 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-08-05T16:44:06+00:00",
-  "generated_at_istanbul": "05.08.2026 19:44",
+  "generated_at": "2026-08-05T20:28:27+00:00",
+  "generated_at_istanbul": "05.08.2026 23:28",
   "run": {
     "conclusion": "ok",
     "total": 15,
     "ok": 1,
     "failed": 0,
     "skipped": 14,
-    "duration_seconds": 54.4,
+    "duration_seconds": 52.5,
     "batch": {
       "enabled": true,
       "attempted": false,
@@ -22,17 +22,17 @@
     },
     "tokens": {
       "called": true,
-      "prompt": 4609,
-      "output": 1747,
-      "thoughts": 6441,
-      "total": 12797,
-      "latency_seconds": 50.35,
+      "prompt": 2544,
+      "output": 3504,
+      "thoughts": 4684,
+      "total": 10732,
+      "latency_seconds": 48.43,
       "retries": 0,
       "fallback_used": false
     },
     "mode": "incremental",
     "mode_label": "artımlı",
-    "new_findings": 4,
+    "new_findings": 1,
     "nothing_new_count": 14
   },
   "slack": {
@@ -76,13 +76,13 @@
     {
       "id": "market_intelligence",
       "name": "Pazar İstihbaratı (Sektör · YZ · CX · Bankacılık)",
-      "status": "ok",
-      "content_length": 6976,
-      "detail": "",
+      "status": "skipped",
+      "content_length": 0,
+      "detail": "yeni bulgu yok",
       "emoji": "📊",
       "category": "sektör",
-      "new_findings": 4,
-      "nothing_new": false
+      "new_findings": 0,
+      "nothing_new": true
     },
     {
       "id": "complaint_radar",
@@ -142,13 +142,13 @@
     {
       "id": "ai_innovation",
       "name": "Yapay Zeka & İnovasyon (Ustalaşma · Fikirler)",
-      "status": "skipped",
-      "content_length": 0,
-      "detail": "yeni bulgu yok",
+      "status": "ok",
+      "content_length": 12274,
+      "detail": "",
       "emoji": "🧠",
       "category": "kişisel gelişim",
-      "new_findings": 0,
-      "nothing_new": true
+      "new_findings": 1,
+      "nothing_new": false
     },
     {
       "id": "kids_development",
@@ -233,7 +233,7 @@
     "urgent_count": 0,
     "action_items": 0,
     "vip_emails": 0,
-    "last_update": "2026-08-05T16:44:06+00:00",
+    "last_update": "2026-08-05T20:28:27+00:00",
     "last_fetch_error": null
   },
   "calendar": {
@@ -247,7 +247,7 @@
       "duration_minutes": null
     },
     "available_slots": [],
-    "last_update": "2026-08-05T16:44:06+00:00",
+    "last_update": "2026-08-05T20:28:27+00:00",
     "last_fetch_error": null
   },
   "integrations": {
@@ -285,8 +285,8 @@
       "completion_rate": 6.7,
       "deadline_adherence": 6.7,
       "success_rate": 100.0,
-      "token_efficiency": 1747.0,
-      "last_update": "2026-08-05T16:44:06+00:00"
+      "token_efficiency": 3504.0,
+      "last_update": "2026-08-05T20:28:27+00:00"
     },
     "work_status": {
       "meeting_hours": 0.0,
@@ -306,11 +306,11 @@
       ],
       "deadline_7d": [
         76.9,
-        76.9,
         15.4,
         15.4,
         73.3,
         13.3,
+        6.7,
         6.7
       ],
       "success_7d": [
@@ -327,17 +327,6 @@
     "feedback": ""
   },
   "history": [
-    {
-      "at": "2026-07-30T18:10:49+00:00",
-      "at_istanbul": "30.07.2026 21:10",
-      "conclusion": "ok",
-      "ok": 11,
-      "failed": 0,
-      "skipped": 2,
-      "total": 13,
-      "duration_seconds": 148.7,
-      "slack": "ok"
-    },
     {
       "at": "2026-07-30T18:19:59+00:00",
       "at_istanbul": "30.07.2026 21:19",
@@ -733,6 +722,20 @@
       "mode": "incremental",
       "new_findings": 4,
       "total_tokens": 12797
+    },
+    {
+      "at": "2026-08-05T20:28:27+00:00",
+      "at_istanbul": "05.08.2026 23:28",
+      "conclusion": "ok",
+      "ok": 1,
+      "failed": 0,
+      "skipped": 14,
+      "total": 15,
+      "duration_seconds": 52.5,
+      "slack": "ok",
+      "mode": "incremental",
+      "new_findings": 1,
+      "total_tokens": 10732
     }
   ]
 }
