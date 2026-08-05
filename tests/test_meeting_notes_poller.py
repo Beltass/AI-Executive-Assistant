@@ -13,14 +13,18 @@ different reasons and only the second one needs credentials.
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import logging
+import tempfile
+from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
 
 from ai_assistant.integrations.meeting_notes_poller import (
     MAX_AUDIO_BYTES,
+    MAX_MESSAGES_PER_RUN,
     AudioSource,
     MeetingNotesPoller,
     extract_audio_source,
@@ -467,3 +471,80 @@ class TestFetchAudioBytes:
     def test_unknown_kind_raises(self):
         with pytest.raises(ValueError, match="Unknown audio source kind"):
             fetch_audio_bytes(AudioSource(kind="carrier_pigeon", identifier="x"))
+
+
+class TestRunSearchesGmail:
+    """``run()`` must actually put messages INTO the pipeline."""
+
+    def _poller(self):
+        poller = object.__new__(MeetingNotesPoller)
+        poller.logger = logging.getLogger("test")
+        poller.gmail_service = Mock()
+        poller.drive_manager = Mock()
+        poller.task_tracker = Mock()
+        poller.state_dir = Path(tempfile.mkdtemp())
+        poller.processed_file = poller.state_dir / "processed_meetings.json"
+        poller.agent = Mock()
+
+        async def no_reminders():
+            return None
+
+        poller.agent.send_deadline_reminders = no_reminders
+        return poller
+
+    def test_run_passes_the_query_to_gmail_search(self, monkeypatch):
+        poller = self._poller()
+        seen = {}
+
+        def fake_search(query, max_results=20, service=None):
+            seen["query"] = query
+            seen["max_results"] = max_results
+            seen["service"] = service
+            return []
+
+        monkeypatch.setattr(
+            "ai_assistant.integrations.meeting_notes_poller.google_auth."
+            "google_configured",
+            lambda: True,
+        )
+        monkeypatch.setattr(
+            "ai_assistant.integrations.meeting_notes_poller.gmail.search_messages",
+            fake_search,
+        )
+        monkeypatch.delenv("GOOGLE_DRIVE_FOLDER_ID", raising=False)
+
+        assert asyncio.run(poller.run(email_query="subject:Toplantı")) is True
+        assert seen["query"] == "subject:Toplantı"
+        assert seen["max_results"] == MAX_MESSAGES_PER_RUN
+        assert seen["service"] is poller.gmail_service
+
+    def test_run_reports_failure_when_google_is_not_configured(self, monkeypatch):
+        poller = self._poller()
+        monkeypatch.setattr(
+            "ai_assistant.integrations.meeting_notes_poller.google_auth."
+            "google_configured",
+            lambda: False,
+        )
+        monkeypatch.setattr(
+            "ai_assistant.integrations.meeting_notes_poller.gmail.search_messages",
+            Mock(side_effect=AssertionError("must not be called")),
+        )
+
+        assert asyncio.run(poller.run()) is False
+
+    def test_a_failing_search_is_reported_not_swallowed(self, monkeypatch):
+        poller = self._poller()
+        monkeypatch.setattr(
+            "ai_assistant.integrations.meeting_notes_poller.google_auth."
+            "google_configured",
+            lambda: True,
+        )
+
+        def boom(*args, **kwargs):
+            raise RuntimeError("invalid_grant")
+
+        monkeypatch.setattr(
+            "ai_assistant.integrations.meeting_notes_poller.gmail.search_messages", boom
+        )
+
+        assert asyncio.run(poller.run()) is False

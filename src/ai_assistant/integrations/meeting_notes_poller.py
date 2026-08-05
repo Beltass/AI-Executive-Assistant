@@ -39,13 +39,9 @@ from typing import Any, Dict, Iterator, List, Optional
 from urllib.parse import parse_qsl, unquote, urlparse, urlunparse, urlencode
 
 from ..advisors.meeting_notes import MeetingNotesAgent, MeetingNotes
+from ..integrations import gmail, google_auth
 from ..integrations.google_drive_manager import GoogleDriveManager
 from ..integrations.task_tracker import TaskTracker
-
-try:  # pragma: no cover - depends on whether the Gmail search step exists yet
-    from ..integrations.gmail import GmailClient  # type: ignore[attr-defined]
-except ImportError:  # pragma: no cover - keep the module importable without it
-    GmailClient = None  # type: ignore[assignment]
 
 logger = logging.getLogger(__name__)
 
@@ -54,8 +50,15 @@ logger = logging.getLogger(__name__)
 # Audio source discovery
 # ---------------------------------------------------------------------------
 
-#: Anything past this is refused rather than pulled into memory.
+#: Anything past this is refused rather than pulled into memory. Deliberately
+#: the same 100 MB as Gemini's inline-data ceiling
+#: (:data:`ai_assistant.integrations.llm.MAX_INLINE_AUDIO_BYTES`): downloading
+#: a recording we could never send on would only waste the run's time.
 MAX_AUDIO_BYTES = 100 * 1024 * 1024  # 100 MB
+
+#: How many Gmail hits one run looks at. The workflow runs every 30 minutes,
+#: so a backlog drains over several runs rather than one very long one.
+MAX_MESSAGES_PER_RUN = 10
 
 #: MIME types Gmail uses for the audio recordings meeting tools send out.
 AUDIO_MIME_TYPES = frozenset(
@@ -422,11 +425,7 @@ def extract_audio_source(message: Dict[str, Any]) -> Optional[AudioSource]:
 
 def _build_gmail_service():  # pragma: no cover - requires real credentials
     """Build a Gmail service from the shared Google OAuth credentials."""
-    from googleapiclient.discovery import build
-
-    from .google_auth import get_credentials
-
-    return build("gmail", "v1", credentials=get_credentials(), cache_discovery=False)
+    return gmail.build_service()
 
 
 def _fetch_gmail_attachment(source: AudioSource, gmail_service: Any) -> bytes:
@@ -555,6 +554,9 @@ class MeetingNotesPoller:
         self.state_dir = Path(".assistant_state")
         self.state_dir.mkdir(exist_ok=True)
         self.processed_file = self.state_dir / "processed_meetings.json"
+        # Built once per run and shared by the search and the attachment
+        # downloads, so one run costs one OAuth refresh.
+        self.gmail_service: Any = None
 
     async def run(
         self,
@@ -575,18 +577,26 @@ class MeetingNotesPoller:
         try:
             self.logger.info("Starting Meeting Notes Poller")
 
-            # Get Gmail client
-            if GmailClient is None:
+            if not google_auth.google_configured():
                 self.logger.error(
-                    "ai_assistant.integrations.gmail exposes no GmailClient; "
-                    "cannot search for meeting emails"
+                    "No Google credentials configured; run "
+                    "`python -m ai_assistant.integrations.google_auth` (or set "
+                    "GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET/GOOGLE_REFRESH_TOKEN)"
                 )
                 return False
-            gmail_client = GmailClient()
 
-            # Search for meeting emails
+            # Search for meeting emails. Full messages come back, so the audio
+            # source can be found without a second round trip.
             self.logger.info(f"Searching Gmail: {email_query}")
-            messages = gmail_client.search(email_query, max_results=10)
+            try:
+                messages = gmail.search_messages(
+                    email_query,
+                    max_results=MAX_MESSAGES_PER_RUN,
+                    service=self._get_gmail_service(),
+                )
+            except Exception as exc:
+                self.logger.error(f"Gmail search failed: {exc}")
+                return False
 
             if not messages:
                 self.logger.info("No new meeting emails found")
@@ -708,6 +718,18 @@ class MeetingNotesPoller:
         except Exception as e:
             self.logger.error(f"Failed to process meeting: {e}")
             return False
+
+    def _get_gmail_service(self) -> Any:
+        """Return this run's Gmail service, building it on first use.
+
+        ``getattr`` rather than plain attribute access because tests build a
+        poller with ``object.__new__`` (``__init__`` wants live credentials).
+        """
+        service = getattr(self, "gmail_service", None)
+        if service is None:
+            service = gmail.build_service()
+            self.gmail_service = service
+        return service
 
     def _extract_audio_source(self, message: dict) -> Optional[AudioSource]:
         """Locate the recording a meeting email points at.
