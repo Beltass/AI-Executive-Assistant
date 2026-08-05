@@ -18,7 +18,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Generator
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch, MagicMock, AsyncMock
 
 import pytest
 
@@ -691,3 +691,207 @@ class TestTaskTrackerIntegration:
         stats = tracker.get_summary_stats()
         assert stats['total'] == 2
         assert stats['in_progress'] == 1
+
+
+class TestMeetingNotesDeadlineReminders:
+    """Tests for deadline reminder functionality with Slack integration."""
+
+    @pytest.fixture
+    def agent(self):
+        """Provide MeetingNotesAgent with mocked Slack bridge and Google Drive."""
+        with patch('ai_assistant.advisors.meeting_notes.SlackAdvisorBridge'):
+            with patch('ai_assistant.advisors.meeting_notes.GoogleDriveManager'):
+                agent = MeetingNotesAgent()
+                return agent
+
+    @pytest.fixture
+    def mock_slack_client(self):
+        """Mock Slack AsyncWebClient."""
+        client = AsyncMock()
+        client.chat_postMessage = AsyncMock(
+            return_value={"ok": True, "ts": "1234567890.123456"}
+        )
+        return client
+
+    @pytest.mark.asyncio
+    async def test_send_deadline_reminders_no_upcoming_tasks(self, agent):
+        """Test send_deadline_reminders returns True when no upcoming tasks."""
+        agent.task_tracker.get_upcoming_tasks = Mock(return_value=[])
+
+        result = await agent.send_deadline_reminders()
+
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_send_deadline_reminders_slack_not_configured(self, agent):
+        """Test send_deadline_reminders returns True when Slack unconfigured."""
+        # Create a task
+        task = Task(
+            id="task_1",
+            title="Test Task",
+            description="Testing",
+            owner="Test Owner",
+            deadline=datetime.now(timezone.utc) + timedelta(days=1),
+            priority=3,
+        )
+        agent.task_tracker.get_upcoming_tasks = Mock(return_value=[task])
+
+        # Slack not configured
+        agent.slack_bridge.slack_client = None
+
+        result = await agent.send_deadline_reminders()
+
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_send_deadline_reminders_sends_real_slack_message(
+        self, agent, mock_slack_client
+    ):
+        """Test send_deadline_reminders sends real Slack message."""
+        # Create test tasks
+        task1 = Task(
+            id="task_1",
+            title="Complete report",
+            description="Finish quarterly report",
+            owner="Alice",
+            deadline=datetime.now(timezone.utc) + timedelta(days=1),
+            priority=4,
+        )
+        task2 = Task(
+            id="task_2",
+            title="Review proposal",
+            description="Review client proposal",
+            owner="Bob",
+            deadline=datetime.now(timezone.utc) + timedelta(days=1),
+            priority=3,
+        )
+        agent.task_tracker.get_upcoming_tasks = Mock(return_value=[task1, task2])
+
+        # Configure Slack
+        agent.slack_bridge.slack_client = mock_slack_client
+
+        result = await agent.send_deadline_reminders()
+
+        assert result is True
+        mock_slack_client.chat_postMessage.assert_called_once()
+
+        # Verify message structure
+        call_args = mock_slack_client.chat_postMessage.call_args
+        assert call_args[1]["channel"] == "@user_dm"
+        assert "blocks" in call_args[1]
+        blocks = call_args[1]["blocks"]
+        assert len(blocks) > 0
+
+    @pytest.mark.asyncio
+    async def test_send_deadline_reminders_block_kit_formatting(
+        self, agent, mock_slack_client
+    ):
+        """Test Block Kit formatting in deadline reminder messages."""
+        task = Task(
+            id="task_1",
+            title="Deploy service",
+            description="Deploy to production",
+            owner="Charlie",
+            deadline=datetime.now(timezone.utc) + timedelta(days=1),
+            priority=5,
+        )
+        agent.task_tracker.get_upcoming_tasks = Mock(return_value=[task])
+        agent.slack_bridge.slack_client = mock_slack_client
+
+        await agent.send_deadline_reminders()
+
+        # Get the blocks from the call
+        call_args = mock_slack_client.chat_postMessage.call_args
+        blocks = call_args[1]["blocks"]
+
+        # Verify Block Kit structure
+        assert blocks[0]["type"] == "header"
+        assert "Yarın Deadline" in blocks[0]["text"]["text"]
+
+        # Should have divider
+        assert any(block["type"] == "divider" for block in blocks)
+
+        # Should have task information
+        section_blocks = [b for b in blocks if b["type"] == "section"]
+        assert len(section_blocks) > 0
+        first_section = section_blocks[0]
+        assert "fields" in first_section
+        fields = first_section["fields"]
+        # Should have: Task, Owner, Deadline, Priority fields
+        assert len(fields) == 4
+
+    @pytest.mark.asyncio
+    async def test_send_deadline_reminders_slack_send_failure(
+        self, agent, mock_slack_client
+    ):
+        """Test send_deadline_reminders handles Slack send failure."""
+        task = Task(
+            id="task_1",
+            title="Test Task",
+            description="Testing",
+            owner="Test",
+            deadline=datetime.now(timezone.utc) + timedelta(days=1),
+            priority=3,
+        )
+        agent.task_tracker.get_upcoming_tasks = Mock(return_value=[task])
+
+        # Mock Slack failure
+        mock_slack_client.chat_postMessage = AsyncMock(
+            return_value={"ok": False, "error": "channel_not_found"}
+        )
+        agent.slack_bridge.slack_client = mock_slack_client
+
+        result = await agent.send_deadline_reminders()
+
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_send_deadline_reminders_handles_exception(self, agent):
+        """Test send_deadline_reminders handles exceptions gracefully."""
+        # Make task_tracker raise an exception
+        agent.task_tracker.get_upcoming_tasks = Mock(
+            side_effect=Exception("Database error")
+        )
+
+        result = await agent.send_deadline_reminders()
+
+        assert result is False
+
+    def test_build_deadline_reminder_blocks_structure(self, agent):
+        """Test Block Kit block structure for deadline reminders."""
+        task1 = Task(
+            id="task_1",
+            title="Feature X",
+            description="Implement feature",
+            owner="Dev Team",
+            deadline=datetime.now(timezone.utc) + timedelta(days=2),
+            priority=4,
+        )
+        task2 = Task(
+            id="task_2",
+            title="Code Review",
+            description="Review PR",
+            owner="Reviewer",
+            deadline=datetime.now(timezone.utc) + timedelta(days=1),
+            priority=2,
+        )
+
+        blocks = agent._build_deadline_reminder_blocks([task1, task2])
+
+        # Verify structure
+        assert blocks[0]["type"] == "header"
+        assert blocks[1]["type"] == "divider"
+
+        # Should have sections and dividers for each task
+        section_count = sum(1 for b in blocks if b["type"] == "section")
+        divider_count = sum(1 for b in blocks if b["type"] == "divider")
+        assert section_count >= 2  # At least 2 tasks
+        assert divider_count >= 2  # Dividers between sections
+
+    def test_priority_emoji_mapping(self, agent):
+        """Test priority emoji mapping."""
+        assert agent._get_priority_emoji(5) == "🔴"  # Critical
+        assert agent._get_priority_emoji(4) == "🟠"  # High
+        assert agent._get_priority_emoji(3) == "🟡"  # Medium
+        assert agent._get_priority_emoji(2) == "🟢"  # Low
+        assert agent._get_priority_emoji(1) == "🟢"  # Low

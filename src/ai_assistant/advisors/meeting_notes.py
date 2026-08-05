@@ -26,6 +26,7 @@ from ..integrations import llm
 from ..integrations.google_drive_manager import GoogleDriveManager
 from ..integrations.task_tracker import Task, TaskTracker, TaskStatus
 from ..integrations import STATUS_OK, STATUS_FAILED, STATUS_SKIPPED
+from ..integrations.slack_advisor_bridge import SlackAdvisorBridge
 
 logger = logging.getLogger(__name__)
 
@@ -193,6 +194,7 @@ class MeetingNotesAgent(Advisor):
         self.logger = logging.getLogger(__name__)
         self.drive_manager = GoogleDriveManager()
         self.task_tracker = TaskTracker()
+        self.slack_bridge = SlackAdvisorBridge()
         self.state_dir = Path(".assistant_state")
         self.state_dir.mkdir(exist_ok=True)
         self.meetings_file = self.state_dir / "meetings.json"
@@ -572,37 +574,120 @@ class MeetingNotesAgent(Advisor):
             return []
 
     async def send_deadline_reminders(self) -> bool:
-        """Send Slack reminders for upcoming deadlines.
+        """Send Slack reminders for upcoming deadlines using Block Kit formatting.
 
         Returns:
-            True if successful
+            True if sent successfully or Slack unconfigured, False if send failed
         """
         try:
-            from ..integrations.slack import SlackClient
-
             upcoming = self.task_tracker.get_upcoming_tasks(days=1)
             if not upcoming:
                 self.logger.info("No upcoming deadlines to remind")
                 return True
 
-            slack_client = SlackClient()
+            # Check if Slack is configured
+            if not self.slack_bridge.slack_client:
+                self.logger.info("Slack atlandı")
+                return True
 
-            message_parts = ["📅 **Yarın Deadline Olacak Görevler:**\n"]
-            for task in upcoming:
-                message_parts.append(
-                    f"• {task.title} (Sorumlu: {task.owner})"
+            # Build Block Kit message with upcoming deadlines
+            blocks = self._build_deadline_reminder_blocks(upcoming)
+
+            # Send to Slack (default to user DM, can be configured)
+            response = await self.slack_bridge.slack_client.chat_postMessage(
+                channel="@user_dm",
+                blocks=blocks,
+                text="📅 Yarın deadline olacak görevler",
+            )
+
+            if response.get("ok"):
+                self.logger.info(
+                    f"Deadline reminders sent for {len(upcoming)} tasks"
                 )
-
-            message = "\n".join(message_parts)
-
-            # Send to Slack (would need to implement or use existing Slack integration)
-            self.logger.info(f"Would send Slack reminder: {message}")
-
-            return True
+                return True
+            else:
+                self.logger.error(
+                    f"Failed to send deadline reminders: {response.get('error')}"
+                )
+                return False
 
         except Exception as e:
             self.logger.error(f"Failed to send deadline reminders: {e}")
             return False
+
+    def _build_deadline_reminder_blocks(self, tasks: List[Task]) -> List[Dict[str, Any]]:
+        """Build Block Kit message for deadline reminders.
+
+        Args:
+            tasks: List of upcoming tasks
+
+        Returns:
+            List of Block Kit block dictionaries
+        """
+        blocks = [
+            {
+                "type": "header",
+                "text": {
+                    "type": "plain_text",
+                    "text": "📅 Yarın Deadline Olacak Görevler",
+                },
+            },
+            {"type": "divider"},
+        ]
+
+        for task in tasks:
+            deadline_str = (
+                task.deadline.strftime("%Y-%m-%d")
+                if task.deadline
+                else "TBD"
+            )
+            priority_emoji = self._get_priority_emoji(task.priority)
+
+            blocks.append(
+                {
+                    "type": "section",
+                    "fields": [
+                        {
+                            "type": "mrkdwn",
+                            "text": f"*Görev:*\n{task.title}",
+                        },
+                        {
+                            "type": "mrkdwn",
+                            "text": f"*Sorumlu:*\n{task.owner}",
+                        },
+                        {
+                            "type": "mrkdwn",
+                            "text": f"*Deadline:*\n{deadline_str}",
+                        },
+                        {
+                            "type": "mrkdwn",
+                            "text": f"*Öncelik:*\n{priority_emoji} {task.priority}/5",
+                        },
+                    ],
+                }
+            )
+            blocks.append({"type": "divider"})
+
+        return blocks
+
+    @staticmethod
+    def _get_priority_emoji(priority: int) -> str:
+        """Get emoji representation for priority level.
+
+        Args:
+            priority: Priority level (1-5)
+
+        Returns:
+            Emoji string
+        """
+        if priority >= 5:
+            return "🔴"  # Critical
+        elif priority >= 4:
+            return "🟠"  # High
+        elif priority >= 3:
+            return "🟡"  # Medium
+        else:
+            return "🟢"  # Low
 
     def new_finding_count(self) -> int:
         """Return count of new meeting tasks."""
