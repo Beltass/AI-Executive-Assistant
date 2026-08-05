@@ -24,6 +24,7 @@ from typing import List, Optional, Dict, Any
 
 from . import Advisor, Briefing
 from ._turkish_dates import parse_iso_date, parse_turkish_date
+from ..action_center import ActionItem
 from ..integrations import llm
 from ..integrations.google_drive_manager import GoogleDriveManager
 from ..integrations.task_tracker import Task, TaskTracker, TaskStatus
@@ -216,29 +217,6 @@ def _resolve_deadline(item: Dict[str, Any], anchor: datetime) -> Optional[dateti
     if guess:
         return parse_iso_date(guess, anchor)
     return None
-
-
-@dataclass
-class ActionItem:
-    """Represents an action item from a meeting.
-
-    Attributes:
-        id: Unique identifier
-        description: What needs to be done
-        owner: Person responsible
-        deadline: Due date
-        priority: Priority level (1-5)
-        status: Current status
-        created_at: When the item was created
-    """
-
-    id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
-    description: str = ""
-    owner: str = ""
-    deadline: Optional[datetime] = None
-    priority: int = 3
-    status: str = "pending"
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 @dataclass

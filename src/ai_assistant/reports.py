@@ -52,6 +52,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional
 
+from .action_center import ActionItem
 from .config import MODE_FULL, mode_label
 from .integrations import STATUS_OK
 from .status_report import ADVISOR_META, DEFAULT_META, ISTANBUL, sanitize
@@ -334,23 +335,6 @@ class Section:
             payload["table"] = self.table
         if self.chart:
             payload["chart"] = self.chart
-        return payload
-
-
-@dataclass
-class ActionItem:
-    """One line of the "Aksiyonlar" checklist."""
-
-    text: str
-    deadline: str = ""
-    owner: str = ""
-
-    def as_dict(self) -> Dict[str, Any]:
-        payload: Dict[str, Any] = {"text": self.text}
-        if self.deadline:
-            payload["deadline"] = self.deadline
-        if self.owner:
-            payload["owner"] = self.owner
         return payload
 
 
