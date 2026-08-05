@@ -641,3 +641,17 @@ def test_a_failed_generation_is_counted_too(monkeypatch, gemini_env):
 
     assert llm.call_count() == 1
 
+def test_structured_callers_ask_for_no_thinking_budget(monkeypatch, gemini_env):
+    """Summarising a note has nothing to reason about — see ``ask._generate_summary``."""
+    from ai_assistant.chat import ask
+
+    sent = {}
+
+    def fake_generate(system_prompt, user_prompt, **kwargs):
+        sent.update(kwargs)
+        return "özet"
+
+    monkeypatch.setattr(ask.llm, "generate_text", fake_generate)
+    ask._generate_summary("sys", "user")
+
+    assert sent["thinking_budget"] == llm.STRUCTURED_THINKING_BUDGET == 0

@@ -419,7 +419,15 @@ class MeetingPrepAdvisor(Advisor):
             return self.skipped(SKIP_NO_LLM)
 
         try:
-            body = llm.generate_text(SYSTEM_PROMPT, self._user_prompt())
+            # Structured inference: every fact in this note is already in the
+            # calendar entry and the meeting notes handed to the model — the
+            # prompt forbids inventing anything else — so a billed "thinking"
+            # pass has nothing to work out. See ``STRUCTURED_THINKING_BUDGET``.
+            body = llm.generate_text(
+                SYSTEM_PROMPT,
+                self._user_prompt(),
+                thinking_budget=llm.STRUCTURED_THINKING_BUDGET,
+            )
         except Exception as exc:
             return self.failed(f"LLM isteği başarısız: {exc}")
 

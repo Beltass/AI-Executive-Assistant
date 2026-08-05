@@ -281,6 +281,27 @@ def test_a_failing_llm_is_a_failure_not_a_crash(monkeypatch, google_ok):
     assert "kota doldu" in briefing.text
 
 
+def test_the_prep_note_pays_for_no_thinking_tokens(monkeypatch, google_ok):
+    """Structured inference: every fact is in the calendar entry and the notes.
+
+    The prompt forbids the model from adding anything that is not in the
+    material it was handed, so a billed "thinking" pass has nothing to work
+    out — see ``llm.STRUCTURED_THINKING_BUDGET``.
+    """
+    monkeypatch.setenv("GEMINI_API_KEY", FAKE_KEY)
+    _calendar(monkeypatch, [EVENT])
+    sent = {}
+
+    def fake_generate(system_prompt, user_prompt, **kwargs):
+        sent.update(kwargs)
+        return "Hazırlık notu gövdesi."
+
+    monkeypatch.setattr(prep_module.llm, "generate_text", fake_generate)
+    MeetingPrepAdvisor().generate_briefing()
+
+    assert sent["thinking_budget"] == 0
+
+
 # --- the collected facts -----------------------------------------------------
 
 

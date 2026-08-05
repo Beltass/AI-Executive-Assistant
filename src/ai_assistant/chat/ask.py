@@ -384,7 +384,7 @@ def _summarise(
     if not read.text:
         return Result(handled=True, messages=[_EMPTY_NOTE.format(name=note.name)])
 
-    call = generator or llm.generate_text
+    call = generator or _generate_summary
     try:
         body = call(prep_mod.SYSTEM_PROMPT, _user_prompt(note, read.text))
     except Exception as exc:
@@ -460,6 +460,19 @@ def _menu(notes: List[prep_mod.Note]) -> Prompt:
         ],
         note="_Vazgeçmek için `iptal` yazın._",
         footer=False,
+    )
+
+
+def _generate_summary(system_prompt: str, user_prompt: str) -> str:
+    """The default generator: one Gemini call with NO thinking budget.
+
+    Summarising a meeting note is structured inference — every decision, owner
+    and open item is already written in the note, and the prompt forbids adding
+    anything that is not. So the billed "thinking" pass has nothing to work out
+    (see :data:`ai_assistant.integrations.llm.STRUCTURED_THINKING_BUDGET`).
+    """
+    return llm.generate_text(
+        system_prompt, user_prompt, thinking_budget=llm.STRUCTURED_THINKING_BUDGET
     )
 
 

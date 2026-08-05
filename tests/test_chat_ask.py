@@ -399,7 +399,11 @@ def test_the_session_engine_routes_the_request_to_this_module(store, ready, monk
 
     drive = FakeDrive(files=[FILES[0]], bodies={"note-1": "içerik"})
     monkeypatch.setattr(ask_mod, "_default_client", lambda: drive)
-    monkeypatch.setattr(ask_mod.llm, "generate_text", lambda s, u: "Özet gövdesi")
+    # ``**kw`` because the real call now passes ``thinking_budget``: the summary
+    # is lifted out of the note, so it pays for no "thinking" tokens.
+    monkeypatch.setattr(
+        ask_mod.llm, "generate_text", lambda s, u, **kw: "Özet gövdesi"
+    )
 
     posted = []
     engine = SessionEngine(store=store, notifier=posted.append)

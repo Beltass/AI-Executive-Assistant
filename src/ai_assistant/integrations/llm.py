@@ -46,6 +46,17 @@ GEMINI_MAX_OUTPUT_TOKENS = int(
     os.getenv("GEMINI_MAX_OUTPUT_TOKENS") or DEFAULT_GEMINI_MAX_OUTPUT_TOKENS
 )
 
+# Thinking budget for STRUCTURED INFERENCE — a call whose answer is already
+# present in the material handed to the model: summarising a meeting note,
+# lifting decisions and open actions out of a transcript, restating a calendar
+# entry as a prep note. Across 25 measured runs the invisible-but-billed
+# "thinking" tokens were 44% of everything consumed, and on these calls they
+# buy nothing: there is nothing to reason ABOUT, only text to select and
+# arrange. Free-form advice (the coaching personas, the batched briefing) does
+# genuinely reason, so it keeps the provider default — hence a constant used at
+# specific call sites rather than a global setting.
+STRUCTURED_THINKING_BUDGET = 0
+
 # Per-request timeout (seconds) for a Gemini generation call, so a hung request
 # can never stall the daily job indefinitely.
 DEFAULT_GEMINI_TIMEOUT_SECONDS = 120.0
