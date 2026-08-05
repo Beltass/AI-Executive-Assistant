@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Çağrı Merkezi — KPI Hedef Kartı</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --card: #1e293b;
+    --card-2: #243349;
+    --ink: #e2e8f0;
+    --muted: #94a3b8;
+    --line: #334155;
+    --accent: #38bdf8;
+    --green: #22c55e;
+    --amber: #f59e0b;
+    --red: #ef4444;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  .page {
+    width: 1280px;
+    margin: 0 auto;
+    padding: 40px 40px 56px;
+  }
+
+  /* Header */
+  .header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 24px;
+    padding-bottom: 22px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 30px;
+  }
+  .header .title-block h1 {
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+  }
+  .header .title-block .subtitle {
+    margin-top: 8px;
+    font-size: 15px;
+    color: var(--muted);
+    font-weight: 500;
+  }
+  .header .meta {
+    text-align: right;
+    white-space: nowrap;
+  }
+  .header .meta .date-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+  }
+  .header .meta .date-value {
+    margin-top: 4px;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--accent);
+  }
+
+  /* Legend */
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 22px;
+    align-items: center;
+    padding: 14px 20px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    margin-bottom: 34px;
+    font-size: 14px;
+  }
+  .legend .legend-title {
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-size: 11px;
+    margin-right: 6px;
+  }
+  .legend .item { display: flex; align-items: center; gap: 8px; }
+  .legend .item .dot {
+    width: 12px; height: 12px; border-radius: 50%;
+    display: inline-block;
+  }
+  .legend .item .dot.g { background: var(--green); }
+  .legend .item .dot.y { background: var(--amber); }
+  .legend .item .dot.r { background: var(--red); }
+  .legend .item span.txt { color: var(--ink); font-weight: 500; }
+
+  /* Section */
+  .section { margin-bottom: 34px; }
+  .section-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .section-head .bar {
+    width: 4px; height: 20px; border-radius: 3px;
+    background: var(--accent);
+  }
+  .section-head h2 {
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    color: #f1f5f9;
+  }
+  .section-head .count {
+    font-size: 12px;
+    color: var(--muted);
+    background: var(--card);
+    border: 1px solid var(--line);
+    padding: 2px 10px;
+    border-radius: 999px;
+  }
+
+  /* Grid */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+  }
+
+  /* KPI card */
+  .kpi {
+    position: relative;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 18px 18px 16px;
+    display: flex;
+    flex-direction: column;
+    min-height: 148px;
+    overflow: hidden;
+  }
+  .kpi::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 4px;
+  }
+  .kpi.g::before { background: var(--green); }
+  .kpi.y::before { background: var(--amber); }
+  .kpi.r::before { background: var(--red); }
+
+  .kpi .name {
+    font-size: 15px;
+    font-weight: 700;
+    color: #f1f5f9;
+    line-height: 1.25;
+    padding-right: 4px;
+  }
+  .kpi .target {
+    margin-top: 12px;
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+    line-height: 1.1;
+  }
+  .kpi .target-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+  .kpi .bench {
+    margin-top: auto;
+    padding-top: 12px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .kpi .bench b { color: #cbd5e1; font-weight: 600; }
+  .kpi .pill {
+    align-self: flex-start;
+    margin-top: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11.5px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 999px;
+    letter-spacing: 0.02em;
+  }
+  .kpi .pill .pdot { width: 8px; height: 8px; border-radius: 50%; }
+  .kpi.g .pill { background: rgba(34,197,94,0.14); color: #86efac; }
+  .kpi.g .pill .pdot { background: var(--green); }
+  .kpi.y .pill { background: rgba(245,158,11,0.14); color: #fcd34d; }
+  .kpi.y .pill .pdot { background: var(--amber); }
+  .kpi.r .pill { background: rgba(239,68,68,0.15); color: #fca5a5; }
+  .kpi.r .pill .pdot { background: var(--red); }
+
+  /* Footer */
+  .footer {
+    margin-top: 40px;
+    padding-top: 20px;
+    border-top: 1px solid var(--line);
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="header">
+    <div class="title-block">
+      <h1>Çağrı Merkezi — KPI Hedef Kartı</h1>
+      <div class="subtitle">Performans Hedef Kartı / Scorecard</div>
+    </div>
+    <div class="meta">
+      <div class="date-label">Rapor Tarihi</div>
+      <div class="date-value">05.08.2026</div>
+    </div>
+  </header>
+
+  <div class="legend">
+    <span class="legend-title">Durum</span>
+    <div class="item"><span class="dot g"></span><span class="txt">🟢 Hedefte</span></div>
+    <div class="item"><span class="dot y"></span><span class="txt">🟡 İzlenmeli</span></div>
+    <div class="item"><span class="dot r"></span><span class="txt">🔴 Aksiyon</span></div>
+  </div>
+
+  <!-- Section 1 -->
+  <section class="section">
+    <div class="section-head">
+      <span class="bar"></span>
+      <h2>Erişilebilirlik &amp; Hız</h2>
+      <span class="count">5 KPI</span>
+    </div>
+    <div class="grid">
+      <div class="kpi g">
+        <div class="name">Servis Seviyesi</div>
+        <div class="target">%80 <span style="font-size:14px;font-weight:600;color:var(--muted)">(≤20 sn)</span></div>
+        <div class="target-label">Hedef</div>
+        <div class="bench">Benchmark: <b>80/20</b></div>
+        <div class="pill"><span class="pdot"></span>Hedefte</div>
+      </div>
+      <div class="kpi g">
+        <div class="name">ASA (Yanıt Hızı)</div>
+        <div class="target">≤20 sn</div>
+        <div class="target-label">Hedef</div>
+        <div class="bench">Benchmark: <b>~28 sn</b></div>
+        <div class="pill"><span class="pdot"></span>Hedefte</div>
+      </div>
+      <div class="kpi y">
+        <div class="name">Terk Oranı</div>
+        <div class="target">≤%5</div>
+        <div class="target-label">Hedef</div>
+        <div class="bench">Benchmark: <b>%5–8</b></div>
+        <div class="pill"><span class="pdot"></span>İzlenmeli</div>
+      </div>
+      <div class="kpi g">
+        <div class="name">Kuyruk Bekleme</div>
+        <div class="target">≤30 sn</div>
+        <div class="target-label">Hedef</div>
+        <div class="bench">Benchmark: <b>—</b></div>
+        <div class="pill"><span class="pdot"></span>Hedefte</div>
+      </div>
+      <div class="kpi g">
+        <div class="name">Bloke Oranı</div>
+        <div class="target">≤%2</div>
+        <div class="target-label">Hedef</div>
+        <div class="bench">Benchmark: <b>&lt;%2</b></div>
+        <div class="pill"><span class="pdot"></span>Hedefte</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Section 2 -->
+  <section class="section">
+    <div class="section-head">
+      <span class="bar"></span>
+      <h2>Verimlilik &amp; Operasyon</h2>
+      <span class="count">6 KPI</span>
+    </div>
+    <div class="grid">
+      <div class="kpi g">
+        <div class="name">AHT (Görüşme Süresi)</div>
+        <div class="target">Kuyruğa özel</div>
+        <div class="target-label">Hedef</div>
+        <div class="bench">Benchmark: <b>~6 dk</b></div>
+        <div class="pill"><span class="pdot"></span>Hedefte</div>
+      </div>
+      <div class="kpi y">
+        <div class="name">ACW (Çağrı Sonrası)</div>
+        <div class="target">≤45 sn</div>
+        <div class="target-label">Hedef</div>
+        <div class="bench">Benchmark: <b>30–60 sn</b></div>
+        <div class="pill"><span class="pdot"></span>İzlenmeli</div>
+      </div>
+      <div class="kpi g">
+        <div class="name">Doluluk (Occupancy)</div>
+        <div class="target">%80–85</div>
+        <div class="target-label">Hedef</div>
+        <div class="bench">Benchmark: <b>%75–85</b></div>
+        <div class="pill"><span class="pdot"></span>Hedefte</div>
+      </div>
+      <div class="kpi g">
+        <div class="name">Program Uyumu</div>
+        <div class="target">≥%90</div>
+        <div class="target-label">Hedef</div>
+        <div class="bench">Benchmark: <b>%85–90</b></div>
+        <div class="pill"><span class="pdot"></span>Hedefte</div>
+      </div>
+      <div class="kpi g">
+        <div class="name">Transfer Oranı</div>
+        <div class="target">≤%10</div>
+        <div class="target-label">Hedef</div>
+        <div class="bench">Benchmark: <b>%10</b></div>
+        <div class="pill"><span class="pdot"></span>Hedefte</div>
+      </div>
+      <div class="kpi y">
+        <div class="name">Eskalasyon</div>
+        <div class="target">≤%8</div>
+        <div class="target-label">Hedef</div>
+        <div class="bench">Benchmark: <b>&lt;%10</b></div>
+        <div class="pill"><span class="pdot"></span>İzlenmeli</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Section 3 -->
+  <section class="section">
+    <div class="section-head">
+      <span class="bar"></span>
+      <h2>Kalite &amp; Çözüm</h2>
+      <span class="count">4 KPI</span>
+    </div>
+    <div class="grid">
+      <div class="kpi g">
+        <div class="name">FCR (İlk Temasta Çözüm)</div>
+        <div class="target">≥%75</div>
+        <div class="target-label">Hedef</div>
+        <div class="bench">Benchmark: <b>%70–75</b></div>
+        <div class="pill"><span class="pdot"></span>Hedefte</div>
+      </div>
+      <div class="kpi y">
+        <div class="name">Kalite Skoru (QA)</div>
+        <div class="target">≥%90</div>
+        <div class="target-label">Hedef</div>
+        <div class="bench">Benchmark: <b>%85–90</b></div>
+        <div class="pill"><span class="pdot"></span>İzlenmeli</div>
+      </div>
+      <div class="kpi g">
+        <div class="name">Tekrar Arama</div>
+        <div class="target">≤%15</div>
+        <div class="target-label">Hedef</div>
+        <div class="bench">Benchmark: <b>&lt;%20</b></div>
+        <div class="pill"><span class="pdot"></span>Hedefte</div>
+      </div>
+      <div class="kpi g">
+        <div class="name">Uyumluluk İhlali</div>
+        <div class="target">0</div>
+        <div class="target-label">Hedef</div>
+        <div class="bench">Benchmark: <b>0</b></div>
+        <div class="pill"><span class="pdot"></span>Hedefte</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Section 4 -->
+  <section class="section">
+    <div class="section-head">
+      <span class="bar"></span>
+      <h2>Müşteri Deneyimi</h2>
+      <span class="count">4 KPI</span>
+    </div>
+    <div class="grid">
+      <div class="kpi g">
+        <div class="name">CSAT</div>
+        <div class="target">≥%85</div>
+        <div class="target-label">Hedef</div>
+        <div class="bench">Benchmark: <b>~%80</b></div>
+        <div class="pill"><span class="pdot"></span>Hedefte</div>
+      </div>
+      <div class="kpi y">
+        <div class="name">NPS</div>
+        <div class="target">≥+40</div>
+        <div class="target-label">Hedef</div>
+        <div class="bench">Benchmark: <b>+30–40</b></div>
+        <div class="pill"><span class="pdot"></span>İzlenmeli</div>
+      </div>
+      <div class="kpi r">
+        <div class="name">CES (Müşteri Eforu)</div>
+        <div class="target">≥5.5</div>
+        <div class="target-label">Hedef</div>
+        <div class="bench">Benchmark: <b>~5.0</b></div>
+        <div class="pill"><span class="pdot"></span>Aksiyon</div>
+      </div>
+      <div class="kpi g">
+        <div class="name">Anket Yanıt</div>
+        <div class="target">≥%15</div>
+        <div class="target-label">Hedef</div>
+        <div class="bench">Benchmark: <b>%10–15</b></div>
+        <div class="pill"><span class="pdot"></span>Hedefte</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Section 5 -->
+  <section class="section">
+    <div class="section-head">
+      <span class="bar"></span>
+      <h2>Maliyet &amp; Çalışan</h2>
+      <span class="count">5 KPI</span>
+    </div>
+    <div class="grid">
+      <div class="kpi g">
+        <div class="name">Temas Başına Maliyet</div>
+        <div class="target">Hedef bütçe</div>
+        <div class="target-label">Hedef</div>
+        <div class="bench">Benchmark: <b>—</b></div>
+        <div class="pill"><span class="pdot"></span>Hedefte</div>
+      </div>
+      <div class="kpi r">
+        <div class="name">Çalışan Devir (Attrition)</div>
+        <div class="target">≤%25</div>
+        <div class="target-label">Hedef</div>
+        <div class="bench">Benchmark: <b>%30–45</b></div>
+        <div class="pill"><span class="pdot"></span>Aksiyon</div>
+      </div>
+      <div class="kpi g">
+        <div class="name">Devamsızlık</div>
+        <div class="target">≤%5</div>
+        <div class="target-label">Hedef</div>
+        <div class="bench">Benchmark: <b>&lt;%5</b></div>
+        <div class="pill"><span class="pdot"></span>Hedefte</div>
+      </div>
+      <div class="kpi y">
+        <div class="name">eNPS</div>
+        <div class="target">≥+20</div>
+        <div class="target-label">Hedef</div>
+        <div class="bench">Benchmark: <b>—</b></div>
+        <div class="pill"><span class="pdot"></span>İzlenmeli</div>
+      </div>
+      <div class="kpi g">
+        <div class="name">Yetkinlik Süresi</div>
+        <div class="target">≤60 gün</div>
+        <div class="target-label">Hedef</div>
+        <div class="bench">Benchmark: <b>60–90 gün</b></div>
+        <div class="pill"><span class="pdot"></span>Hedefte</div>
+      </div>
+    </div>
+  </section>
+
+  <div class="footer">
+    Benchmark değerleri sektör ortalamalarıdır; hedefler kendi baseline'ınıza göre kalibre edilmelidir. Örnek durum renkleri gösterim amaçlıdır.
+  </div>
+
+</div>
+</body>
+</html>
