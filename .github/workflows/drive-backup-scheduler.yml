@@ -1,0 +1,86 @@
+name: Drive Backup Scheduler
+
+on:
+  schedule:
+    # Daily backup at 23:00 UTC
+    - cron: '0 23 * * *'
+    # Monthly archive on the last day at 23:30 UTC
+    - cron: '30 23 28-31 * *'
+  workflow_dispatch:
+
+jobs:
+  daily-backup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Create daily backups
+        env:
+          GOOGLE_DRIVE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_DRIVE_CREDENTIALS_JSON }}
+          GOOGLE_DRIVE_ROOT_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_ROOT_FOLDER_ID }}
+          DRIVE_BACKUP_ENABLED: true
+          DRIVE_CREATE_DAILY_BACKUPS: true
+        run: |
+          python -m ai_assistant.integrations.drive_backup_scheduler daily
+
+  monthly-archive:
+    runs-on: ubuntu-latest
+    # Run on the last 4 days of the month to catch the last day
+    if: github.event_name == 'workflow_dispatch' || (github.event.schedule == '30 23 28-31 * *')
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Create monthly archive
+        env:
+          GOOGLE_DRIVE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_DRIVE_CREDENTIALS_JSON }}
+          GOOGLE_DRIVE_ROOT_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_ROOT_FOLDER_ID }}
+          DRIVE_BACKUP_ENABLED: true
+          DRIVE_CREATE_MONTHLY_ARCHIVES: true
+        run: |
+          python -m ai_assistant.integrations.drive_backup_scheduler monthly
+
+  archive-old-files:
+    runs-on: ubuntu-latest
+    # Run on the 1st of every month at 23:00 UTC
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 23 1 * *'
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Archive old files (30+ days)
+        env:
+          GOOGLE_DRIVE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_DRIVE_CREDENTIALS_JSON }}
+          GOOGLE_DRIVE_ROOT_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_ROOT_FOLDER_ID }}
+          DRIVE_ARCHIVE_OLDER_THAN_DAYS: 30
+        run: |
+          python -m ai_assistant.integrations.drive_backup_scheduler archive --older-than=30
+
+      - name: Cleanup old backups (keep 7 days)
+        env:
+          GOOGLE_DRIVE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_DRIVE_CREDENTIALS_JSON }}
+          GOOGLE_DRIVE_ROOT_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_ROOT_FOLDER_ID }}
+        run: |
+          python -m ai_assistant.integrations.drive_backup_scheduler cleanup --keep-days=7
