@@ -2,17 +2,17 @@ name: Chat Poller
 
 # Slack sohbet kanalını yoklar ve rapor siparişlerini işler.
 #
-# Her 5 dakikada bir çalışır. Her çalıştırma YENİ BİR SÜREÇTİR; kaldığı yeri
+# Her 15 dakikada bir çalışır. Her çalıştırma YENİ BİR SÜREÇTİR; kaldığı yeri
 # depo içindeki imleç dosyasından öğrenir. Yapılandırma yoksa hiçbir şey yapmaz.
 #
 # İMLEÇ, HATA OLSA DA İLERLER. Bir mesajın işlenmesi çökerse kullanıcıya hata
-# yazılır ve imleç yine de o mesajı geçer: aksi hâlde aynı bozuk mesaj her beş
-# dakikada bir yeniden denenir ve kanal aynı hatayla dolar.
+# yazılır ve imleç yine de o mesajı geçer: aksi hâlde aynı bozuk mesaj her on
+# beş dakikada bir yeniden denenir ve kanal aynı hatayla dolar.
 on:
   schedule:
     # GitHub Actions cron her zaman UTC'dir. Zamanları burada ayarlayın:
-    # Her 5 dakikada bir çalış
-    - cron: "*/5 * * * *"
+    # Her 15 dakikada bir çalış
+    - cron: "*/15 * * * *"
   workflow_dispatch:
     inputs:
       channel:
@@ -26,7 +26,7 @@ on:
 # kuyruğa al.
 #
 # BU GRUP YALNIZCA KENDİ İŞ AKIŞINI SIRAYA SOKAR. `daily-briefing` de `main`e
-# yazar ve AYRI bir grupta durur — bilerek: beş dakikada bir koşan yoklayıcı
+# yazar ve AYRI bir grupta durur — bilerek: on beş dakikada bir koşan yoklayıcı
 # ile günlük brifingi aynı gruba koymak, brifingi yoklamanın arkasında
 # bekletirdi. İki iş akışının aynı anda push etmesi ihtimaline karşı çare
 # kilit değil, aşağıdaki REBASE + YENİDEN DENEME döngüsüdür (daily-briefing
