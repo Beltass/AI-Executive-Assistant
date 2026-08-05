@@ -1,0 +1,91 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: content-api
+    ports:
+      - "8000:8000"
+    environment:
+      ENVIRONMENT: development
+      LOG_LEVEL: DEBUG
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/content_platform_dev
+      REDIS_URL: redis://cache:6379/0
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-dummy_key}
+      SLACK_APP_TOKEN: ${SLACK_APP_TOKEN:-dummy_token}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-dummy_id}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-your-secret-key-min-32-chars-change-in-prod}
+    depends_on:
+      - db
+      - cache
+    volumes:
+      - ./src:/app/src
+      - ./tests:/app/tests
+    command: uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - content-platform
+
+  db:
+    image: postgres:15
+    container_name: content-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: content_platform_dev
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - content-platform
+
+  cache:
+    image: redis:7
+    container_name: content-cache
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - content-platform
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: content-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      REACT_APP_API_URL: http://localhost:8000
+      VITE_API_URL: http://localhost:8000
+    depends_on:
+      - api
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+    command: npm run dev
+    networks:
+      - content-platform
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  content-platform:
+    driver: bridge
