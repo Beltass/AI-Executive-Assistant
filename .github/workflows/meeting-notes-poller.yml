@@ -30,23 +30,31 @@ concurrency:
 jobs:
   poll_meetings:
     runs-on: ubuntu-latest
+    # İşlenmiş toplantı listesi koşu sonunda `main`e commit edilir; runner'ın
+    # diski atıldığı için bunu kalıcı kılan tek şey budur. `contents: read`
+    # olduğu sürece liste HİÇ yazılmaz ve her yoklama aynı toplantıları
+    # baştan işler.
     permissions:
-      contents: read
+      contents: write
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          # Durum dosyasını ayrık bir HEAD'e değil varsayılan dala yaz; push
+          # edebilmek için token çıkışta kalsın.
+          ref: main
+          persist-credentials: true
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: "3.11"
           cache: pip
-          cache-dependency-path: requirements.txt
+          cache-dependency-path: pyproject.toml
 
       - name: Install dependencies
         run: |
           pip install -e .
-          pip install pytest pytest-asyncio
 
       - name: Configure Google OAuth
         env:
@@ -61,8 +69,6 @@ jobs:
           GOOGLE_REFRESH_TOKEN=$GOOGLE_REFRESH_TOKEN
           GOOGLE_DRIVE_FOLDER_ID=$GOOGLE_DRIVE_FOLDER_ID
           MEETING_NOTES_ENABLED=true
-          MEETING_NOTES_AUTO_TRANSCRIBE=true
-          MEETING_NOTES_REMINDER_DAYS=1
           GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
           SLACK_BOT_TOKEN=${{ secrets.SLACK_BOT_TOKEN }}
           SLACK_MAIN_CHANNEL=${{ secrets.SLACK_MAIN_CHANNEL }}
@@ -76,9 +82,53 @@ jobs:
             --auto-transcribe=true \
             --generate-reports=true
 
-      - name: Run tests
+      # Runner'ın diski atılır. HANGİ TOPLANTININ İŞLENDİĞİNİ KALICI KILAN TEK
+      # ŞEY bu adımdır: `.assistant_state/processed_meetings.json` commit
+      # edilmezse bir sonraki yoklama listeyi boş görür ve aynı kayıtları
+      # yeniden transkribe edip yeniden raporlar.
+      #
+      # `chat-poller.yml` ile AYNI deyim: değişmediyse sessizce çık, hata olsa
+      # da işi düşürme, `main` bu arada oynadıysa rebase edip yeniden dene.
+      # Bir yoklamayı kaçırmak katlanılabilir; kırmızı yanan bir cron
+      # düzeltilmeyen bir cron olur.
+      - name: Toplantı durumunu kalıcılaştır
+        if: always()
+        continue-on-error: true
+        env:
+          STATE_PATHS: ".assistant_state/processed_meetings.json"
         run: |
-          pytest tests/test_meeting_notes.py -v --tb=short
+          set -u
+          PRESENT=""
+          for path in $STATE_PATHS; do
+            if [ -e "$path" ]; then
+              PRESENT="$PRESENT $path"
+            else
+              echo "$path yok — atlanıyor."
+            fi
+          done
+          if [ -z "$PRESENT" ]; then
+            echo "Kalıcılaştırılacak bir şey yok."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A -- $PRESENT
+          if git diff --cached --quiet -- $PRESENT; then
+            echo "Toplantı durumu değişmedi — commit yok."
+            exit 0
+          fi
+          git commit -m "chore: persist processed meetings" -- $PRESENT
+          # Sohbet yoklayıcısı ve günlük brifing de `main`e yazar; araya girmiş olabilir.
+          for attempt in 1 2 3; do
+            if git push origin HEAD:main; then
+              echo "Toplantı durumu $attempt. denemede gönderildi."
+              exit 0
+            fi
+            echo "Push başarısız ($attempt. deneme); origin/main üzerine rebase ediliyor."
+            git pull --rebase --autostash origin main || break
+            sleep $((attempt * 5))
+          done
+          echo "Toplantı durumu yazılamadı; bir sonraki yoklama son commit edilen listeden devam eder."
 
       - name: Cleanup
         if: always()

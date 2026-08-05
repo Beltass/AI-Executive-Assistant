@@ -38,6 +38,9 @@ ENV/
 !.assistant_state/accountability.json
 !.assistant_state/findings.json
 !.assistant_state/chat_state.json
+# Meeting Notes Poller bunu commit eder; edilmezse her yoklama daha önce
+# işlenmiş toplantıları yeniden transkribe eder.
+!.assistant_state/processed_meetings.json
 
 # Test / tooling caches
 .pytest_cache/
