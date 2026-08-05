@@ -38,11 +38,39 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from .advisors import Advisor, Briefing, all_advisors, is_quiet
-from .advisors._batch import run_batch
+from .advisors._batch import last_outcome, per_advisor_fallback_enabled, run_batch
 from .config import MODE_FULL, briefing_mode, mode_label
 from .integrations import STATUS_FAILED, STATUS_OK, STATUS_SKIPPED, llm
 
 logger = logging.getLogger(__name__)
+
+# --- why an advisor did not run ---------------------------------------------
+#
+# Machine-readable reason codes. They end up in the metrics file next to the
+# token counts (:mod:`ai_assistant.metrics`), which is what turns "this run was
+# cheap" into "this run was cheap BECAUSE nine advisors had no new data".
+
+#: The shared batched call carried this advisor and came back with nothing, and
+#: ``DIGEST_BATCH_FALLBACK_MODE`` is ``off`` — see :mod:`ai_assistant.advisors._batch`.
+SKIP_BATCH_FAILED = "batch_failed"
+
+#: This advisor's source has not changed since it last reported on it.
+SKIP_DATA_UNCHANGED = "veri_degismedi"
+
+#: This advisor's trigger is not due on this run (weekly / user-requested).
+SKIP_NOT_TRIGGERED = "tetiklenmedi"
+
+#: Incremental run, and the advisor had nothing genuinely new.
+SKIP_NOTHING_NEW = "yeni_bulgu_yok"
+
+_SKIP_NOTE = {
+    SKIP_BATCH_FAILED: (
+        "toplu brifing başarısız oldu ve tekil yedek mod kapalı "
+        "(DIGEST_BATCH_FALLBACK_MODE=off)"
+    ),
+    SKIP_DATA_UNCHANGED: "kaynak verisi son çalıştırmadan beri değişmedi",
+    SKIP_NOT_TRIGGERED: "bu çalıştırmada tetiklenmedi",
+}
 
 
 @dataclass
@@ -52,10 +80,20 @@ class Supervision:
     ``mode`` records HOW the team ran: the flagship ``full`` briefing or an
     ``incremental`` top-up that reports only what is new (see
     :mod:`ai_assistant.memory`).
+
+    ``executed_advisors`` / ``skipped_advisors`` record WHO actually worked and
+    why the others did not. A run that costs a tenth of yesterday's tokens is
+    either a big win or a silent outage, and only the reason codes tell the two
+    apart; :mod:`ai_assistant.metrics` writes them next to the token counts.
     """
 
     briefings: List[Briefing] = field(default_factory=list)
     mode: str = MODE_FULL
+    #: Keys of the advisors that really ran this time, in roster order.
+    executed_advisors: List[str] = field(default_factory=list)
+    #: ``{advisor_key: reason_code}`` for everyone who did not — see the
+    #: ``SKIP_*`` constants in this module.
+    skipped_advisors: Dict[str, str] = field(default_factory=dict)
 
     @property
     def mode_label(self) -> str:
@@ -121,10 +159,15 @@ class OperationsManager:
 
         By default the LLM-backed advisors are served by ONE batched model call
         (see :mod:`ai_assistant.advisors._batch`) instead of one call each,
-        which is what makes the run fit a free-tier quota. Any advisor the
-        batch did not cover — non-LLM ones, or sections the model omitted, or
-        the whole team if the batched call failed — transparently falls back to
-        its own per-advisor path.
+        which is what makes the run fit a free-tier quota. Advisors that never
+        joined the batch — the non-LLM ones, and everybody when batching is
+        switched off — run their own per-advisor path as before.
+
+        An advisor that WAS in the batch and got nothing back is ``skipped``
+        with the reason ``batch_failed`` rather than re-asked: the batch
+        normally fails because the quota is gone, and retrying it once per
+        advisor spends fifteen more calls proving it. Set
+        ``DIGEST_BATCH_FALLBACK_MODE=per_advisor`` to restore the old retry.
 
         On an ``incremental`` run (``BRIEFING_MODE=incremental``) the advisors
         with nothing NEW to report never reach either path: they return a
@@ -150,7 +193,18 @@ class OperationsManager:
         llm.start_time_budget()
 
         briefings: List[Briefing] = []
+        executed: List[str] = []
+        skipped: Dict[str, str] = {}
         batched = run_batch(self.advisors)
+        batch = last_outcome()
+        allow_fallback = per_advisor_fallback_enabled()
+        if batch.failed:
+            logger.error(
+                "toplu brifing başarısız (%s): %s — tekil yedek mod %s",
+                batch.failure_reason,
+                batch.failure_detail,
+                "AÇIK" if allow_fallback else "kapalı, ilgili ajanlar atlanacak",
+            )
         today = datetime.now().strftime("%Y-%m-%d")
 
         for advisor in self.advisors:
@@ -164,12 +218,27 @@ class OperationsManager:
                     # Incremental run, nothing new from this advisor: say so in
                     # one line instead of repeating this morning's section.
                     briefings.append(advisor.nothing_new())
+                    skipped[advisor.key] = SKIP_NOTHING_NEW
                     continue
                 text = batched.get(advisor.key)
                 if text:
                     briefings.append(advisor.briefing_from_batch(text))
+                elif batch.missing(advisor.key) and not allow_fallback:
+                    # This advisor WAS in the failed batch. Re-asking it on its
+                    # own would turn one dead call into one per advisor, which
+                    # is exactly how a spent quota becomes a spent hour.
+                    logger.warning(
+                        "'%s' atlandı: toplu brifing başarısız (%s), tekil çağrı "
+                        "yapılmıyor",
+                        advisor.key,
+                        batch.failure_reason or "eksik bölüm",
+                    )
+                    briefings.append(advisor.skipped(_SKIP_NOTE[SKIP_BATCH_FAILED]))
+                    skipped[advisor.key] = SKIP_BATCH_FAILED
+                    continue
                 else:
                     briefings.append(advisor.generate_briefing())
+                executed.append(advisor.key)
 
                 # After successful advisor run, distribute to integrations
                 briefing = briefings[-1]
@@ -190,7 +259,12 @@ class OperationsManager:
                         text=f"denetleyici yakaladı, beklenmeyen hata: {exc}",
                     )
                 )
-        return Supervision(briefings=briefings, mode=briefing_mode())
+        return Supervision(
+            briefings=briefings,
+            mode=briefing_mode(),
+            executed_advisors=executed,
+            skipped_advisors=skipped,
+        )
 
     def _distribute_results(
         self,

@@ -18,8 +18,28 @@ Non-LLM work stays OUT of the batch: the weather advisor still calls Open-Meteo
 directly and the news advisors still fetch their RSS feeds themselves; only the
 *summarization* participates.
 
-Controlled by ``DIGEST_BATCH_MODE`` (default enabled). If the batched call
-fails, the caller transparently falls back to the per-advisor path.
+Controlled by ``DIGEST_BATCH_MODE`` (default enabled).
+
+WHAT HAPPENS WHEN THE BATCH FAILS — read this before changing it
+----------------------------------------------------------------
+Falling back to "one call per advisor" turns ONE failed request into fifteen,
+which on a free tier is the most expensive thing this codebase can do: the
+batch usually fails because the quota is gone, and the fallback then spends
+fifteen more calls discovering that fifteen more times. So the fallback is now
+OPT-IN via ``DIGEST_BATCH_FALLBACK_MODE``:
+
+* ``off`` (default) — an advisor that was IN the batch and got no section back
+  is reported as ``skipped`` with the reason "batch failed". No extra call.
+* ``per_advisor`` — the old behaviour, for debugging a parsing problem where
+  the quota is known to be healthy.
+
+Advisors that never joined the batch (non-LLM ones, or those the model was
+never asked about) are unaffected either way: they always run their own path.
+
+:func:`run_batch` keeps returning ``{key: text}``, but it no longer fails
+silently — :attr:`BatchOutcome.failure_reason` on :func:`last_outcome` says
+WHY the dict is empty, so the caller can tell "batching is off" from "the model
+refused".
 """
 
 from __future__ import annotations
@@ -64,11 +84,41 @@ class BatchOutcome:
     #: Characters saved by stating the shared writing guide ONCE instead of
     #: once per section (see :func:`split_shared_guide`).
     guide_saved_chars: int = 0
+    #: WHY the batch produced nothing, ``""`` when it produced sections. One of
+    #: the ``REASON_*`` constants below. This is what stops :func:`run_batch`
+    #: from returning an empty dict with no explanation.
+    failure_reason: str = ""
+    #: Short, already key-redacted detail for the log/dashboard. Never content.
+    failure_detail: str = ""
 
     @property
     def used(self) -> bool:
         """True when the batched call actually served at least one section."""
         return self.sections_produced > 0
+
+    @property
+    def failed(self) -> bool:
+        """True when the batch RAN and came back with nothing usable.
+
+        Deliberately not the same as "empty result": batching being switched
+        off, or fewer than two participating advisors, are normal states in
+        which the per-advisor path is simply the right one.
+        """
+        return self.attempted and not self.used
+
+    @property
+    def participants(self) -> Tuple[str, ...]:
+        """Keys of the advisors whose sections were actually sent to the model.
+
+        Empty when nothing was attempted. An advisor NOT in here never took
+        part in the batch, so a batch failure says nothing about it and it must
+        still run its own path.
+        """
+        return tuple(self.prompt_chars)
+
+    def missing(self, key: str) -> bool:
+        """True when ``key`` was sent in the batch but got no section back."""
+        return self.attempted and key in self.prompt_chars
 
     def to_dict(self) -> dict:
         return {
@@ -79,6 +129,8 @@ class BatchOutcome:
             "sections_produced": self.sections_produced,
             "prompt_chars_total": self.prompt_chars_total,
             "guide_saved_chars": self.guide_saved_chars,
+            "failure_reason": self.failure_reason,
+            "failure_detail": self.failure_detail,
         }
 
 
@@ -113,6 +165,26 @@ DEFAULT_BATCH_MAX_OUTPUT_TOKENS = 32768
 _TRUTHY = {"1", "true", "yes", "on", "evet"}
 _FALSY = {"0", "false", "no", "off", "hayir", "hayır"}
 
+# --- why a batch produced nothing -------------------------------------------
+#: Batching is switched off (``DIGEST_BATCH_MODE``) — not a failure.
+REASON_DISABLED = "disabled"
+#: Nobody offered a section (empty ``.env``, or a quiet incremental run).
+REASON_NO_SECTIONS = "no_sections"
+#: Exactly one section: batching one advisor is no cheaper than calling it.
+REASON_SINGLE_SECTION = "single_section"
+#: The model call itself raised (quota, timeout, transport).
+REASON_LLM_ERROR = "llm_error"
+#: The model answered but not one section marker could be parsed out.
+REASON_UNPARSABLE = "unparsable_response"
+
+# --- what to do when it DID fail --------------------------------------------
+FALLBACK_MODE_ENV = "DIGEST_BATCH_FALLBACK_MODE"
+#: Default: skip the advisors the batch could not serve. One failed call stays
+#: one failed call instead of becoming one per advisor.
+FALLBACK_OFF = "off"
+#: Opt-in: retry each unserved advisor on its own, the pre-gate behaviour.
+FALLBACK_PER_ADVISOR = "per_advisor"
+
 BATCH_SYSTEM_PROMPT = (
     "Sen, bir yöneticinin günlük brifingini birlikte hazırlayan uzman "
     "danışmanlardan oluşan bir ekibin baş editörüsün. Türkçe yazıyorsun. Her "
@@ -132,6 +204,21 @@ def batch_mode_enabled() -> bool:
     if raw in _TRUTHY:
         return True
     return True  # default ON
+
+
+def fallback_mode() -> str:
+    """What to do with advisors the batch could not serve.
+
+    ``DIGEST_BATCH_FALLBACK_MODE``; anything other than ``per_advisor`` (case
+    and dash insensitive) means :data:`FALLBACK_OFF`, which is the default.
+    """
+    raw = (os.getenv(FALLBACK_MODE_ENV) or "").strip().lower().replace("-", "_")
+    return FALLBACK_PER_ADVISOR if raw == FALLBACK_PER_ADVISOR else FALLBACK_OFF
+
+
+def per_advisor_fallback_enabled() -> bool:
+    """Whether a failed batch may re-ask every advisor on its own."""
+    return fallback_mode() == FALLBACK_PER_ADVISOR
 
 
 def _batch_max_output_tokens() -> int:
@@ -317,19 +404,36 @@ def run_batch(advisors: Sequence[Advisor]) -> Dict[str, str]:
     """Run the whole team in ONE LLM call. Returns ``{key: text}``.
 
     Returns an empty dict whenever batching is off, not worth it (fewer than
-    two participating advisors), or the call/parse failed — the caller then
-    uses the normal per-advisor path. This function never raises.
+    two participating advisors), or the call/parse failed. The dict alone
+    cannot tell those cases apart, so the REASON is always recorded on
+    :func:`last_outcome` (``failure_reason``/``failure_detail``) and logged —
+    the caller reads it to decide between "run the per-advisor path, that is
+    normal" and "the model is down, do not make fifteen more calls".
+
+    This function never raises.
     """
     global _last_outcome
     _last_outcome = BatchOutcome(enabled=batch_mode_enabled())
 
     if not _last_outcome.enabled:
+        _last_outcome.failure_reason = REASON_DISABLED
+        _last_outcome.failure_detail = "DIGEST_BATCH_MODE kapalı"
+        logger.info("toplu brifing kapalı (DIGEST_BATCH_MODE): tekil mod kullanılacak")
         return {}
 
     sections = collect_sections(advisors)
     _last_outcome.sections_requested = len(sections)
     if len(sections) < 2:
         # One section is no cheaper batched, and zero means nothing to ask.
+        _last_outcome.failure_reason = (
+            REASON_SINGLE_SECTION if sections else REASON_NO_SECTIONS
+        )
+        _last_outcome.failure_detail = (
+            f"toplu istek için yeterli bölüm yok ({len(sections)})"
+        )
+        logger.info(
+            "toplu brifing atlandı: %s bölüm var, en az 2 gerekiyor", len(sections)
+        )
         return {}
 
     _last_outcome.attempted = True
@@ -358,15 +462,38 @@ def run_batch(advisors: Sequence[Advisor]) -> Dict[str, str]:
             max_output_tokens=_batch_max_output_tokens(),
         )
     except Exception as exc:
-        # Already key-redacted by the llm layer; per-advisor mode takes over.
-        logger.warning("toplu brifing isteği başarısız, tekil moda dönülüyor: %s", exc)
+        # Already key-redacted by the llm layer. The caller decides what to do
+        # with the advisors this call was carrying — see ``fallback_mode``.
+        _last_outcome.failure_reason = REASON_LLM_ERROR
+        _last_outcome.failure_detail = str(exc)[:200]
+        logger.error(
+            "toplu brifing isteği başarısız (%s bölüm taşınıyordu): %s",
+            len(sections),
+            exc,
+        )
         return {}
 
     parsed = parse_batch_response(text, [section.key for section in sections])
     _last_outcome.sections_produced = len(parsed)
+    if not parsed:
+        _last_outcome.failure_reason = REASON_UNPARSABLE
+        _last_outcome.failure_detail = (
+            "model yanıtında hiçbir bölüm işaretçisi ayrıştırılamadı"
+        )
+        logger.error(
+            "toplu brifing yanıtı ayrıştırılamadı: %s bölüm istendi, 0 bölüm okundu",
+            len(sections),
+        )
+        return parsed
+
     logger.info(
         "toplu brifing: %s bölümden %s tanesi tek çağrıda üretildi",
         len(sections),
         len(parsed),
     )
+    if len(parsed) < len(sections):
+        missing = [s.key for s in sections if s.key not in parsed]
+        logger.warning(
+            "toplu brifingde eksik kalan bölümler: %s", ", ".join(missing)
+        )
     return parsed

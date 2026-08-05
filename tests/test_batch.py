@@ -5,7 +5,8 @@ quota window, so the whole advisor team is served by ONE batched call. These
 tests cover:
 - the batched response is split back apart per advisor;
 - exactly one LLM call is made for the whole team;
-- a failing batched call degrades to the per-advisor path;
+- a failing batched call says WHY it failed and, by default, makes no
+  per-advisor calls at all (``DIGEST_BATCH_FALLBACK_MODE``);
 - non-LLM advisors never join the batch.
 """
 
@@ -28,7 +29,7 @@ from ai_assistant.advisors.career_hr import CareerHrAdvisor
 from ai_assistant.advisors.kids_development import KidsDevelopmentAdvisor
 from ai_assistant.advisors.leadership_coach import LeadershipCoachAdvisor
 from ai_assistant.advisors.weather import WeatherAdvisor
-from ai_assistant.integrations import STATUS_FAILED, STATUS_OK
+from ai_assistant.integrations import STATUS_OK, STATUS_SKIPPED
 from ai_assistant.integrations import llm
 from ai_assistant.operations_manager import OperationsManager
 
@@ -129,7 +130,15 @@ def test_batched_run_uses_one_call_for_the_whole_team(monkeypatch, llm_env):
     assert texts["kids_development"] == "Cocuk gelisimi bolumu."
 
 
-def test_batch_failure_falls_back_to_per_advisor_calls(monkeypatch, llm_env):
+# --- the fallback gate (DIGEST_BATCH_FALLBACK_MODE) -------------------------
+#
+# The batch normally fails because the free-tier quota is gone. Re-asking every
+# advisor on its own then spends one dead call per advisor discovering that,
+# which is the single most expensive thing this codebase can do — hence the
+# fallback is opt-in and OFF by default.
+
+
+def test_batch_failure_makes_no_per_advisor_calls_by_default(monkeypatch, llm_env):
     calls = []
 
     def fake_generate(system_prompt, user_prompt, max_output_tokens=None):
@@ -142,13 +151,106 @@ def test_batch_failure_falls_back_to_per_advisor_calls(monkeypatch, llm_env):
 
     supervision = OperationsManager(advisors=_personas()).run()
 
-    # 1 failed batched attempt + one call per advisor.
+    # ONE failed batched attempt, and nothing after it.
+    assert len(calls) == 1
+    assert all(b.status == STATUS_SKIPPED for b in supervision.briefings)
+    assert all("DIGEST_BATCH_FALLBACK_MODE" in b.text for b in supervision.briefings)
+    assert set(supervision.skipped_advisors) == {
+        "leadership_coach",
+        "kids_development",
+        "career_hr",
+    }
+    assert set(supervision.skipped_advisors.values()) == {"batch_failed"}
+
+
+def test_batch_failure_falls_back_per_advisor_when_asked(monkeypatch, llm_env):
+    monkeypatch.setenv("DIGEST_BATCH_FALLBACK_MODE", "per_advisor")
+    calls = []
+
+    def fake_generate(system_prompt, user_prompt, max_output_tokens=None):
+        calls.append(user_prompt)
+        if SECTION_MARKER in user_prompt:
+            raise RuntimeError("gemini tüm modellerde başarısız — son hata: HTTP 503")
+        return "tekil brifing"
+
+    monkeypatch.setattr(llm, "generate_text", fake_generate)
+
+    supervision = OperationsManager(advisors=_personas()).run()
+
+    # 1 failed batched attempt + one call per advisor — the pre-gate behaviour.
     assert len(calls) == 4
     assert all(b.status == STATUS_OK for b in supervision.briefings)
     assert all(b.text == "tekil brifing" for b in supervision.briefings)
+    assert supervision.skipped_advisors == {}
 
 
-def test_missing_section_falls_back_to_that_advisor_only(monkeypatch, llm_env):
+def test_failed_batch_records_why_it_failed(monkeypatch, llm_env):
+    def fake_generate(system_prompt, user_prompt, max_output_tokens=None):
+        raise RuntimeError("HTTP 429: quota exceeded")
+
+    monkeypatch.setattr(llm, "generate_text", fake_generate)
+
+    assert run_batch(_personas()) == {}
+
+    outcome = _batch.last_outcome()
+    assert outcome.failed is True
+    assert outcome.failure_reason == _batch.REASON_LLM_ERROR
+    assert "429" in outcome.failure_detail
+    assert set(outcome.participants) == {
+        "leadership_coach",
+        "kids_development",
+        "career_hr",
+    }
+
+
+def test_disabled_batch_is_reported_as_disabled_not_as_a_failure(monkeypatch, llm_env):
+    monkeypatch.setenv("DIGEST_BATCH_MODE", "false")
+
+    assert run_batch(_personas()) == {}
+
+    outcome = _batch.last_outcome()
+    assert outcome.failed is False
+    assert outcome.failure_reason == _batch.REASON_DISABLED
+    # Nobody was in the batch, so nobody may be skipped because of it.
+    assert outcome.participants == ()
+    assert outcome.missing("leadership_coach") is False
+
+
+def test_unparsable_response_is_reported_as_such(monkeypatch, llm_env):
+    def fake_generate(system_prompt, user_prompt, max_output_tokens=None):
+        return "Bölüm işaretçisi olmayan bir yanıt."
+
+    monkeypatch.setattr(llm, "generate_text", fake_generate)
+
+    assert run_batch(_personas()) == {}
+    assert _batch.last_outcome().failure_reason == _batch.REASON_UNPARSABLE
+
+
+def test_missing_section_skips_only_that_advisor(monkeypatch, llm_env):
+    calls = []
+    partial = f"{SECTION_MARKER} leadership_coach\nSadece liderlik.\n"
+
+    def fake_generate(system_prompt, user_prompt, max_output_tokens=None):
+        calls.append(user_prompt)
+        if SECTION_MARKER in user_prompt:
+            return partial
+        return "tekil brifing"
+
+    monkeypatch.setattr(llm, "generate_text", fake_generate)
+
+    supervision = OperationsManager(advisors=_personas()).run()
+
+    # ONE batched call: the two omitted sections are skipped, not re-asked.
+    assert len(calls) == 1
+    texts = {b.key: b.text for b in supervision.briefings}
+    assert texts["leadership_coach"] == "Sadece liderlik."
+    assert set(supervision.skipped_advisors) == {"kids_development", "career_hr"}
+
+
+def test_missing_section_falls_back_to_that_advisor_only_when_asked(
+    monkeypatch, llm_env
+):
+    monkeypatch.setenv("DIGEST_BATCH_FALLBACK_MODE", "per_advisor")
     calls = []
     partial = f"{SECTION_MARKER} leadership_coach\nSadece liderlik.\n"
 
@@ -221,8 +323,9 @@ def test_batched_error_message_never_contains_the_key(monkeypatch, llm_env):
 
     supervision = OperationsManager(advisors=_personas()).run()
 
-    assert all(b.status == STATUS_FAILED for b in supervision.briefings)
+    assert all(b.status == STATUS_SKIPPED for b in supervision.briefings)
     assert all(FAKE_KEY not in b.text for b in supervision.briefings)
+    assert FAKE_KEY not in _batch.last_outcome().failure_detail
 
 
 def test_batch_prompt_demands_the_headline_first_line():
