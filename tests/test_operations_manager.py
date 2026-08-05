@@ -72,6 +72,8 @@ def test_manager_runs_all_advisors_offline(no_config):
         "market_intelligence",
         "complaint_radar",
         "linkedin_coach",
+        "social_media_coach",
+        "personal_assistant",
         "data_analyst",
         "ai_innovation",
         "kids_development",

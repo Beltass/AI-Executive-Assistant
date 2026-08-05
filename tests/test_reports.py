@@ -237,6 +237,8 @@ def test_private_key_list_matches_the_rosters_private_flags():
         "data_analyst",
         "ai_innovation",
         "executive_coaching",
+        "social_media_coach",
+        "personal_assistant",
         "work_analyst",
         "operations_director",
         "sre_watchdog",

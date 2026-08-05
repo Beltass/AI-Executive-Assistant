@@ -76,6 +76,8 @@ _PRIVATE_ADVISOR_KEYS_CURRENT = frozenset(
         "data_analyst",             # the operation's own performance data
         "ai_innovation",            # reasons about the user's own backlog
         "executive_coaching",       # personal development + accountability
+        "social_media_coach",       # personal social media profiles and content
+        "personal_assistant",       # personal tasks, goals and schedule
         "work_analyst",             # consolidates everyone else's private work
         "operations_director",      # synthesises every private section above
         "sre_watchdog",             # the system's own technical internals

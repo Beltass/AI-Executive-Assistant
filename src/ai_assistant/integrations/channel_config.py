@@ -34,6 +34,8 @@ ADVISOR_KEYS = (
     "market_intelligence",
     "complaint_radar",
     "linkedin_coach",
+    "social_media_coach",
+    "personal_assistant",
     "data_analyst",
     "ai_innovation",
     "kids_development",

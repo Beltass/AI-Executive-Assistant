@@ -77,7 +77,10 @@ def no_config(monkeypatch):
 #: PHASE 1C: ``weather``, ``anka_bridge``, and ``meeting_prep`` left the live roster
 #: (their modules stay on disk, and the tests below still exercise them directly).
 #: ``complaint_radar`` was expanded to comprehensive market analysis, and
-#: ``linkedin_coach`` joined it — so the count is unchanged at 13 advisors.
+#: ``linkedin_coach`` joined it.
+#:
+#: PHASE 1D: Added ``social_media_coach`` and ``personal_assistant`` to the live roster.
+#: Total roster now includes 15 advisors.
 EXPECTED_ADVISOR_KEYS = [
     "morning_operations",
     "communications_calendar",
@@ -85,6 +88,8 @@ EXPECTED_ADVISOR_KEYS = [
     "market_intelligence",
     "complaint_radar",
     "linkedin_coach",
+    "social_media_coach",
+    "personal_assistant",
     "data_analyst",
     "ai_innovation",
     "kids_development",
@@ -97,7 +102,7 @@ EXPECTED_ADVISOR_KEYS = [
 
 def test_all_advisors_discovered():
     advisors = all_advisors()
-    assert len(advisors) == 13
+    assert len(advisors) == 15
     assert [a.key for a in advisors] == EXPECTED_ADVISOR_KEYS
 
 

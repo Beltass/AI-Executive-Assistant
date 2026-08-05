@@ -177,6 +177,32 @@ ADVISOR_CHANNELS: Tuple[ChannelSpec, ...] = (
         advisor_key="linkedin_coach",
     ),
     ChannelSpec(
+        env_key=advisor_channel_env("social_media_coach"),
+        name="ai-sosyal-medya-koclugu",
+        label="Sosyal Medya Koçu",
+        purpose=(
+            "Sosyal Medya Koçu ajanının kanalı. Instagram, Twitter, TikTok "
+            "profil optimizasyonu ve içerik stratejisi. KİŞİSEL VERİ içerir; "
+            "panoya yazılmaz."
+        ),
+        topic="📱 Sosyal medya profilleri · içerik stratejisi · 🔒 kişisel",
+        private=True,
+        advisor_key="social_media_coach",
+    ),
+    ChannelSpec(
+        env_key=advisor_channel_env("personal_assistant"),
+        name="ai-kisisel-asistan",
+        label="Kişisel Asistan",
+        purpose=(
+            "Kişisel Asistan ajanının kanalı. Günlük görevler, hedefler, "
+            "takvim ve kişisel üretkenlik. KİŞİSEL VERİ içerir; "
+            "panoya yazılmaz."
+        ),
+        topic="✓ Günlük görevler · hedefler · kişisel üretkenlik · 🔒 kişisel",
+        private=True,
+        advisor_key="personal_assistant",
+    ),
+    ChannelSpec(
         env_key=advisor_channel_env("data_analyst"),
         name="ai-veri-analisti",
         label="Veri Analisti",
