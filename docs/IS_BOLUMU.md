@@ -10,10 +10,18 @@ Bu depoda iki AI ajanı aynı anda ve **aynı dalda** (`claude/slack-session-91z
 | Ortak LLM katmanı | Claude | `src/ai_assistant/integrations/llm.py` |
 | Gmail entegrasyonu | Claude | `src/ai_assistant/integrations/gmail.py` |
 | Toplantı notları testleri | Claude | `tests/test_meeting_notes.py` |
-| Backend API | ChatGPT | `backend/` (tümü) |
+| Backend — kimlik doğrulama | Claude | `backend/app/security.py`, `backend/app/dependencies.py`, `backend/tests/test_api/test_jwt_auth.py` |
+| Backend — Slack route'ları | ChatGPT | `backend/app/api/routes/slack.py`, `backend/app/services/slack_service.py`, `backend/tests/test_api/test_slack.py` |
+| Backend API — geri kalanı | ChatGPT | `backend/` (yukarıdaki iki satır dışında) |
 | Frontend | ChatGPT | `frontend/` (tümü) |
 | Deployment / infra | ChatGPT | deploy workflow'ları, container yapılandırması |
 | Diğer danışmanlar | ChatGPT | `src/ai_assistant/advisors/` altındaki toplantı-notları dışındakiler (`linkedin_coach.py`, `market_intelligence.py` vb.) |
+
+Sahiplik tablosu **gerçeği** yansıtır, niyeti değil: `backend/` bir bütün
+olarak ChatGPT'ye yazılıydı, ama placeholder auth'un yerine gerçek JWT
+doğrulamasını Claude koydu (`bbfffec`), yani o iki dosya artık Claude'da.
+Aynı şekilde `backend/`'in tamamına dokunan bir lint temizliği de yapıldı
+(`35fe99e`) — bu, kod sahipliğini değiştirmeyen mekanik bir düzenlemeydi.
 
 ## Paylaşımlı dosyalar — dokunmadan önce haber ver
 
@@ -49,9 +57,12 @@ Kurallar:
 - Gerçek Slack deadline reminder (Block Kit)
 - 64 davranış testi
 
+- CI'daki lint bastırmalarının kaldırılması (`35fe99e`, `99aa79c`): `black`,
+  `flake8` ve backend test adımları artık gerçekten kırmızıya düşebiliyor
+
 **Sıradaki:**
 
 - Temiz venv doğrulaması
-- CI kırmızı-olabilirlik kanıtı (testlerin gerçekten kırılabildiğinin gösterilmesi)
-- Uçtan uca gerçek koşu
-- Thinking budget kalite karşılaştırması
+- Uçtan uca gerçek koşu — **bu depoda yapılamaz**, hiçbir LLM anahtarı
+  tanımlı değil (`.env` içindeki `GEMINI_API_KEY` dahil hepsi boş)
+- Thinking budget kalite karşılaştırması (gerçek koşu gerektirir)

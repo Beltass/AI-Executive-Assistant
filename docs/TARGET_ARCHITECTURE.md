@@ -48,6 +48,13 @@ listeye yazılmaz.**
 | `operations_director` | always | 1600 | run_briefings | operasyon |
 | `sre_watchdog` | always | 0 (LLM yok) | system_health | operasyon |
 
+Bu tablonun tamamı `ADVISOR_META`'dan doğrulandı (16 ajan, tetikleyici ve
+tavan değerleri birebir tutuyor). Kapıların kaç ajanı elediği ölçüldü;
+sayılar [`COORDINATION_BACKLOG.md`](COORDINATION_BACKLOG.md) §3'te. Özet:
+Pazartesi dışı bir günde tetikleyici kapısı 16 ajandan 5'ini, veri kapısı da
+devredeyken toplam 11'ini eliyor. Bunlar `token_ceiling` **tavanlarıdır**,
+gerçekleşen tüketim değil — canlı koşu yapılmadı.
+
 ## 3. Veri akışı
 
 ```
