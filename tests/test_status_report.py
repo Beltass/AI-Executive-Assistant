@@ -138,11 +138,21 @@ def test_every_advisor_key_has_presentation_metadata():
         }, advisor.key
 
 
-def test_presentation_metadata_carries_no_retired_advisors():
-    """The table must track the roster: a key nobody runs is dead weight."""
+def test_retired_advisors_are_marked_retired_rather_than_deleted():
+    """The manifest catalogues EVERY advisor; ``status`` says who still runs.
+
+    The table used to hold live advisors only, which meant "is this module
+    still in service?" had no answer anywhere in the codebase. It now holds all
+    of them, so the answer is a field rather than an archaeology exercise — and
+    the running roster is the ``live`` subset.
+    """
     from ai_assistant.advisors import all_advisors
 
-    assert set(status_report.ADVISOR_META) == {a.key for a in all_advisors()}
+    live = set(status_report.live_advisor_keys())
+    assert {a.key for a in all_advisors()} <= live
+    assert "weather" in status_report.retired_advisor_keys()
+    assert status_report.is_live("weather") is False
+    assert status_report.is_live("sre_watchdog") is True
 
 
 # --- secrets ----------------------------------------------------------------

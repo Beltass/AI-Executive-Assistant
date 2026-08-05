@@ -63,20 +63,41 @@ ISTANBUL = timezone(timedelta(hours=3), "Europe/Istanbul")
 MAX_DETAIL_CHARS = 400
 
 
-# --- presentation metadata --------------------------------------------------
+# --- the advisor manifest ---------------------------------------------------
 #
-# Icon + category per advisor, kept HERE rather than on the advisor classes so
-# the advisors stay purely about producing briefings. ``category`` is what the
-# dashboard groups and filters by. ``title`` mirrors the advisor's Turkish title
-# for readability of this table; the value actually written to the status file
-# comes from the briefing itself, so the two can never drift apart at runtime.
+# ONE table describing every advisor module in ``ai_assistant/advisors/``: what
+# it is called, how it is drawn, whether it is still in service, WHEN it should
+# run and how much it is allowed to cost. It is kept HERE rather than on the
+# advisor classes so the advisors stay purely about producing briefings.
 #
-# One entry per advisor in the CURRENT roster. The keys retired by the 20 -> 10
-# consolidation are deliberately NOT kept: every archived report card already
-# carries the emoji and category it was published with (they are baked into
-# ``frontend/reports/<date>/index.json``), and nothing re-derives metadata for a
-# key that no longer produces briefings. Anything unknown falls back to
-# ``DEFAULT_META`` rather than raising.
+# WHY IT IS THE SINGLE SOURCE OF TRUTH. The roster used to live in three places
+# that could — and did — drift apart: a hand-written list of imports in
+# ``advisors.all_advisors()``, this presentation table, and the Slack channel
+# tuple. ``meeting_prep`` was the proof: its module, its metadata, its Slack
+# route and its dashboard entry all existed, but nobody imported it, so it had
+# not produced a single briefing. The roster is now DERIVED from this table
+# (see :func:`live_advisor_keys`), and a test asserts the two cannot diverge.
+#
+# FIELDS
+#   title/emoji/category  Presentation. ``category`` is what the dashboard
+#       groups and filters by; ``title`` mirrors the advisor's Turkish title for
+#       readability here — the value actually written to the status file comes
+#       from the briefing itself, so the two cannot drift at runtime.
+#   status                ``live`` (in the roster) or ``retired`` (module kept
+#       on disk so a rollback is a one-line change, not a revert).
+#   trigger               WHEN it runs — see the ``TRIGGER_*`` constants. This
+#       is what :mod:`ai_assistant.operations_manager` filters on.
+#   token_ceiling         Rough per-run token budget, used by the metrics layer
+#       to say "this advisor is over its share". ``0`` = does not call an LLM.
+#   data_owner            The SOURCE this advisor reads. Advisors sharing an
+#       owner share one content hash, so an unchanged source skips all of them
+#       at once (see :mod:`ai_assistant.memory`).
+#   dashboard_order       Report/roster position; also the roster order itself.
+#   slack_target          Default channel handle for the per-advisor fan-out.
+#   module/advisor_class  Where the implementation lives, so the roster can be
+#       built from this table instead of a parallel list of imports.
+#
+# Anything unknown falls back to :data:`DEFAULT_META` rather than raising.
 
 CATEGORY_CAREER = "kariyer"
 CATEGORY_FAMILY = "aile"
@@ -84,85 +105,470 @@ CATEGORY_SECTOR = "sektör"
 CATEGORY_GROWTH = "kişisel gelişim"
 CATEGORY_OPS = "operasyon"
 
-ADVISOR_META: Dict[str, Dict[str, str]] = {
-    "morning_operations": {
-        "title": "Sabah İşletme Brifingi",
-        "emoji": "📋",
-        "category": CATEGORY_OPS,
-    },
-    "communications_calendar": {
-        "title": "İletişim & Takvim Danışmanı",
-        "emoji": "📬",
-        "category": CATEGORY_OPS,
-    },
-    "career_development": {
-        "title": "Kariyer Gelişimi (İK · İlanlar · İngilizce · Sertifika)",
-        "emoji": "💼",
-        "category": CATEGORY_CAREER,
-    },
-    "market_intelligence": {
-        "title": "Pazar İstihbaratı (Sektör · YZ · CX · Bankacılık)",
-        "emoji": "📊",
-        "category": CATEGORY_SECTOR,
-    },
-    "complaint_radar": {
-        "title": "Kapsamlı Pazar & Sentiment Analizi (Müşteri Şikayet · Trendler · Rekabet)",
-        "emoji": "📊",
-        "category": CATEGORY_SECTOR,
-    },
-    "linkedin_coach": {
-        "title": "LinkedIn İmaj Koçu (Profil · Post · Engagement)",
-        "emoji": "💼",
-        "category": CATEGORY_GROWTH,
-    },
-    "social_media_coach": {
-        "title": "Sosyal Medya İmaj Koçu (Instagram · Twitter · Marka)",
-        "emoji": "📱",
-        "category": CATEGORY_GROWTH,
-    },
-    "personal_assistant": {
-        "title": "Kişisel Asistan (Takvim · Hedefler · Ağ · Fırsatlar)",
-        "emoji": "📅",
-        "category": CATEGORY_OPS,
-    },
-    "data_analyst": {
-        "title": "Veri Analisti (Çağrı Merkezi Operasyonu)",
-        "emoji": "🔬",
-        "category": CATEGORY_OPS,
-    },
-    "ai_innovation": {
-        "title": "Yapay Zeka & İnovasyon (Ustalaşma · Fikirler)",
-        "emoji": "🧠",
-        "category": CATEGORY_GROWTH,
-    },
-    "kids_development": {
-        "title": "Çocuk Gelişimi Danışmanı",
-        "emoji": "👨‍👩‍👧",
-        "category": CATEGORY_FAMILY,
-    },
-    "executive_coaching": {
-        "title": "Yönetici Koçu (Gelişim + Hesap Verebilirlik)",
-        "emoji": "🧭",
-        "category": CATEGORY_GROWTH,
-    },
-    "work_analyst": {
-        "title": "İş Analisti Danışmanı",
-        "emoji": "📈",
-        "category": CATEGORY_OPS,
-    },
-    "operations_director": {
-        "title": "Operasyon Direktörü (Günün Kararları)",
-        "emoji": "🚦",
-        "category": CATEGORY_OPS,
-    },
-    "sre_watchdog": {
-        "title": "Teknik Gözetim (7/24 SRE)",
-        "emoji": "🛡️",
-        "category": CATEGORY_OPS,
-    },
+#: In the live roster: instantiated by ``advisors.all_advisors()``.
+ADVISOR_LIVE = "live"
+#: Module kept on disk for rollback, but nobody runs it.
+ADVISOR_RETIRED = "retired"
+
+#: Runs on EVERY run. Reserve it for advisors the briefing is useless without.
+TRIGGER_ALWAYS = "always"
+#: Runs only when its ``data_owner`` source actually changed.
+TRIGGER_DATA = "data_triggered"
+#: Runs once a week — rhythm pieces whose advice does not change daily.
+TRIGGER_WEEKLY = "weekly"
+#: Runs only when explicitly asked for (``DIGEST_FORCE_ADVISORS``).
+TRIGGER_USER_REQUESTED = "user_requested"
+
+TRIGGERS = (TRIGGER_ALWAYS, TRIGGER_DATA, TRIGGER_WEEKLY, TRIGGER_USER_REQUESTED)
+
+
+def _live(
+    key: str,
+    title: str,
+    emoji: str,
+    category: str,
+    *,
+    advisor_class: str,
+    trigger: str,
+    token_ceiling: int,
+    data_owner: str,
+) -> tuple:
+    """One live advisor. ``dashboard_order`` is filled in from its position."""
+    return key, {
+        "title": title,
+        "emoji": emoji,
+        "category": category,
+        "status": ADVISOR_LIVE,
+        "trigger": trigger,
+        "token_ceiling": int(token_ceiling),
+        "data_owner": data_owner,
+        "dashboard_order": 0,
+        "slack_target": "#" + key.replace("_", "-"),
+        "module": key,
+        "advisor_class": advisor_class,
+    }
+
+
+def _retired(
+    key: str, title: str, emoji: str, category: str, *, advisor_class: str
+) -> tuple:
+    """A module kept on disk but out of service.
+
+    Retired advisors carry ``user_requested`` because that is the only way they
+    can still run: someone naming them explicitly. They own no source, hold no
+    dashboard position and route nowhere.
+    """
+    return key, {
+        "title": title,
+        "emoji": emoji,
+        "category": category,
+        "status": ADVISOR_RETIRED,
+        "trigger": TRIGGER_USER_REQUESTED,
+        "token_ceiling": 0,
+        "data_owner": "",
+        "dashboard_order": 0,
+        "slack_target": "",
+        "module": key,
+        "advisor_class": advisor_class,
+    }
+
+
+#: The live roster, IN REPORT ORDER. The order of this tuple is the order the
+#: advisors run in, so the ordering rules live here: the two "before the day
+#: starts" sections and meeting prep open it; the work analyst consolidates the
+#: others so it comes late; the operations director synthesises everything
+#: including the analyst; the SRE watchdog reports on the MACHINE and closes.
+_LIVE_ROSTER = (
+    _live(
+        "morning_operations",
+        "Sabah İşletme Brifingi",
+        "📋",
+        CATEGORY_OPS,
+        advisor_class="MorningOperationsAdvisor",
+        trigger=TRIGGER_ALWAYS,
+        token_ceiling=1600,
+        data_owner="gmail_calendar",
+    ),
+    _live(
+        "communications_calendar",
+        "İletişim & Takvim Danışmanı",
+        "📬",
+        CATEGORY_OPS,
+        advisor_class="CommunicationsCalendarAdvisor",
+        trigger=TRIGGER_ALWAYS,
+        token_ceiling=1400,
+        data_owner="gmail_calendar",
+    ),
+    _live(
+        "meeting_prep",
+        "Toplantı Hazırlık & Takip",
+        "🤝",
+        CATEGORY_OPS,
+        advisor_class="MeetingPrepAdvisor",
+        trigger=TRIGGER_DATA,
+        token_ceiling=1200,
+        data_owner="calendar",
+    ),
+    _live(
+        "career_development",
+        "Kariyer Gelişimi (İK · İlanlar · İngilizce · Sertifika)",
+        "💼",
+        CATEGORY_CAREER,
+        advisor_class="CareerDevelopmentAdvisor",
+        trigger=TRIGGER_DATA,
+        token_ceiling=1200,
+        data_owner="career_feeds",
+    ),
+    _live(
+        "market_intelligence",
+        "Pazar İstihbaratı (Sektör · YZ · CX · Bankacılık)",
+        "📊",
+        CATEGORY_SECTOR,
+        advisor_class="MarketIntelligenceAdvisor",
+        trigger=TRIGGER_DATA,
+        token_ceiling=1400,
+        data_owner="market_feeds",
+    ),
+    _live(
+        "complaint_radar",
+        "Kapsamlı Pazar & Sentiment Analizi (Müşteri Şikayet · Trendler · Rekabet)",
+        "📊",
+        CATEGORY_SECTOR,
+        advisor_class="ComplaintRadarAdvisor",
+        trigger=TRIGGER_DATA,
+        token_ceiling=1200,
+        data_owner="complaint_feeds",
+    ),
+    _live(
+        "linkedin_coach",
+        "LinkedIn İmaj Koçu (Profil · Post · Engagement)",
+        "💼",
+        CATEGORY_GROWTH,
+        advisor_class="LinkedInCoach",
+        trigger=TRIGGER_DATA,
+        token_ceiling=1000,
+        data_owner="linkedin",
+    ),
+    _live(
+        "social_media_coach",
+        "Sosyal Medya İmaj Koçu (Instagram · Twitter · Marka)",
+        "📱",
+        CATEGORY_GROWTH,
+        advisor_class="SocialMediaCoachAdvisor",
+        trigger=TRIGGER_WEEKLY,
+        token_ceiling=900,
+        data_owner="social",
+    ),
+    _live(
+        "personal_assistant",
+        "Kişisel Asistan (Takvim · Hedefler · Ağ · Fırsatlar)",
+        "📅",
+        CATEGORY_OPS,
+        advisor_class="PersonalAssistantAdvisor",
+        trigger=TRIGGER_WEEKLY,
+        token_ceiling=1000,
+        data_owner="calendar_tasks",
+    ),
+    _live(
+        "data_analyst",
+        "Veri Analisti (Çağrı Merkezi Operasyonu)",
+        "🔬",
+        CATEGORY_OPS,
+        advisor_class="DataAnalystAdvisor",
+        trigger=TRIGGER_DATA,
+        token_ceiling=1600,
+        data_owner="analysis_dataset",
+    ),
+    _live(
+        "ai_innovation",
+        "Yapay Zeka & İnovasyon (Ustalaşma · Fikirler)",
+        "🧠",
+        CATEGORY_GROWTH,
+        advisor_class="AiInnovationAdvisor",
+        trigger=TRIGGER_WEEKLY,
+        token_ceiling=1000,
+        data_owner="ai_feeds",
+    ),
+    _live(
+        "kids_development",
+        "Çocuk Gelişimi Danışmanı",
+        "👨‍👩‍👧",
+        CATEGORY_FAMILY,
+        advisor_class="KidsDevelopmentAdvisor",
+        # No feed, no cadence: it is timeless coaching, so it runs when asked
+        # rather than burning a slice of every quota window.
+        trigger=TRIGGER_USER_REQUESTED,
+        token_ceiling=800,
+        data_owner="",
+    ),
+    _live(
+        "executive_coaching",
+        "Yönetici Koçu (Gelişim + Hesap Verebilirlik)",
+        "🧭",
+        CATEGORY_GROWTH,
+        advisor_class="ExecutiveCoachingAdvisor",
+        trigger=TRIGGER_WEEKLY,
+        token_ceiling=900,
+        data_owner="",
+    ),
+    _live(
+        "work_analyst",
+        "İş Analisti Danışmanı",
+        "📈",
+        CATEGORY_OPS,
+        advisor_class="WorkAnalystAdvisor",
+        # Consolidates the SYSTEM's health from the run itself, so it has to see
+        # every run — and it costs no model call to do it.
+        trigger=TRIGGER_ALWAYS,
+        token_ceiling=0,
+        data_owner="run_briefings",
+    ),
+    _live(
+        "operations_director",
+        "Operasyon Direktörü (Günün Kararları)",
+        "🚦",
+        CATEGORY_OPS,
+        advisor_class="OperationsDirectorAdvisor",
+        trigger=TRIGGER_ALWAYS,
+        token_ceiling=1600,
+        data_owner="run_briefings",
+    ),
+    _live(
+        "sre_watchdog",
+        "Teknik Gözetim (7/24 SRE)",
+        "🛡️",
+        CATEGORY_OPS,
+        advisor_class="SreWatchdogAdvisor",
+        trigger=TRIGGER_ALWAYS,
+        token_ceiling=0,
+        data_owner="system_health",
+    ),
+)
+
+#: Retired modules. Kept in the manifest — rather than deleted from it — so
+#: "which advisors exist?" has ONE answer and a rollback is a status change.
+_RETIRED_ROSTER = (
+    # PHASE 1A: folded into MorningOperationsAdvisor
+    _retired(
+        "morning_briefing",
+        "Sabah Performans Brifingi",
+        "🌅",
+        CATEGORY_OPS,
+        advisor_class="MorningBriefingAdvisor",
+    ),
+    _retired(
+        "mail_analyst",
+        "E-posta Analiz Danışmanı",
+        "📧",
+        CATEGORY_OPS,
+        advisor_class="MailAnalystAdvisor",
+    ),
+    _retired(
+        "day_planner",
+        "Günlük Planlayıcı",
+        "🗓️",
+        CATEGORY_OPS,
+        advisor_class="DayPlannerAdvisor",
+    ),
+    # PHASE 1A: folded into ExecutiveCoachingAdvisor
+    _retired(
+        "leadership_coach",
+        "Liderlik Koçu",
+        "🎯",
+        CATEGORY_GROWTH,
+        advisor_class="LeadershipCoachAdvisor",
+    ),
+    _retired(
+        "accountability_coach",
+        "Hesap Sorucu Koç",
+        "✅",
+        CATEGORY_GROWTH,
+        advisor_class="AccountabilityCoachAdvisor",
+    ),
+    # PHASE 1B: folded into CareerDevelopmentAdvisor
+    _retired(
+        "career_hr",
+        "Kariyer & İK Danışmanı",
+        "💼",
+        CATEGORY_CAREER,
+        advisor_class="CareerHrAdvisor",
+    ),
+    _retired(
+        "job_scout",
+        "İş Avcısı & Başvuru Hazırlayıcı",
+        "🎯",
+        CATEGORY_CAREER,
+        advisor_class="JobScoutAdvisor",
+    ),
+    _retired(
+        "language_coach",
+        "İngilizce & Yönetici İletişimi Koçu",
+        "🗣️",
+        CATEGORY_CAREER,
+        advisor_class="LanguageCoachAdvisor",
+    ),
+    _retired(
+        "free_certs",
+        "Ücretsiz Sertifika & Eğitim Araştırmacısı",
+        "🎓",
+        CATEGORY_CAREER,
+        advisor_class="FreeCertsAdvisor",
+    ),
+    # PHASE 1B: folded into MarketIntelligenceAdvisor
+    _retired(
+        "sector_intel",
+        "Sektör & Rakip İstihbaratı",
+        "🛰️",
+        CATEGORY_SECTOR,
+        advisor_class="SectorIntelAdvisor",
+    ),
+    _retired(
+        "ai_news",
+        "Yapay Zeka Haberleri",
+        "📰",
+        CATEGORY_SECTOR,
+        advisor_class="AiNewsAdvisor",
+    ),
+    _retired(
+        "cx_research",
+        "Çağrı Merkezi & Müşteri Deneyimi Araştırmacısı",
+        "🎧",
+        CATEGORY_SECTOR,
+        advisor_class="CxResearchAdvisor",
+    ),
+    _retired(
+        "banking_cc_projects",
+        "Banka & Çağrı Merkezi Proje Uzmanı",
+        "🏦",
+        CATEGORY_SECTOR,
+        advisor_class="BankingCcProjectsAdvisor",
+    ),
+    # PHASE 1B: folded into AiInnovationAdvisor
+    _retired(
+        "ai_mastery",
+        "Yapay Zeka Ustalığı Koçu",
+        "🤖",
+        CATEGORY_GROWTH,
+        advisor_class="AiMasteryAdvisor",
+    ),
+    _retired(
+        "innovation_lab",
+        "İnovasyon Laboratuvarı",
+        "🧪",
+        CATEGORY_GROWTH,
+        advisor_class="InnovationLabAdvisor",
+    ),
+    # PHASE 1B: superseded by MorningOperationsAdvisor
+    _retired(
+        "daily_ops_briefing",
+        "Gün Başı Operasyon Brifingi",
+        "📋",
+        CATEGORY_OPS,
+        advisor_class="DailyOpsBriefingAdvisor",
+    ),
+    # PHASE 1C: retired outright
+    _retired(
+        "weather",
+        "Hava Durumu Meteoroloğu",
+        "☀️",
+        CATEGORY_OPS,
+        advisor_class="WeatherAdvisor",
+    ),
+    _retired(
+        "anka_bridge",
+        "Anka Köprüsü",
+        "🌉",
+        CATEGORY_OPS,
+        advisor_class="AnkaBridgeAdvisor",
+    ),
+    # Driven by the meeting-notes pipeline, not by the daily roster.
+    _retired(
+        "meeting_notes",
+        "Toplantı Notları",
+        "📝",
+        CATEGORY_OPS,
+        advisor_class="MeetingNotesAgent",
+    ),
+)
+
+
+def _build_manifest() -> Dict[str, Dict[str, Any]]:
+    manifest: Dict[str, Dict[str, Any]] = {}
+    for order, (key, record) in enumerate(_LIVE_ROSTER, start=1):
+        record["dashboard_order"] = order
+        manifest[key] = record
+    for key, record in _RETIRED_ROSTER:
+        manifest[key] = record
+    return manifest
+
+
+ADVISOR_META: Dict[str, Dict[str, Any]] = _build_manifest()
+
+DEFAULT_META: Dict[str, Any] = {
+    "title": "",
+    "emoji": "🧩",
+    "category": CATEGORY_OPS,
+    "status": ADVISOR_RETIRED,
+    "trigger": TRIGGER_USER_REQUESTED,
+    "token_ceiling": 0,
+    "data_owner": "",
+    "dashboard_order": 0,
+    "slack_target": "",
+    "module": "",
+    "advisor_class": "",
 }
 
-DEFAULT_META = {"title": "", "emoji": "🧩", "category": CATEGORY_OPS}
+
+# --- reading the manifest ---------------------------------------------------
+
+
+def advisor_meta(key: str) -> Dict[str, Any]:
+    """The manifest record for ``key``, or :data:`DEFAULT_META` if unknown."""
+    return ADVISOR_META.get(key, DEFAULT_META)
+
+
+def is_live(key: str) -> bool:
+    """Whether ``key`` is in the CURRENT roster (not retired, not unknown)."""
+    return advisor_meta(key).get("status") == ADVISOR_LIVE
+
+
+def live_advisor_keys() -> tuple:
+    """Every live advisor key, in roster (``dashboard_order``) order.
+
+    This is what ``ai_assistant.advisors.all_advisors()`` builds the team from,
+    so adding an advisor here — and only here — puts it on the roster, in the
+    dashboard, and on its own Slack route.
+    """
+    live = [(m["dashboard_order"], k) for k, m in ADVISOR_META.items() if is_live(k)]
+    return tuple(key for _order, key in sorted(live))
+
+
+def retired_advisor_keys() -> tuple:
+    """Every retired advisor key, alphabetically."""
+    return tuple(sorted(k for k in ADVISOR_META if not is_live(k)))
+
+
+def advisor_trigger(key: str) -> str:
+    """WHEN this advisor runs — one of :data:`TRIGGERS`."""
+    return str(advisor_meta(key).get("trigger") or TRIGGER_USER_REQUESTED)
+
+
+def advisor_data_owner(key: str) -> str:
+    """The source whose content decides whether this advisor has work to do."""
+    return str(advisor_meta(key).get("data_owner") or "")
+
+
+def advisor_token_ceiling(key: str) -> int:
+    """Rough per-run token budget; ``0`` means "makes no model call"."""
+    try:
+        return int(advisor_meta(key).get("token_ceiling") or 0)
+    except (TypeError, ValueError):  # pragma: no cover - defensive only
+        return 0
+
+
+def advisors_with_trigger(trigger: str) -> tuple:
+    """Live advisor keys whose trigger is ``trigger``, in roster order."""
+    return tuple(k for k in live_advisor_keys() if advisor_trigger(k) == trigger)
 
 
 # --- sanitising -------------------------------------------------------------
@@ -1293,8 +1699,24 @@ def write_status_report(
 
 
 __all__ = [
+    "ADVISOR_LIVE",
     "ADVISOR_META",
+    "ADVISOR_RETIRED",
+    "DEFAULT_META",
     "HISTORY_LIMIT",
+    "TRIGGERS",
+    "TRIGGER_ALWAYS",
+    "TRIGGER_DATA",
+    "TRIGGER_USER_REQUESTED",
+    "TRIGGER_WEEKLY",
+    "advisor_data_owner",
+    "advisor_meta",
+    "advisor_token_ceiling",
+    "advisor_trigger",
+    "advisors_with_trigger",
+    "is_live",
+    "live_advisor_keys",
+    "retired_advisor_keys",
     "IntegrationMetrics",
     "build_status",
     "integration_metrics_file_path",
