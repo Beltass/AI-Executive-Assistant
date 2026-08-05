@@ -22,13 +22,22 @@ WHAT IS RECORDED
     keeps the ledger safe to commit back to a public repository, exactly like
     the accountability coach's streak file.
 
+    * per ``data_owner`` (the SOURCE an advisor reads, named in the manifest in
+      :mod:`ai_assistant.status_report`), ONE hash of the raw material that
+      source handed the model last time. It answers the cheaper question that
+      comes before the per-item one: has this source moved AT ALL? If it has
+      not, the advisors reading it are skipped before a single token is spent —
+      see :meth:`FindingsMemory.source_changed`. Same file, own ``sources``
+      key: one ledger, one commit, one fail-safe path.
+
 RETENTION
     Entries older than ``FINDINGS_MEMORY_DAYS`` (default 30) are dropped on
     load, so the file cannot grow forever and a genuinely recurring topic is
     allowed to resurface after the window.
 
 WHEN IT IS WRITTEN
-    Fingerprints are *staged* while the advisors work and only committed after
+    Fingerprints and source hashes are *staged* while the advisors work and
+    only committed after
     Slack ACCEPTED the digest (:mod:`ai_assistant.notifiers.slack_notifier`).
     A finding that was never delivered is therefore still new next time —
     nothing is silently lost.
@@ -222,6 +231,66 @@ def text_fingerprints(text: str) -> List[str]:
     return prints
 
 
+# --- source content hashes --------------------------------------------------
+#
+# The fingerprints above answer "have I already told the user about THIS ITEM?".
+# They cannot answer the cheaper question that comes first: "has the SOURCE this
+# advisor reads changed at all since the last run?" — and that is the question
+# worth asking, because a source that did not move produces the same section it
+# produced this morning, for the full token price.
+#
+# So every ``data_owner`` in the advisor manifest (see
+# :mod:`ai_assistant.status_report`) also gets ONE hash of the raw material it
+# handed the model last time. Same hash, no model call: the advisors reading
+# that source are skipped with the reason ``veri_degismedi``.
+#
+# It lives in the SAME ledger file as the fingerprints, under its own
+# ``sources`` key. No second file, no second retention policy, one commit.
+
+#: Hash-kind prefix, so a source hash can never collide with an item
+#: fingerprint even though both live in one document.
+KIND_SOURCE = "s"
+
+#: Source hashes are longer than item fingerprints: an item fingerprint only
+#: has to be unique among one advisor's few hundred items, but a source hash
+#: decides whether a whole advisor runs, so a collision would silence it.
+_SOURCE_HASH_CHARS = 32
+
+
+def source_payload_text(payload: Any) -> str:
+    """Render anything an advisor gathered into ONE stable string.
+
+    Strings pass through; everything else goes through JSON with sorted keys so
+    that a dict whose keys came back in a different order is not mistaken for
+    changed data. Unserialisable objects fall back to ``repr`` rather than
+    raising — a source we cannot render is treated as changed, which fails
+    towards informing the user.
+    """
+    if payload is None:
+        return ""
+    if isinstance(payload, str):
+        return payload
+    try:
+        return json.dumps(payload, sort_keys=True, ensure_ascii=False, default=str)
+    except Exception:  # pragma: no cover - defensive only
+        return repr(payload)
+
+
+def source_hash(payload: Any) -> str:
+    """Content hash of one source's raw material, or ``""`` when it is empty.
+
+    Whitespace and case are normalised first (:func:`normalize_text`) so that a
+    reformatted feed or a re-rendered prompt is not reported as new data.
+    """
+    normalized = normalize_text(source_payload_text(payload))
+    if not normalized:
+        return ""
+    return (
+        f"{KIND_SOURCE}:"
+        + hashlib.sha256(normalized.encode("utf-8")).hexdigest()[:_SOURCE_HASH_CHARS]
+    )
+
+
 # --- the ledger -------------------------------------------------------------
 
 
@@ -246,6 +315,10 @@ class FindingsMemory:
         self._seen: Dict[str, Dict[str, str]] = {}
         # Staged this run, committed only after a successful delivery.
         self._pending: Dict[str, Dict[str, str]] = {}
+        # {data_owner: content hash} — what each SOURCE looked like last time.
+        self._sources: Dict[str, str] = {}
+        # Source hashes observed this run, committed with the fingerprints.
+        self._pending_sources: Dict[str, str] = {}
         # Per-advisor count of genuinely new findings observed this run.
         self._new_counts: Dict[str, int] = {}
 
@@ -281,6 +354,7 @@ class FindingsMemory:
             self._readable = False
             return
         self._seen = self._parse(data)
+        self._sources = self._parse_sources(data)
 
     def _parse(self, data: Any) -> Dict[str, Dict[str, str]]:
         """Validate the on-disk shape and drop entries past the window."""
@@ -306,6 +380,24 @@ class FindingsMemory:
                 parsed[str(advisor_id)] = kept
         return parsed
 
+    def _parse_sources(self, data: Any) -> Dict[str, str]:
+        """Read the ``sources`` block, ignoring anything malformed.
+
+        Unlike the fingerprints, source hashes are NOT aged out: a source that
+        has been quiet for two months is still unchanged, and forgetting its
+        hash would buy a pointless model call the day the ledger expires it.
+        """
+        if not isinstance(data, dict):
+            return {}
+        sources = data.get("sources")
+        if not isinstance(sources, dict):
+            return {}
+        return {
+            str(owner): str(digest)
+            for owner, digest in sources.items()
+            if owner and isinstance(digest, str) and digest
+        }
+
     def save(self) -> bool:
         """Persist the ledger. Returns ``False`` (and logs) if it could not."""
         path = self.path
@@ -314,6 +406,7 @@ class FindingsMemory:
             "updated_at": datetime.now().date().isoformat(),
             "retention_days": self.days,
             "advisors": self._seen,
+            "sources": self._sources,
         }
         try:
             directory = os.path.dirname(path)
@@ -369,6 +462,47 @@ class FindingsMemory:
                 bucket[fingerprint] = today
         self.save()
 
+    # -- source content gate ---------------------------------------------
+    def known_source_hash(self, owner: str) -> str:
+        """The hash this source had when it was last DELIVERED, or ``""``.
+
+        Deliberately blind to what this run staged: a run that gathered a
+        source but never delivered its briefing has told the user nothing, and
+        the next attempt must be allowed to do the work again.
+        """
+        if not owner:
+            return ""
+        self._load()
+        return self._sources.get(owner, "")
+
+    def source_changed(self, owner: str, payload: Any) -> bool:
+        """Whether ``owner``'s raw material differs from the last committed run.
+
+        ``True`` — and therefore "run the advisors reading this source" — for
+        every uncertain case: an unnamed owner, an empty payload, an unreadable
+        ledger, or a source seen for the first time. The gate may only ever
+        skip work it is SURE is redundant.
+        """
+        if not owner or not self._readable:
+            return True
+        digest = source_hash(payload)
+        if not digest:
+            return True
+        return digest != self.known_source_hash(owner)
+
+    def stage_source(self, owner: str, payload: Any) -> str:
+        """Record what ``owner`` looked like this run. Returns the hash.
+
+        Staged only: like the fingerprints, it reaches the file in
+        :meth:`commit`, i.e. after the briefing was actually delivered. A run
+        that dies before delivery must not convince the next one that the
+        source has already been reported on.
+        """
+        digest = source_hash(payload)
+        if owner and digest:
+            self._pending_sources[owner] = digest
+        return digest
+
     def note_new(self, advisor_id: str, count: int) -> None:
         """Record how many genuinely new findings an advisor had this run."""
         self._new_counts[advisor_id] = self._new_counts.get(advisor_id, 0) + count
@@ -382,13 +516,14 @@ class FindingsMemory:
 
     @property
     def has_pending(self) -> bool:
-        return any(self._pending.values())
+        return any(self._pending.values()) or bool(self._pending_sources)
 
     def commit(self) -> bool:
         """Move everything staged into the ledger and write it to disk.
 
         Called ONLY after a successful delivery. Returns ``True`` when the file
-        was written (or there was nothing to write).
+        was written (or there was nothing to write). Item fingerprints and
+        source hashes commit TOGETHER: they describe the same delivered run.
         """
         if not self.has_pending:
             return True
@@ -397,11 +532,14 @@ class FindingsMemory:
             bucket = self._seen.setdefault(advisor_id, {})
             bucket.update(entries)
         self._pending = {}
+        self._sources.update(self._pending_sources)
+        self._pending_sources = {}
         return self.save()
 
     def discard_pending(self) -> None:
         """Forget the staged fingerprints — the findings were never delivered."""
         self._pending = {}
+        self._pending_sources = {}
 
     # -- the workhorse ---------------------------------------------------
     def filter_new_items(self, advisor_id: str, items: Sequence[Any]) -> List[Any]:
@@ -473,6 +611,16 @@ def filter_new_items(advisor_id: str, items: Sequence[Any]) -> List[Any]:
     return shared().filter_new_items(advisor_id, items)
 
 
+def source_changed(owner: str, payload: Any) -> bool:
+    """Module-level shortcut onto the shared ledger."""
+    return shared().source_changed(owner, payload)
+
+
+def stage_source(owner: str, payload: Any) -> str:
+    """Module-level shortcut onto the shared ledger."""
+    return shared().stage_source(owner, payload)
+
+
 def new_count(advisor_id: str) -> int:
     """How many new findings ``advisor_id`` reported in this process."""
     return shared().new_count(advisor_id)
@@ -501,6 +649,10 @@ __all__ = [
     "reset",
     "retention_days",
     "shared",
+    "source_changed",
+    "source_hash",
+    "source_payload_text",
+    "stage_source",
     "text_fingerprints",
     "title_fingerprint",
     "url_fingerprint",
