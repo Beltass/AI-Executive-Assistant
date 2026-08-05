@@ -46,7 +46,14 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
-          pip install -r backend/requirements-dev.txt || true
+          # `|| true` kaldırıldı: bu kurulum gerçekten çalışıyor (doğrulandı,
+          # exit 0). Kurulumun sessizce başarısız olabilmesi, sonraki adımların
+          # eksik araçlarla koşmasına ve "yeşil" görünmesine yol açıyordu.
+          # NOT: backend/requirements-dev.txt pytest'i 7.4.3'e, httpx'i
+          # 0.25.2'ye DÜŞÜRÜYOR; pip bunun için bir uyarı basıyor (exit 0).
+          # Kök suite her iki sürümle de geçiyor, ama pin'ler bir gün
+          # hizalanmalı.
+          pip install -r backend/requirements-dev.txt
 
       - name: Check JavaScript syntax
         run: |
@@ -57,19 +64,39 @@ jobs:
             node --check frontend/charts.js
           fi
 
+      # 41 dosyanın 17'si black'e uyumsuz. Bunları tek seferde formatlamak
+      # kaynak kodun yarısına dokunan, incelenemez bir diff üretirdi; bu yüzden
+      # otomatik format YAPILMADI. `|| true` yerine `continue-on-error`:
+      # ikisi de suite'i kırmaz, ama continue-on-error adımı GitHub arayüzünde
+      # sarı işaretler — `|| true` ise hatayı tamamen görünmez kılıyordu.
       - name: Lint with black
+        continue-on-error: true
         run: |
-          black --check backend/ || true
+          black --check backend/
 
+      # `--exit-zero` zaten çıkış kodunu bastırıyor, `|| true` ikinci kez aynı
+      # işi yapıyordu. Fazlalık olan `|| true` kaldırıldı; adım hâlâ yalnızca
+      # rapor amaçlı (şu an 109 uyarı, çoğu E501 — black'in 88 karakterlik
+      # satır sınırıyla flake8'in 79'u çeliştiği için).
       - name: Lint with flake8
         run: |
-          flake8 backend/ --count --exit-zero --max-complexity=10 || true
+          flake8 backend/ --count --exit-zero --max-complexity=10
 
       - name: Run main tests
         run: pytest -q
 
+      # Backend suite ŞU AN TAMAMEN KIRIK: tek bir test bile koşmuyor.
+      # backend/tests/conftest.py, app.main'i import ediyor ve
+      # backend/app/db/models.py:87'deki `Content` modeli SQLAlchemy Declarative
+      # API'sinde ayrılmış olan `metadata` adını kolon adı olarak kullanıyor:
+      #   InvalidRequestError: Attribute name 'metadata' is reserved
+      # Bu bir collection hatası (pytest exit 4), yani 0 test toplandı.
+      # `|| true` KALDIRILMADI-ama-DEĞİŞTİRİLDİ: hata düzeltilene kadar suite'i
+      # kırmamak için continue-on-error, ama artık en azından kırmızı/sarı
+      # görünüyor. Model düzeltilince bu satır da silinmeli.
       - name: Run backend tests
+        continue-on-error: true
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
         run: |
-          pytest backend/tests/ -v --cov=backend/app --cov-report=xml --cov-report=term-missing || true
+          pytest backend/tests/ -v --cov=backend/app --cov-report=xml --cov-report=term-missing
