@@ -55,6 +55,14 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         case_sensitive = True
+        # The repo root .env is shared with the Slack/Gemini assistant and holds
+        # many keys this backend never declares. env_file is resolved relative to
+        # the current working directory, so running pytest from the repo root made
+        # pydantic reject every foreign key with extra_forbidden. Ignoring unknown
+        # env vars keeps the backend runnable from any CWD.
+        # Trade-off: genuine misconfiguration (a typo'd variable name) is now
+        # silently dropped instead of raising at startup.
+        extra = "ignore"
 
 
 settings = Settings()
