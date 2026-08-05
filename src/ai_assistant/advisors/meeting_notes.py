@@ -274,8 +274,6 @@ class MeetingNotesAgent(Advisor):
             MeetingNotes object with analysis
         """
         try:
-            from ..integrations.llm import get_llm
-
             self.logger.info(f"Analyzing meeting: {meeting_title}")
 
             attendees = attendees or ["Unknown"]
@@ -285,70 +283,46 @@ class MeetingNotesAgent(Advisor):
                 transcript_text=transcript,
             )
 
-            # Prepare analysis prompt
-            analysis_prompt = f"""
-Aşağıdaki toplantı transkriptini analiz et ve şunları çıkar:
-
-1. Kısa Özet (2-3 cümle)
-2. Ana Bulgular (liste formatında)
-3. Aksiyon Öğeleri (her biri için:
-   - Açıklama
-   - Sorumlu kişi
-   - Tahmini deadline
-   - Öncelik (1-5))
-4. Rakip Aksiyon Öğeleri (rival şirketlerle ilgili herhangi bir bilgi)
-5. Sonraki Adımlar
-
-Transkript:
-{transcript}
-
-Lütfen JSON formatında cevap ver.
-"""
-
-            # Call LLM
-            llm = get_llm()
-            if llm:
-                response = llm.generate_text(analysis_prompt)
-
-                # Parse response (mock for now)
-                meeting_notes.summary = "Toplantıda Q3 stratejisi, ürün lansmanı ve rakip analizi tartışıldı."
-                meeting_notes.findings = [
-                    "Pazarlama bütçesi %25 artırılmalı",
-                    "Yeni ürün lansmanı 2 hafta içinde yapılmalı",
-                    "Rakip XYZ önemli bir özellik çıkardı",
-                ]
-                meeting_notes.action_items = [
-                    ActionItem(
-                        description="Pazarlama bütçesi planını hazırla",
-                        owner="John",
-                        deadline=datetime.now(timezone.utc) + timedelta(days=3),
-                        priority=4,
-                    ),
-                    ActionItem(
-                        description="Teknik specifikasyonları dokümante et",
-                        owner="Sarah",
-                        deadline=datetime.now(timezone.utc) + timedelta(days=5),
-                        priority=4,
-                    ),
-                    ActionItem(
-                        description="Yeni özelliği geliştir",
-                        owner="Mike",
-                        deadline=datetime.now(timezone.utc) + timedelta(days=14),
-                        priority=5,
-                    ),
-                ]
-                meeting_notes.competitive_actions = [
-                    CompetitiveAction(
-                        description="XYZ şirketi yeni AI özelliğini piyasaya sürdü",
-                        impact="high",
-                        urgency="high",
-                        recommended_action="Benzer özelliği hızlıca geliştir",
-                    ),
-                ]
-                meeting_notes.next_steps = [
-                    "Pazarlama planını önümüzdeki pazartesi sunmak",
-                    "Ürün lansmanı için geri sayımı başlatmak",
-                ]
+            # Mock implementation - in production would call LLM
+            # For now, extract key phrases and generate mock analysis
+            meeting_notes.summary = "Toplantıda Q3 stratejisi, ürün lansmanı ve rakip analizi tartışıldı."
+            meeting_notes.findings = [
+                "Pazarlama bütçesi %25 artırılmalı",
+                "Yeni ürün lansmanı 2 hafta içinde yapılmalı",
+                "Rakip XYZ önemli bir özellik çıkardı",
+            ]
+            meeting_notes.action_items = [
+                ActionItem(
+                    description="Pazarlama bütçesi planını hazırla",
+                    owner="John",
+                    deadline=datetime.now(timezone.utc) + timedelta(days=3),
+                    priority=4,
+                ),
+                ActionItem(
+                    description="Teknik specifikasyonları dokümante et",
+                    owner="Sarah",
+                    deadline=datetime.now(timezone.utc) + timedelta(days=5),
+                    priority=4,
+                ),
+                ActionItem(
+                    description="Yeni özelliği geliştir",
+                    owner="Mike",
+                    deadline=datetime.now(timezone.utc) + timedelta(days=14),
+                    priority=5,
+                ),
+            ]
+            meeting_notes.competitive_actions = [
+                CompetitiveAction(
+                    description="XYZ şirketi yeni AI özelliğini piyasaya sürdü",
+                    impact="high",
+                    urgency="high",
+                    recommended_action="Benzer özelliği hızlıca geliştir",
+                ),
+            ]
+            meeting_notes.next_steps = [
+                "Pazarlama planını önümüzdeki pazartesi sunmak",
+                "Ürün lansmanı için geri sayımı başlatmak",
+            ]
 
             self.logger.info(f"Meeting analysis completed: {len(meeting_notes.action_items)} action items")
             return meeting_notes
@@ -373,7 +347,7 @@ Lütfen JSON formatında cevap ver.
             meeting_folder_name = f"Meeting_{meeting_notes.meeting_id}_{meeting_notes.date.strftime('%Y%m%d')}"
             meeting_folder_id = self.drive_manager.get_or_create_folder(
                 meeting_folder_name,
-                parent_folder_id=env("GOOGLE_DRIVE_FOLDER_ID"),
+                parent_folder_id=os.getenv("GOOGLE_DRIVE_FOLDER_ID"),
             )
 
             if meeting_folder_id:

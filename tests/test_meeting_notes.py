@@ -460,7 +460,7 @@ class TestMeetingNotesAgent:
             briefing = agent._generate()
 
         assert briefing.status == "skipped"
-        assert "yeni bulgu yok" in briefing.text
+        assert briefing.nothing_new is True
 
     def test_agent_generate_briefing_with_tasks(self, agent: MeetingNotesAgent):
         """Test generating briefing with upcoming tasks."""
@@ -484,35 +484,35 @@ class TestMeetingNotesAgent:
         assert "Urgent task" in briefing.text
         assert "John" in briefing.text
 
-    @pytest.mark.asyncio
-    async def test_agent_transcribe_audio(self, agent: MeetingNotesAgent):
+    def test_agent_transcribe_audio(self, agent: MeetingNotesAgent):
         """Test audio transcription (mock)."""
+        import asyncio
         audio_url = "https://example.com/meeting.mp3"
 
-        result = await agent.transcribe_audio(audio_url)
+        result = asyncio.run(agent.transcribe_audio(audio_url))
 
         assert isinstance(result, str)
         assert len(result) > 0
 
-    @pytest.mark.asyncio
-    async def test_agent_analyze_meeting(self, agent: MeetingNotesAgent):
+    def test_agent_analyze_meeting(self, agent: MeetingNotesAgent):
         """Test meeting analysis."""
+        import asyncio
         transcript = "Meeting transcript with action items and decisions."
 
-        notes = await agent.analyze_meeting(
+        notes = asyncio.run(agent.analyze_meeting(
             transcript,
             meeting_title="Planning Meeting",
             attendees=["Alice", "Bob"],
-        )
+        ))
 
         assert isinstance(notes, MeetingNotes)
         assert notes.title == "Planning Meeting"
         assert len(notes.attendees) == 2
         assert len(notes.action_items) > 0
 
-    @pytest.mark.asyncio
-    async def test_agent_generate_report(self, agent: MeetingNotesAgent):
+    def test_agent_generate_report(self, agent: MeetingNotesAgent):
         """Test report generation."""
+        import asyncio
         agent.drive_manager.get_or_create_folder.return_value = "folder_123"
         agent.drive_manager.create_google_doc.return_value = "doc_123"
 
@@ -522,15 +522,15 @@ class TestMeetingNotesAgent:
             findings=["Finding 1"],
         )
 
-        reports = await agent.generate_report(notes)
+        reports = asyncio.run(agent.generate_report(notes))
 
         assert isinstance(reports, dict)
         # Reports may be empty if not fully mocked, but structure should be right
         agent.drive_manager.get_or_create_folder.assert_called_once()
 
-    @pytest.mark.asyncio
-    async def test_agent_create_tasks_in_tracker(self, agent: MeetingNotesAgent):
+    def test_agent_create_tasks_in_tracker(self, agent: MeetingNotesAgent):
         """Test creating tasks in tracker from action items."""
+        import asyncio
         items = [
             ActionItem(
                 description="Task 1",
@@ -547,7 +547,7 @@ class TestMeetingNotesAgent:
         # Mock the task tracker's add_task method
         agent.task_tracker.add_task.side_effect = lambda t: t.id
 
-        task_ids = await agent.create_tasks_in_tracker(items, "meeting_123")
+        task_ids = asyncio.run(agent.create_tasks_in_tracker(items, "meeting_123"))
 
         assert len(task_ids) == 2
         assert agent.task_tracker.add_task.call_count == 2
