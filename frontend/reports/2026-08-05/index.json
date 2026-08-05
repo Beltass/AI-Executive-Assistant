@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "date": "2026-08-05",
+  "generated_at": "2026-08-05T12:38:49+03:00",
+  "generated_at_istanbul": "05.08.2026 12:38",
+  "mode": "full",
+  "mode_label": "tam brifing",
+  "count": 5,
+  "reports": [
+    {
+      "id": "morning_operations",
+      "name": "Sabah İşletme Brifingi",
+      "emoji": "📋",
+      "category": "operasyon",
+      "headline": "Bugünün odağı, kritik yol üzerindeki engelleri kaldırarak ana proje hedeflerine ulaşmak ve en önemli göreve öncelik vermektir.",
+      "excerpt": "Günaydın! Güne başlarken operasyonel nabzımızı tutalım. Dün için spesifik performans metrikleri elimizde olmasa da, bugünün gündemi net ve aksiyon odaklı. Hızlı ve etkili bir başlangıç için…",
+      "words": 431,
+      "read_minutes": 2,
+      "action_count": 0,
+      "generated_at": "2026-08-05T12:38:49+03:00",
+      "generated_at_istanbul": "05.08.2026 12:38",
+      "path": "morning_operations.json"
+    },
+    {
+      "id": "career_development",
+      "name": "Kariyer Gelişimi (İK · İlanlar · İngilizce · Sertifika)",
+      "emoji": "💼",
+      "category": "kariyer",
+      "headline": "Banka çağrı merkezi üst düzey yöneticileri için veriyle hikâye anlatımı ve kritik yetkinlikler, kariyer gelişiminde öne çıkıyor.",
+      "excerpt": "Kariyer yolculuğunuzda bir sonraki adıma hazır mısınız? Banka çağrı merkezleri gibi dinamik bir sektörde üst düzey yöneticilik pozisyonları, sadece operasyonel başarı değil, aynı zamanda stratejik…",
+      "words": 1856,
+      "read_minutes": 9,
+      "action_count": 0,
+      "generated_at": "2026-08-05T12:38:49+03:00",
+      "generated_at_istanbul": "05.08.2026 12:38",
+      "path": "career_development.json"
+    },
+    {
+      "id": "market_intelligence",
+      "name": "Pazar İstihbaratı (Sektör · YZ · CX · Bankacılık)",
+      "emoji": "📊",
+      "category": "sektör",
+      "headline": "Yapay zeka modellerinin sınırları zorlaması ve veri güvenliği endişeleri artarken, banka çağrı merkezlerinde erişim yönetimi kritik bir uyum alanı olarak öne çıkıyor.",
+      "excerpt": "Pazar istihbaratı cephesinden önemli gelişmeler var. Özellikle yapay zeka alanındaki hızlı ilerlemeler ve beraberindeki etik/güvenlik tartışmaları, bankacılık sektöründe uyum ve operasyonel…",
+      "words": 2236,
+      "read_minutes": 11,
+      "action_count": 0,
+      "generated_at": "2026-08-05T12:38:49+03:00",
+      "generated_at_istanbul": "05.08.2026 12:38",
+      "path": "market_intelligence.json"
+    },
+    {
+      "id": "complaint_radar",
+      "name": "Pazar Trendleri & Kapsamlı Analiz Danışmanı",
+      "emoji": "📊",
+      "category": "sektör",
+      "headline": "Pazar trendlerine ve rakip hareketlerine dair yeni veri akışı olmasa da, bankacılık sektöründe müşteri şikâyetlerinin temel mekanizmalarını anlamak operasyonel iyileştirmeler için kritik önem taşıyor.",
+      "excerpt": "Günaydın! Bugün pazar istihbaratı radarımızdan yeni bir sinyal akışı gelmediği için, bankacılık sektöründeki kalıcı müşteri şikâyet mekanizmalarına ve bunlara karşı proaktif stratejilere…",
+      "words": 946,
+      "read_minutes": 5,
+      "action_count": 0,
+      "generated_at": "2026-08-05T12:38:49+03:00",
+      "generated_at_istanbul": "05.08.2026 12:38",
+      "path": "complaint_radar.json"
+    },
+    {
+      "id": "kids_development",
+      "name": "Çocuk Gelişimi Danışmanı",
+      "emoji": "👨‍👩‍👧",
+      "category": "aile",
+      "headline": "Çocuklarda sağlıklı özerklik gelişimini desteklemek, 4 ve 10 yaşlarında farklı yaklaşımlar gerektirir; bu, özgüven ve problem çözme becerilerini güçlendirir.",
+      "excerpt": "Sevgili ebeveyn, çocuklarımızın büyüme yolculuğunda onlara en büyük hediyelerden biri, kendi kararlarını verebilme ve sorumluluk alabilme yeteneği olan özerkliği kazandırmaktır. Bu, hem onların…",
+      "words": 687,
+      "read_minutes": 3,
+      "action_count": 0,
+      "generated_at": "2026-08-05T12:38:49+03:00",
+      "generated_at_istanbul": "05.08.2026 12:38",
+      "path": "kids_development.json"
+    }
+  ]
+}

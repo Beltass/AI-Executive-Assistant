@@ -1,39 +1,39 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-08-04T23:39:00+00:00",
-  "generated_at_istanbul": "05.08.2026 02:39",
+  "generated_at": "2026-08-05T09:38:50+00:00",
+  "generated_at_istanbul": "05.08.2026 12:38",
   "run": {
     "conclusion": "ok",
     "total": 15,
-    "ok": 2,
+    "ok": 11,
     "failed": 0,
-    "skipped": 11,
-    "duration_seconds": 69.0,
+    "skipped": 4,
+    "duration_seconds": 180.2,
     "batch": {
       "enabled": true,
       "attempted": true,
       "used": true,
-      "sections_requested": 2,
-      "sections_produced": 2,
+      "sections_requested": 8,
+      "sections_produced": 8,
       "model": "gemini-2.5-flash",
       "provider": "gemini",
-      "prompt_chars_total": 20635,
-      "guide_saved_chars": 3762
+      "prompt_chars_total": 40067,
+      "guide_saved_chars": 12642
     },
     "tokens": {
       "called": true,
-      "prompt": 7884,
-      "output": 4407,
-      "thoughts": 7399,
-      "total": 19690,
-      "latency_seconds": 63.99,
+      "prompt": 2960,
+      "output": 828,
+      "thoughts": 5139,
+      "total": 8927,
+      "latency_seconds": 35.53,
       "retries": 0,
       "fallback_used": false
     },
-    "mode": "incremental",
-    "mode_label": "artımlı",
-    "new_findings": 12,
-    "nothing_new_count": 11
+    "mode": "full",
+    "mode_label": "tam brifing",
+    "new_findings": 10,
+    "nothing_new_count": 0
   },
   "slack": {
     "status": "ok",
@@ -43,56 +43,56 @@
     {
       "id": "morning_operations",
       "name": "Sabah İşletme Brifingi",
-      "status": "skipped",
-      "content_length": 0,
-      "detail": "yeni bulgu yok",
+      "status": "ok",
+      "content_length": 3676,
+      "detail": "",
       "emoji": "📋",
       "category": "operasyon",
-      "new_findings": 0,
-      "nothing_new": true
+      "new_findings": null,
+      "nothing_new": false
     },
     {
       "id": "communications_calendar",
       "name": "İletişim & Takvim Danışmanı",
       "status": "skipped",
       "content_length": 0,
-      "detail": "yeni bulgu yok",
+      "detail": "no Google credentials/token configured (run: python -m ai_assistant.integrations.google_auth, then set GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / GOOGLE_REFRESH_TOKEN)",
       "emoji": "📬",
       "category": "operasyon",
-      "new_findings": 0,
-      "nothing_new": true
+      "new_findings": null,
+      "nothing_new": false
     },
     {
       "id": "career_development",
       "name": "Kariyer Gelişimi (İK · İlanlar · İngilizce · Sertifika)",
-      "status": "skipped",
-      "content_length": 0,
-      "detail": "yeni bulgu yok",
+      "status": "ok",
+      "content_length": 15214,
+      "detail": "",
       "emoji": "💼",
       "category": "kariyer",
       "new_findings": 0,
-      "nothing_new": true
+      "nothing_new": false
     },
     {
       "id": "market_intelligence",
       "name": "Pazar İstihbaratı (Sektör · YZ · CX · Bankacılık)",
       "status": "ok",
-      "content_length": 10402,
+      "content_length": 18944,
       "detail": "",
       "emoji": "📊",
       "category": "sektör",
-      "new_findings": 3,
+      "new_findings": 9,
       "nothing_new": false
     },
     {
       "id": "complaint_radar",
-      "name": "Müşteri Şikayet & İtibar Radarı",
+      "name": "Pazar Trendleri & Kapsamlı Analiz Danışmanı",
       "status": "ok",
-      "content_length": 6600,
+      "content_length": 7856,
       "detail": "",
-      "emoji": "📣",
+      "emoji": "📊",
       "category": "sektör",
-      "new_findings": 9,
+      "new_findings": 0,
       "nothing_new": false
     },
     {
@@ -100,110 +100,110 @@
       "name": "LinkedIn İmaj Koçu",
       "status": "skipped",
       "content_length": 0,
-      "detail": "yeni bulgu yok",
+      "detail": "LinkedIn profil URL'i yapılandırılmadı",
       "emoji": "💼",
       "category": "kişisel gelişim",
-      "new_findings": 0,
-      "nothing_new": true
+      "new_findings": null,
+      "nothing_new": false
     },
     {
       "id": "social_media_coach",
       "name": "Sosyal Medya İmaj Koçu",
       "status": "skipped",
       "content_length": 0,
-      "detail": "yeni bulgu yok",
-      "emoji": "📸",
+      "detail": "sosyal medya hesapları yapılandırılmadı. SOCIAL_MEDIA_INSTAGRAM_HANDLE veya SOCIAL_MEDIA_TWITTER_HANDLE ayarlayın.",
+      "emoji": "📱",
       "category": "kişisel gelişim",
-      "new_findings": 0,
-      "nothing_new": true
+      "new_findings": null,
+      "nothing_new": false
     },
     {
       "id": "personal_assistant",
       "name": "Kişisel Asistan",
-      "status": "skipped",
-      "content_length": 0,
-      "detail": "yeni bulgu yok",
-      "emoji": "🤖",
+      "status": "ok",
+      "content_length": 3812,
+      "detail": "",
+      "emoji": "📅",
       "category": "operasyon",
-      "new_findings": 0,
-      "nothing_new": true
+      "new_findings": null,
+      "nothing_new": false
     },
     {
       "id": "data_analyst",
       "name": "Veri Analisti (Çağrı Merkezi Operasyonu)",
       "status": "skipped",
       "content_length": 0,
-      "detail": "yeni bulgu yok",
+      "detail": "veri kaynağı yapılandırılmadı. Analiz için ikisinden BİRİNİ ayarlayın: (1) DATA_ANALYST_SOURCE — yerel bir Excel/CSV dosya yolu, Google E-Tablo bağlantısı (https://docs.google.com/spreadsheets/d/...) veya e-tablo kimliği; (2) DATA_ANALYST_DRIVE_FOLDER_ID — Drive klasör kimliği; klasördeki en son değişen e-tablo otomatik seçilir. İsteğe bağlı: DATA_ANALYST_SHEET (sayfa adı), DATA_ANALYST_LAST_DAYS…",
       "emoji": "🔬",
       "category": "operasyon",
-      "new_findings": 0,
-      "nothing_new": true
+      "new_findings": null,
+      "nothing_new": false
     },
     {
       "id": "ai_innovation",
       "name": "Yapay Zeka & İnovasyon (Ustalaşma · Fikirler)",
-      "status": "skipped",
-      "content_length": 0,
-      "detail": "yeni bulgu yok",
+      "status": "ok",
+      "content_length": 12746,
+      "detail": "",
       "emoji": "🧠",
       "category": "kişisel gelişim",
-      "new_findings": 0,
-      "nothing_new": true
+      "new_findings": 1,
+      "nothing_new": false
     },
     {
       "id": "kids_development",
       "name": "Çocuk Gelişimi Danışmanı",
-      "status": "skipped",
-      "content_length": 0,
-      "detail": "yeni bulgu yok",
+      "status": "ok",
+      "content_length": 5594,
+      "detail": "",
       "emoji": "👨‍👩‍👧",
       "category": "aile",
-      "new_findings": 0,
-      "nothing_new": true
+      "new_findings": null,
+      "nothing_new": false
     },
     {
       "id": "executive_coaching",
       "name": "Yönetici Koçu (Gelişim + Hesap Verebilirlik)",
-      "status": "skipped",
-      "content_length": 0,
-      "detail": "yeni bulgu yok",
+      "status": "ok",
+      "content_length": 7450,
+      "detail": "",
       "emoji": "🧭",
       "category": "kişisel gelişim",
-      "new_findings": 0,
-      "nothing_new": true
+      "new_findings": null,
+      "nothing_new": false
     },
     {
       "id": "work_analyst",
       "name": "İş Analisti Danışmanı",
-      "status": "skipped",
-      "content_length": 0,
-      "detail": "yeni bulgu yok",
+      "status": "ok",
+      "content_length": 1073,
+      "detail": "",
       "emoji": "📈",
       "category": "operasyon",
-      "new_findings": 0,
-      "nothing_new": true
+      "new_findings": null,
+      "nothing_new": false
     },
     {
       "id": "operations_director",
       "name": "Operasyon Direktörü",
-      "status": "skipped",
-      "content_length": 0,
-      "detail": "yeni bulgu yok",
+      "status": "ok",
+      "content_length": 3078,
+      "detail": "",
       "emoji": "🚦",
       "category": "operasyon",
-      "new_findings": 0,
-      "nothing_new": true
+      "new_findings": null,
+      "nothing_new": false
     },
     {
       "id": "sre_watchdog",
       "name": "Teknik Gözetim (7/24 SRE)",
-      "status": "skipped",
-      "content_length": 0,
-      "detail": "yeni bulgu yok",
+      "status": "ok",
+      "content_length": 915,
+      "detail": "",
       "emoji": "🛡️",
       "category": "operasyon",
-      "new_findings": 0,
-      "nothing_new": true
+      "new_findings": null,
+      "nothing_new": false
     }
   ],
   "accountability": {
@@ -233,7 +233,7 @@
     "urgent_count": 0,
     "action_items": 0,
     "vip_emails": 0,
-    "last_update": "2026-08-04T20:26:49+00:00",
+    "last_update": "2026-08-05T09:38:50+00:00",
     "last_fetch_error": null
   },
   "calendar": {
@@ -247,7 +247,7 @@
       "duration_minutes": null
     },
     "available_slots": [],
-    "last_update": "2026-08-04T20:26:49+00:00",
+    "last_update": "2026-08-05T09:38:50+00:00",
     "last_fetch_error": null
   },
   "integrations": {
@@ -282,11 +282,11 @@
   },
   "performance": {
     "daily_metrics": {
-      "completion_rate": 15.4,
-      "deadline_adherence": 15.4,
+      "completion_rate": 73.3,
+      "deadline_adherence": 73.3,
       "success_rate": 100.0,
-      "token_efficiency": 2203.5,
-      "last_update": "2026-08-04T20:26:49+00:00"
+      "token_efficiency": 75.3,
+      "last_update": "2026-08-05T09:38:50+00:00"
     },
     "work_status": {
       "meeting_hours": 0.0,
@@ -302,16 +302,16 @@
         100.0,
         100.0,
         100.0,
-        15.4
+        73.3
       ],
       "deadline_7d": [
-        7.7,
         76.9,
         23.1,
         76.9,
         76.9,
         15.4,
-        15.4
+        15.4,
+        73.3
       ],
       "success_7d": [
         100.0,
@@ -324,7 +324,7 @@
       ]
     },
     "alerts": [],
-    "feedback": ""
+    "feedback": "**Öne çıkan:** Sistem normal çalışıyor: 8/12 danışman başarılı (67%). 0 uyarı oluşturuldu.  **📊 Sistem Durumu:** - Genel performans: **Zayıf** - Danışmanlar: 8/12 başarılı - Başarı oranı: 67%  **✅ Başarılar:** - ✅ Sabah İşletme Brifingi: Görevler başarıyla tamamlandı - ✅ Kariyer Gelişimi (İK · İlanlar · İngilizce · Sertifika): Görevler başarıyla tamamlandı - ✅ Pazar İstihbaratı (Sektör · YZ · CX ·"
   },
   "history": [
     {
@@ -713,6 +713,20 @@
       "mode": "incremental",
       "new_findings": 12,
       "total_tokens": 19690
+    },
+    {
+      "at": "2026-08-05T09:38:50+00:00",
+      "at_istanbul": "05.08.2026 12:38",
+      "conclusion": "ok",
+      "ok": 11,
+      "failed": 0,
+      "skipped": 4,
+      "total": 15,
+      "duration_seconds": 180.2,
+      "slack": "ok",
+      "mode": "full",
+      "new_findings": 10,
+      "total_tokens": 8927
     }
   ]
 }
