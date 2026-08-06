@@ -3151,6 +3151,38 @@
     return card;
   }
 
+  /* status.json stores counters as numbers and failures as lists of objects
+   * ({channel|operation|filename, timestamp}). Missing values must read as
+   * "—" rather than a made-up 0, so the card never claims data we don't have. */
+  function integrationCount(value) {
+    if (value === null || value === undefined || value === "") return "—";
+    var n = Number(value);
+    return isFinite(n) ? trNumber(n) : String(value);
+  }
+
+  function failureLines(list) {
+    if (!Array.isArray(list)) return [];
+    return list.map(function (entry) {
+      if (!entry || typeof entry !== "object") return String(entry);
+      var what = entry.channel || entry.operation || entry.filename || "bilinmeyen";
+      var when = entry.timestamp ? relativeTime(entry.timestamp) : "";
+      return when ? what + " (" + when + ")" : String(what);
+    });
+  }
+
+  /* Show at most the three most recent failures so one bad day cannot push the
+   * rest of the card off screen; the count stays exact. */
+  function addFailureRow(items, label, list) {
+    var lines = failureLines(list);
+    if (!lines.length) return;
+    var shown = lines.slice(-3).join(", ");
+    items.push({
+      label: label + " (" + lines.length + ")",
+      value: lines.length > 3 ? shown + " …" : shown,
+      status: "error"
+    });
+  }
+
   function renderEntegrasyonlar() {
     var data = state.status;
     if (!data) return;
@@ -3159,125 +3191,121 @@
     var slack = integrations.slack || {};
     var asana = integrations.asana || {};
     var drive = integrations.drive || {};
-    var distribution = integrations.distribution || {};
+    var distribution = integrations.distribution || null;
+
+    var hasAny =
+      !!integrations.slack ||
+      !!integrations.asana ||
+      !!integrations.drive ||
+      !!distribution;
+    if (!hasAny) {
+      show($("entegrasyonlar-empty"), true);
+      show($("entegrasyonlar-body"), false);
+      return;
+    }
 
     var host = $("integrations-grid");
     host.innerHTML = "";
 
     // Slack Channels
+    var slackFailures = slack.failed_sends;
     var slackItems = [
       {
         label: "Yapılandırılmış kanallar",
-        value: slack.configured_channels || "0"
+        value: integrationCount(slack.channels_configured)
+      },
+      {
+        label: "Bugün gönderilen ileti",
+        value: integrationCount(slack.messages_sent_today)
       },
       {
         label: "Son ileti",
-        value: slack.last_post ? relativeTime(slack.last_post) : "Hiçbir zaman",
-        status: (slack.failures && slack.failures.length) ? "error" : "ok"
+        value: slack.last_post_time ? relativeTime(slack.last_post_time) : "Hiçbir zaman",
+        status: (slackFailures && slackFailures.length) ? "error" : "ok"
       }
     ];
-    if (slack.failures && slack.failures.length) {
-      slackItems.push({
-        label: "Hatalar",
-        value: slack.failures.join(", "),
-        status: "error"
-      });
-    }
+    addFailureRow(slackItems, "Başarısız gönderim", slackFailures);
     host.appendChild(renderIntegrationCard("Slack Kanalları", "💬", slackItems, "slack"));
 
     // Asana Projects
+    var asanaFailures = asana.failed_operations;
     var asanaItems = [
       {
-        label: "Aktif projeler",
-        value: asana.projects || "0"
+        label: "Oluşturulan projeler",
+        value: integrationCount(asana.projects_created)
       },
       {
-        label: "Toplam görev",
-        value: asana.tasks || "0"
+        label: "Oluşturulan görevler",
+        value: integrationCount(asana.tasks_created)
       },
       {
-        label: "Son güncelleme",
-        value: asana.last_update ? relativeTime(asana.last_update) : "—",
-        status: (asana.failures && asana.failures.length) ? "error" : "ok"
-      }
-    ];
-    if (asana.workspace_url) {
-      asanaItems.push({
-        label: "Çalışma alanı",
-        value: "Asana'da aç"
-      });
-    }
-    if (asana.failures && asana.failures.length) {
-      asanaItems.push({
-        label: "Hatalar",
-        value: asana.failures.join(", "),
-        status: "error"
-      });
-    }
-    host.appendChild(renderIntegrationCard("Asana Projeleri", "📌", asanaItems, "asana"));
-
-    // Google Drive
-    var driveItems = [
-      {
-        label: "Toplam belgeler",
-        value: drive.total_docs || "0"
-      },
-      {
-        label: "Arşiv belgeleri",
-        value: (drive.archive_docs || "0") + " / " + (drive.total_docs || "0")
+        label: "Tamamlanan görevler",
+        value: integrationCount(asana.tasks_completed)
       },
       {
         label: "Son senkronizasyon",
-        value: drive.last_sync ? relativeTime(drive.last_sync) : "—",
-        status: (drive.failures && drive.failures.length) ? "error" : "ok"
+        value: asana.last_sync_time ? relativeTime(asana.last_sync_time) : "—",
+        status: (asanaFailures && asanaFailures.length) ? "error" : "ok"
       }
     ];
-    if (drive.folder_size) {
-      driveItems.push({
-        label: "Klasör boyutu",
-        value: drive.folder_size
-      });
-    }
-    if (drive.failures && drive.failures.length) {
-      driveItems.push({
-        label: "Hatalar",
-        value: drive.failures.join(", "),
-        status: "error"
-      });
-    }
+    addFailureRow(asanaItems, "Başarısız işlem", asanaFailures);
+    host.appendChild(renderIntegrationCard("Asana Projeleri", "📌", asanaItems, "asana"));
+
+    // Google Drive
+    var driveFailures = drive.failed_uploads;
+    var driveItems = [
+      {
+        label: "Yüklenen belgeler",
+        value: integrationCount(drive.documents_uploaded)
+      },
+      {
+        label: "Arşiv belgeleri",
+        value: integrationCount(drive.archive_count)
+      },
+      {
+        label: "Son senkronizasyon",
+        value: drive.last_sync_time ? relativeTime(drive.last_sync_time) : "—",
+        status: (driveFailures && driveFailures.length) ? "error" : "ok"
+      }
+    ];
+    addFailureRow(driveItems, "Başarısız yükleme", driveFailures);
     host.appendChild(renderIntegrationCard("Google Drive", "📁", driveItems, "drive"));
 
-    // Distribution Status
-    var distItems = [
-      {
-        label: "Toplam dağıtım",
-        value: distribution.total_attempts || "0"
-      },
-      {
-        label: "Başarılı",
-        value: distribution.success_count || "0",
-        status: "ok"
-      },
-      {
-        label: "Başarısız",
-        value: distribution.failure_count || "0",
-        status: (distribution.failure_count && distribution.failure_count > 0) ? "error" : "ok"
+    /* No writer emits `integrations.distribution` today, so the card is only
+     * built when a snapshot actually carries it — an empty card would only
+     * advertise three zeroes that mean nothing. */
+    if (distribution) {
+      var distItems = [
+        {
+          label: "Toplam dağıtım",
+          value: integrationCount(distribution.total_attempts)
+        },
+        {
+          label: "Başarılı",
+          value: integrationCount(distribution.success_count),
+          status: "ok"
+        },
+        {
+          label: "Başarısız",
+          value: integrationCount(distribution.failure_count),
+          status: (num(distribution.failure_count) > 0) ? "error" : "ok"
+        }
+      ];
+      if (distribution.failed_advisors && distribution.failed_advisors.length) {
+        distItems.push({
+          label: "Başarısız ajanlar",
+          value: distribution.failed_advisors.join(", "),
+          status: "error"
+        });
       }
-    ];
-    if (distribution.failed_advisors && distribution.failed_advisors.length) {
-      distItems.push({
-        label: "Başarısız ajanlar",
-        value: distribution.failed_advisors.join(", "),
-        status: "error"
-      });
+      if (distribution.last_attempt) {
+        distItems.push({
+          label: "Son deneme",
+          value: relativeTime(distribution.last_attempt)
+        });
+      }
+      host.appendChild(renderIntegrationCard("Dağıtım Durumu", "📤", distItems, "distribution"));
     }
-    if (distribution.last_attempt) {
-      distItems.push({
-        label: "Son deneme",
-        value: relativeTime(distribution.last_attempt)
-      });
-    }
-    host.appendChild(renderIntegrationCard("Dağıtım Durumu", "📤", distItems, "distribution"));
 
     show($("entegrasyonlar-empty"), false);
     show($("entegrasyonlar-body"), true);
