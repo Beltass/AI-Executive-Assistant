@@ -376,6 +376,21 @@
             </div>
           </div>
 
+          <!-- --- taşınan hatalar ---------------------------------------
+               `status.json` içindeki hata alanları (batch failure_reason,
+               Slack teslim hatası, Gmail/Takvim last_fetch_error) daha önce
+               hiçbir yerde çizilmiyordu: dosyada yazıyordu, ekranda yoktu.
+               Burası onların tek toplanma noktası. Panik kutusu değil, sakin
+               bir uyarı: ne olduğu ve dosyanın söylediği ham detay. Hata
+               yoksa bölüm tamamen gizlenir — boş kutu bırakılmaz. -->
+          <section id="system-notices-section" aria-labelledby="system-notices-title" hidden>
+            <div class="section-head">
+              <h2 id="system-notices-title"><span aria-hidden="true">⚠️</span> Dikkat edilmesi gerekenler</h2>
+              <span class="section-head__meta" id="system-notices-meta"></span>
+            </div>
+            <div class="alerts-list" id="system-notices"></div>
+          </section>
+
           <!-- --- watchdog (health.json) --- -->
           <section aria-labelledby="watchdog-title">
             <div class="section-head">
@@ -968,6 +983,11 @@
         </div>
 
         <div id="gmail-body" hidden class="stack">
+          <!-- Çekme hatası, altındaki sayıların hangi koşulda üretildiğini
+               değiştirir; o yüzden sayıların ÜSTÜNDE durur. Hata yoksa
+               tamamen gizlenir. -->
+          <div class="alerts-list" id="gmail-notices" hidden></div>
+
           <!-- --- Gmail & Calendar Stats Grid --- -->
           <div class="charts charts--2">
             <!-- Gmail Card -->

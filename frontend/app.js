@@ -814,19 +814,29 @@
 
     if (calendar.today_meetings) {
       var hours = calendar.total_meeting_time_hours;
+      var focusBlocks =
+        calendar.focus_blocks_available != null
+          ? calendar.focus_blocks_available
+          : calendar.focus_blocks;
       rows.push(
         renderAlertItem(
           hours != null && hours >= 4 ? "warning" : "info",
           "Bugün " + calendar.today_meetings + " toplantı" +
             (hours != null ? " · " + hours.toFixed(1) + " saat" : "") +
-            (calendar.focus_blocks != null
-              ? " · " + calendar.focus_blocks + " odak bloğu"
-              : "")
+            // `status.json` bu alanı `focus_blocks_available` diye yazıyor;
+            // eski ad hiçbir zaman dolu gelmediği için odak bloğu sayısı
+            // sessizce hiç görünmüyordu. İkisi de kabul ediliyor.
+            (focusBlocks != null ? " · " + focusBlocks + " odak bloğu" : "")
         )
       );
     }
-    if (calendar.next_meeting) {
-      rows.push(renderAlertItem("info", "Sıradaki toplantı: " + calendar.next_meeting));
+    /* `next_meeting` her zaman bir nesne olarak yazılıyor; toplantı yokken de
+     * alanları null olan bir nesne geliyor. Doğrudan metne çevrilince ekranda
+     * "[object Object]" yazıyordu — dürüst değil, sadece bozuk. Biçimlendirici
+     * boş dönerse satır hiç kurulmuyor. */
+    var nextMeeting = formatNextMeeting(calendar.next_meeting);
+    if (nextMeeting) {
+      rows.push(renderAlertItem("info", "Sıradaki toplantı: " + nextMeeting));
     }
     if (gmail.urgent_count) {
       rows.push(
@@ -1215,6 +1225,87 @@
       conclusion.icon + " " + conclusion.label + " · " +
         (data.generated_at_istanbul || "–") + " (İstanbul)"
     );
+  }
+
+  /* --- taşınan hata alanları -------------------------------------------- */
+
+  /** `status.json` içindeki hata alanlarını toplar.
+   *
+   * Bu alanlar dosyada vardı ama hiçbir bileşen onları çizmiyordu: batch
+   * başarısızlığı, Slack teslim hatası ve Gmail/Takvim çekme hatası sessizce
+   * yutuluyordu. Toplayıcı hiçbir şeyi yeniden yazmaz — dosyanın kendi
+   * cümlesini olduğu gibi taşır. */
+  function collectSystemNotices() {
+    var data = state.status || {};
+    var run = data.run || {};
+    var batch = run.batch || {};
+    var out = [];
+
+    if (batch.attempted && !batch.used) {
+      out.push({
+        severity: "warning",
+        message:
+          "Toplu (batch) çağrı denendi ama kullanılamadı" +
+          (batch.failure_reason ? " — " + batch.failure_reason : "") +
+          (batch.failure_detail ? ": " + batch.failure_detail : "") +
+          ". Bölümler tek tek üretildiği için bu çalıştırma daha çok token harcamış olabilir."
+      });
+    } else if (batch.failure_reason || batch.failure_detail) {
+      out.push({
+        severity: "info",
+        message:
+          "Toplu çağrı uyarısı: " +
+          [batch.failure_reason, batch.failure_detail].filter(Boolean).join(" — ")
+      });
+    }
+
+    var slack = data.slack || {};
+    if (slack.status && slack.status !== "ok") {
+      out.push({
+        severity: slack.status === "skipped" ? "info" : "critical",
+        message:
+          "Slack teslimi: " + slack.status +
+          (slack.detail ? " — " + slack.detail : "") +
+          ". Brifing üretildi ama kanala düşmemiş olabilir."
+      });
+    }
+
+    [
+      ["gmail", "Gmail"],
+      ["calendar", "Takvim"]
+    ].forEach(function (pair) {
+      var block = data[pair[0]] || {};
+      if (block.last_fetch_error) {
+        out.push({
+          severity: "warning",
+          message:
+            pair[1] + " verisi alınamadı — " + block.last_fetch_error +
+            ". Bu bölümdeki sayılar son başarılı çekimden kalmış olabilir."
+        });
+      }
+    });
+
+    return out;
+  }
+
+  function renderSystemNotices() {
+    var host = $("system-notices");
+    var section = $("system-notices-section");
+    if (!host || !section) return;
+
+    var notices = collectSystemNotices();
+    host.innerHTML = "";
+    // Hata yoksa bölüm görünmez: "her şey yolunda" diyen boş bir kutu, ekranda
+    // yer kaplayan ama hiçbir soruyu cevaplamayan bir gürültüdür.
+    show(section, notices.length > 0);
+    if (!notices.length) {
+      text($("system-notices-meta"), "");
+      return;
+    }
+    notices.forEach(function (notice) {
+      host.appendChild(renderAlertItem(notice.severity, notice.message));
+    });
+    text($("system-notices-meta"), notices.length + " uyarı");
   }
 
   function renderWatchdog() {
@@ -1681,6 +1772,7 @@
     var history = Array.isArray(data.history) ? data.history : [];
 
     renderHealthHeader(data);
+    renderSystemNotices();
     renderWatchdog();
     renderSummaryTiles(data);
     renderFilters(advisors);
@@ -3318,17 +3410,38 @@
       });
     }
 
-    // Update last sync time, and say so out loud when a fetch failed.
-    var notes = [];
+    /* Çekme hatası, tek satırlık bir "son güncelleme" notunun kuyruğuna
+     * eklendiğinde okunmuyordu. Artık sayıların üstünde, kendi uyarı
+     * kutusunda duruyor — çünkü hata, altındaki her rakamın anlamını
+     * değiştiriyor. Metin dosyadan ne geldiyse o; yeniden yazılmıyor. */
+    var noticeHost = $("gmail-notices");
+    if (noticeHost) {
+      noticeHost.innerHTML = "";
+      var errors = [
+        ["Gmail", gmail.last_fetch_error],
+        ["Takvim", calendar.last_fetch_error]
+      ].filter(function (pair) {
+        return !!pair[1];
+      });
+      noticeHost.hidden = errors.length === 0;
+      errors.forEach(function (pair) {
+        noticeHost.appendChild(
+          renderAlertItem(
+            "warning",
+            pair[0] + " verisi alınamadı — " + pair[1] +
+              ". Aşağıdaki sayılar son başarılı çekimden kalmış olabilir."
+          )
+        );
+      });
+    }
+
     var lastUpdate = gmail.last_update || calendar.last_update;
-    if (lastUpdate) notes.push("Son güncelleme: " + relativeTime(lastUpdate));
-    if (gmail.last_fetch_error) {
-      notes.push("Gmail verisi alınamadı: " + gmail.last_fetch_error);
-    }
-    if (calendar.last_fetch_error) {
-      notes.push("Takvim verisi alınamadı: " + calendar.last_fetch_error);
-    }
-    text($("gmail-last-update"), notes.join(" — "));
+    text(
+      $("gmail-last-update"),
+      lastUpdate
+        ? "Son güncelleme: " + relativeTime(lastUpdate)
+        : "Henüz güncelleme yok — ilk koşu bekleniyor."
+    );
   }
 
   /* ====================================================================== */
