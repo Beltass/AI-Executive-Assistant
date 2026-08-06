@@ -154,6 +154,7 @@ def test_the_trigger_plan_is_the_one_that_was_agreed():
     )
     assert status_report.advisors_with_trigger(status_report.TRIGGER_DATA) == (
         "meeting_prep",
+        "drive_insight",
         "career_development",
         "market_intelligence",
         "complaint_radar",

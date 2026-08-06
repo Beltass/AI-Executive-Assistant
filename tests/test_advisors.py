@@ -80,11 +80,15 @@ def no_config(monkeypatch):
 #: ``linkedin_coach`` joined it.
 #:
 #: PHASE 1D: Added ``social_media_coach`` and ``personal_assistant`` to the live roster.
-#: Total roster now includes 15 advisors.
+#:
+#: ``drive_insight`` joined next to ``meeting_prep`` — both read Google Drive,
+#: but this one answers "what landed in the folder that I have not read yet?"
+#: rather than "what did we say in this meeting last time?".
 EXPECTED_ADVISOR_KEYS = [
     "morning_operations",
     "communications_calendar",
     "meeting_prep",
+    "drive_insight",
     "career_development",
     "market_intelligence",
     "complaint_radar",
@@ -103,7 +107,7 @@ EXPECTED_ADVISOR_KEYS = [
 
 def test_all_advisors_discovered():
     advisors = all_advisors()
-    assert len(advisors) == 16
+    assert len(advisors) == 17
     assert [a.key for a in advisors] == EXPECTED_ADVISOR_KEYS
 
 

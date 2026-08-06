@@ -69,6 +69,7 @@ def test_manager_runs_all_advisors_offline(no_config):
         "morning_operations",
         "communications_calendar",
         "meeting_prep",
+        "drive_insight",
         "career_development",
         "market_intelligence",
         "complaint_radar",

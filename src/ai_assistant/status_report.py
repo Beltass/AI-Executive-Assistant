@@ -210,6 +210,19 @@ _LIVE_ROSTER = (
         data_owner="calendar",
     ),
     _live(
+        "drive_insight",
+        "Drive Dosya Analisti (Yeni Dosya · Özet · Sunum Taslağı)",
+        "🗂️",
+        CATEGORY_OPS,
+        advisor_class="DriveInsightAdvisor",
+        # Konusu KLASÖRÜN KENDİSİ: yeni dosya yoksa anlatacak bir şey de yok,
+        # o yüzden günlük değil veri tetiklemeli. Kaynak sahibi ``drive_files``
+        # olduğu için klasör değişmediğinde model hiç çağrılmaz.
+        trigger=TRIGGER_DATA,
+        token_ceiling=1400,
+        data_owner="drive_files",
+    ),
+    _live(
         "career_development",
         "Kariyer Gelişimi (İK · İlanlar · İngilizce · Sertifika)",
         "💼",

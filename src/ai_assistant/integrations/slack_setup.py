@@ -145,6 +145,19 @@ ADVISOR_CHANNELS: Tuple[ChannelSpec, ...] = (
         advisor_key="meeting_prep",
     ),
     ChannelSpec(
+        env_key=advisor_channel_env("drive_insight"),
+        name="ai-drive-analiz",
+        label="Drive Dosya Analisti",
+        purpose=(
+            "Drive Dosya Analisti ajanının kanalı. Klasöre YENİ düşen dosyanın "
+            "özeti, kritik bulguları, aksiyonları ve sunum taslağı. DOSYA "
+            "İÇERİĞİ taşır; panoya yazılmaz."
+        ),
+        topic="🗂️ Yeni Drive dosyası: özet + aksiyon + sunum taslağı · 🔒 kişisel",
+        private=True,
+        advisor_key="drive_insight",
+    ),
+    ChannelSpec(
         env_key=advisor_channel_env("career_development"),
         name="ai-kariyer-gelisim",
         label="Kariyer Gelişimi",
