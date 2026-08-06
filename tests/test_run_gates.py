@@ -184,6 +184,100 @@ def test_weekly_slot_falls_back_to_the_weekday(monkeypatch):
     assert weekly_due(datetime(2026, 8, 4)) is False  # Tuesday
 
 
+# --- the weekly CADENCE gate ------------------------------------------------
+#
+# The weekday check above is a DAY gate: it opens on every run made that
+# Monday. With four runs a day the "weekly" advisors ran four times a week
+# (``ai_innovation``: 10 runs in 9 days). The ledger closes it after the first.
+
+
+@pytest.fixture()
+def weekday_weekly(monkeypatch):
+    """No env override: the weekday + ledger path is the one under test.
+
+    The weekly DAY is pinned to today so the day gate is open whenever the
+    suite happens to run; what the tests then assert is the cadence.
+    """
+    from datetime import datetime
+
+    monkeypatch.delenv("DIGEST_WEEKLY_RUN", raising=False)
+    monkeypatch.setenv("DIGEST_WEEKLY_DAY", str(datetime.now().weekday()))
+
+
+def test_weekly_advisor_runs_only_once_on_the_same_day(
+    run_env, calls, weekday_weekly
+):
+    """THE bug: the second Monday run must not re-run the weekly advisor."""
+    first = _run([FakeAdvisor(ALWAYS), FakeAdvisor(WEEKLY)])
+    assert WEEKLY in first.executed_advisors
+
+    again = FakeAdvisor(WEEKLY)
+    second = _run([FakeAdvisor(ALWAYS), again])
+
+    assert second.skipped_advisors[WEEKLY] == "tetiklenmedi(weekly)"
+    assert WEEKLY not in second.executed_advisors
+    assert again.own_calls == 0  # not one token spent on it either
+
+
+def test_weekly_advisor_runs_again_after_seven_days(run_env, weekday_weekly):
+    from datetime import date, timedelta
+
+    monday = date(2026, 8, 3)
+    memory.mark_weekly_run(WEEKLY, monday)
+
+    for days in (1, 6):
+        assert memory.weekly_run_due(WEEKLY, monday + timedelta(days=days)) is False
+    assert memory.weekly_run_due(WEEKLY, monday + timedelta(days=7)) is True
+
+
+def test_weekly_cadence_is_per_advisor(run_env, weekday_weekly):
+    from datetime import date
+
+    monday = date(2026, 8, 3)
+    memory.mark_weekly_run(WEEKLY, monday)
+
+    assert memory.weekly_run_due(WEEKLY, monday) is False
+    assert memory.weekly_run_due("baska_haftalik", monday) is True
+
+
+def test_forcing_beats_the_weekly_cadence_gate(run_env, calls, weekday_weekly,
+                                               monkeypatch):
+    first = _run([FakeAdvisor(ALWAYS), FakeAdvisor(WEEKLY)])
+    assert WEEKLY in first.executed_advisors
+
+    monkeypatch.setenv("DIGEST_FORCE_ADVISORS", WEEKLY)
+    forced = _run([FakeAdvisor(ALWAYS), FakeAdvisor(WEEKLY)])
+
+    assert WEEKLY in forced.executed_advisors
+
+
+def test_weekly_run_env_still_overrides_the_cadence_gate(
+    run_env, calls, weekday_weekly, monkeypatch
+):
+    """The scheduled/manual switch stays the switch: env answers outright."""
+    monkeypatch.setenv("DIGEST_WEEKLY_RUN", "true")
+    first = _run([FakeAdvisor(ALWAYS), FakeAdvisor(WEEKLY)])
+    second = _run([FakeAdvisor(ALWAYS), FakeAdvisor(WEEKLY)])
+
+    assert WEEKLY in first.executed_advisors
+    assert WEEKLY in second.executed_advisors
+
+    monkeypatch.setenv("DIGEST_WEEKLY_RUN", "false")
+    quiet = _run([FakeAdvisor(ALWAYS), FakeAdvisor(WEEKLY)])
+    assert WEEKLY not in quiet.executed_advisors
+
+
+def test_an_unreadable_ledger_never_blocks_a_weekly_advisor(run_env, weekday_weekly):
+    """Fail-safe: uncertainty means RUN, exactly like the other gates."""
+    from datetime import date
+
+    ledger = memory.shared()
+    memory.mark_weekly_run(WEEKLY, date(2026, 8, 3))
+    ledger._readable = False
+
+    assert ledger.weekly_run_due(WEEKLY, date(2026, 8, 3)) is True
+
+
 # --- the data gate ----------------------------------------------------------
 
 

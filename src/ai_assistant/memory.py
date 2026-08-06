@@ -70,6 +70,9 @@ DEFAULT_MEMORY_FILE = ".assistant_state/findings.json"
 RETENTION_ENV = "FINDINGS_MEMORY_DAYS"
 DEFAULT_RETENTION_DAYS = 30
 
+#: How long a ``weekly`` advisor must wait before it may run again.
+WEEKLY_INTERVAL_DAYS = 7
+
 SCHEMA_VERSION = 1
 
 # Query parameters that identify the CAMPAIGN, not the article. Stripping them
@@ -319,6 +322,8 @@ class FindingsMemory:
         self._pending_sources: Dict[str, str] = {}
         # Per-advisor count of genuinely new findings observed this run.
         self._new_counts: Dict[str, int] = {}
+        # {advisor_id: "YYYY-MM-DD"} — when each WEEKLY advisor last ran.
+        self._weekly_runs: Dict[str, str] = {}
 
     # -- configuration ---------------------------------------------------
     @property
@@ -353,6 +358,7 @@ class FindingsMemory:
             return
         self._seen = self._parse(data)
         self._sources = self._parse_sources(data)
+        self._weekly_runs = self._parse_weekly_runs(data)
 
     def _parse(self, data: Any) -> Dict[str, Dict[str, str]]:
         """Validate the on-disk shape and drop entries past the window."""
@@ -396,6 +402,24 @@ class FindingsMemory:
             if owner and isinstance(digest, str) and digest
         }
 
+    def _parse_weekly_runs(self, data: Any) -> Dict[str, str]:
+        """Read the ``weekly_runs`` block, ignoring anything malformed.
+
+        Like the source hashes these are NOT aged out: the whole point is to
+        remember a run that happened up to a week (or longer) ago.
+        """
+        if not isinstance(data, dict):
+            return {}
+        runs = data.get("weekly_runs")
+        if not isinstance(runs, dict):
+            return {}
+        parsed: Dict[str, str] = {}
+        for advisor_id, stamp in runs.items():
+            ran_on = _parse_date(stamp)
+            if advisor_id and ran_on is not None:
+                parsed[str(advisor_id)] = ran_on.isoformat()
+        return parsed
+
     def save(self) -> bool:
         """Persist the ledger. Returns ``False`` (and logs) if it could not."""
         path = self.path
@@ -405,6 +429,7 @@ class FindingsMemory:
             "retention_days": self.days,
             "advisors": self._seen,
             "sources": self._sources,
+            "weekly_runs": self._weekly_runs,
         }
         try:
             directory = os.path.dirname(path)
@@ -500,6 +525,51 @@ class FindingsMemory:
         if owner and digest:
             self._pending_sources[owner] = digest
         return digest
+
+    # -- weekly cadence gate ---------------------------------------------
+    def last_weekly_run(self, advisor_id: str) -> Optional[date]:
+        """The day ``advisor_id`` last ran its weekly slot, or ``None``."""
+        if not advisor_id:
+            return None
+        self._load()
+        return _parse_date(self._weekly_runs.get(advisor_id))
+
+    def weekly_run_due(
+        self,
+        advisor_id: str,
+        today: Optional[date] = None,
+        interval_days: int = WEEKLY_INTERVAL_DAYS,
+    ) -> bool:
+        """Whether a weekly advisor may run again, i.e. ONCE per week.
+
+        The weekday check alone opens on every run made that day, so a repo
+        with four runs a Monday ran its "weekly" advisors four times. Uncertain
+        cases (no name, unreadable ledger, never recorded, a stamp from the
+        future) answer ``True``: the gate may only skip work it is SURE is
+        redundant.
+        """
+        if not advisor_id or not self._readable:
+            return True
+        last = self.last_weekly_run(advisor_id)
+        if last is None:
+            return True
+        now = today or date.today()
+        if last > now:
+            return True  # clock skew / hand-edited ledger: do not block
+        return (now - last).days >= interval_days
+
+    def mark_weekly_run(self, advisor_id: str, today: Optional[date] = None) -> None:
+        """Record that ``advisor_id`` ran its weekly slot, and persist it.
+
+        Written straight away rather than staged: the cost of a run that dies
+        before delivery is one missed weekly section, while the cost of NOT
+        recording it is the duplicate-run bug this gate exists to close.
+        """
+        if not advisor_id:
+            return
+        self._load()
+        self._weekly_runs[advisor_id] = (today or date.today()).isoformat()
+        self.save()
 
     def note_new(self, advisor_id: str, count: int) -> None:
         """Record how many genuinely new findings an advisor had this run."""
@@ -619,6 +689,16 @@ def stage_source(owner: str, payload: Any) -> str:
     return shared().stage_source(owner, payload)
 
 
+def weekly_run_due(advisor_id: str, today: Optional[date] = None) -> bool:
+    """Module-level shortcut onto the shared ledger."""
+    return shared().weekly_run_due(advisor_id, today)
+
+
+def mark_weekly_run(advisor_id: str, today: Optional[date] = None) -> None:
+    """Module-level shortcut onto the shared ledger."""
+    shared().mark_weekly_run(advisor_id, today)
+
+
 def new_count(advisor_id: str) -> int:
     """How many new findings ``advisor_id`` reported in this process."""
     return shared().new_count(advisor_id)
@@ -635,11 +715,13 @@ __all__ = [
     "FindingsMemory",
     "MEMORY_FILE_ENV",
     "RETENTION_ENV",
+    "WEEKLY_INTERVAL_DAYS",
     "commit",
     "filter_new_items",
     "is_new",
     "item_fingerprints",
     "mark_seen",
+    "mark_weekly_run",
     "memory_file_path",
     "new_count",
     "normalize_title",
@@ -654,4 +736,5 @@ __all__ = [
     "text_fingerprints",
     "title_fingerprint",
     "url_fingerprint",
+    "weekly_run_due",
 ]
