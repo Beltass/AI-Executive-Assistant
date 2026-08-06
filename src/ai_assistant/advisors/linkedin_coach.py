@@ -51,20 +51,62 @@ PROFILE_FILE = STATE_DIR / "linkedin_profile.json"
 
 # System prompt
 LINKEDIN_SYSTEM_PROMPT = """
-Sen bir LinkedIn İmaj Koçusun. Türkçe, profesyonel ama insani bir ton kullan.
+Sen kıdemli bir İK uzmanı ve teknik işe alım (recruiter) danışmanısın; aynı
+zamanda liderlik koçusun. Türkçe, profesyonel ve dobra bir ton kullan.
 
-Görev:
-1. Kullanıcının LinkedIn profilini optimize etmek
-2. Sektör haberleri, teknoloji geliştirmeleri ve araştırma temelli günlük postlar oluşturmak
-3. Personel fikirler, yorum ve eyleme çağrısı içeren postlar yazmak
-4. Engagement izleme ve haftalık özet raporlar
+Bakış açın: Bir işe alımcı bu profili 7 saniye görür. O 7 saniyede ne görüyor?
+Kullanıcının LinkedIn profilini işe alımcı ve işveren gözünden değerlendir.
 
-Stil:
-- Profesyonel ama insani (corporate expert commentary)
-- 2-3 paragraf, araştırma temelli
-- Sektör alakalı hashtag ve engagement-driving CTA
-- Her post muhakkak kişisel perspektif ve değer sunmalı
+Görevin:
+1. **Profil–CV tutarlılığı**: Profildeki başlık, deneyim ve beceriler CV'deki
+   (özgeçmişteki) uzmanlıklarla örtüşüyor mu? Boşlukları, çelişen tarihleri,
+   CV'de olup profilde görünmeyen uzmanlıkları tek tek isimlendir.
+2. **Uzmanlık eşleştirmesi**: Kullanıcının gerçek uzmanlıkları hedeflediği
+   pozisyon ilanlarındaki gereksinimlerle eşleşiyor mu? Hangi yetkinlik öne
+   çıkarılmalı, hangisi gürültü?
+3. **İşe alımcı gözünden zayıf noktalar**: Belirsiz başlık, sonuç yerine görev
+   anlatan deneyim maddeleri, ölçülemeyen iddialar, eksik "Hakkında", boş
+   beceri bölümü, tavsiye/onay yokluğu, sektörle uyumsuz anahtar kelimeler.
+   Zayıf noktayı yumuşatma; ne olduğunu açıkça söyle.
+4. **ATS uyumu**: Profil ve CV, aday takip sistemlerinin (ATS) taradığı
+   anahtar kelimeleri içeriyor mu? Hangi anahtar kelimeler eksik? Başlık ve
+   "Hakkında" bölümü ATS ve arama sonuçları için nasıl yeniden yazılmalı?
+5. **İşe alımcı dikkatini çekme**: Yeni firmaların ve işe alımcıların
+   kullanıcıyı bulması için hangi somut düzenleme en yüksek etkiyi yaratır?
+
+Kurallar:
+- Her tespit için SOMUT düzeltme öner: "şunu şuna çevir" biçiminde, yazılmaya
+  hazır metinle. Genel tavsiye ("profilini güçlendir") yasak.
+- Önerilerini etki sırasına göre ver; en çok fark yaratan en üstte.
+- Ölçülebilir sonuç dili kullan (yüzde, süre, ölçek, bütçe, ekip büyüklüğü).
+- Elinde veri yoksa uydurma; "bu bilgi profilde yok" diye yaz ve kullanıcıdan
+  iste.
+- Bu danışman İÇERİK PAYLAŞMAZ. Sadece analiz ve öneri üretir; paylaşma kararı
+  ve eylemi kullanıcıya aittir.
 """
+
+# Recruiter-facing profile analysis prompt (used by generate_profile_suggestions)
+PROFILE_ANALYSIS_PROMPT_TEMPLATE = """Aşağıdaki LinkedIn profilini bir işe alımcı
+(recruiter) gözünden değerlendir.
+
+## Profil
+- Profil URL: {profile_url}
+- Mevcut başlık (headline): {headline}
+- Hakkında (about): {about}
+- Sektör: {industry}
+- Hedef sektör: {sector}
+
+## İstenen: BAŞLIK (headline) analizi ve yeniden yazımı
+
+Şunları ver:
+1. **Mevcut başlığın işe alımcı gözünden sorunu**: 1-2 cümle, dobra.
+2. **ATS/arama anahtar kelime boşluğu**: Bu profil hangi aramalarda çıkmıyor?
+3. **3 alternatif başlık önerisi**: Her biri 220 karakteri aşmasın, uzmanlık +
+   ölçülebilir değer + hedef rol anahtar kelimesi içersin. Numaralı liste.
+4. **CV tutarlılık uyarısı**: Başlık CV'deki uzmanlıkla çelişiyorsa söyle;
+   bilgi yoksa kullanıcıdan CV'sini iste.
+
+Türkçe, kısa, madde madde. Boş övgü yok."""
 
 USER_PROMPT_TEMPLATE = """Bugün için LinkedIn postları oluştur. Aşağıdaki sector news + tech developments
 göz önüne alan 1-2 post hazırla:
@@ -503,8 +545,40 @@ class LinkedInCoach(Advisor):
             return {"status": "error", "message": str(exc)}
 
     def _suggest_headline(self, profile: LinkedInProfile) -> str:
-        """Generate headline suggestions."""
-        return f"Önerilen başlık: {profile.headline} | Teknoloji Lider & Danışman"
+        """Produce a recruiter-facing headline analysis.
+
+        Asks the LLM for a real critique (what a recruiter sees, which ATS
+        keywords are missing, three rewritten headlines, CV consistency) rather
+        than concatenating a canned suffix onto the existing headline.
+
+        Falls back to a checklist the user can act on by hand when no LLM is
+        configured — never to an invented headline.
+        """
+        if not llm.is_configured():
+            return (
+                "LLM yapılandırılmadı, otomatik başlık analizi yapılamadı.\n"
+                f"Mevcut başlık: {profile.headline or '(boş)'}\n"
+                "Elle kontrol et: (1) başlık hedef rolün anahtar kelimesini "
+                "içeriyor mu, (2) uzmanlığın ölçülebilir bir değerle birlikte "
+                "geçiyor mu, (3) CV'ndeki uzmanlıkla çelişiyor mu?"
+            )
+
+        prompt = PROFILE_ANALYSIS_PROMPT_TEMPLATE.format(
+            profile_url=profile.profile_url or "(bilinmiyor)",
+            headline=profile.headline or "(boş)",
+            about=(profile.about or "(boş)")[:1500],
+            industry=profile.industry or "(bilinmiyor)",
+            sector=setting(ENV_SECTOR, DEFAULT_SECTOR),
+        )
+
+        try:
+            return llm.generate_text(LINKEDIN_SYSTEM_PROMPT, prompt)
+        except Exception as exc:
+            logger.error("Başlık analizi hatası: %s", exc)
+            return (
+                "Başlık analizi üretilemedi (LLM hatası). "
+                f"Mevcut başlık: {profile.headline or '(boş)'}"
+            )
 
     def _suggest_about(self, profile: LinkedInProfile) -> str:
         """Generate about section suggestions."""
