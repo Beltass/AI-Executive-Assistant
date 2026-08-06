@@ -186,7 +186,9 @@ _LIVE_ROSTER = (
         CATEGORY_OPS,
         advisor_class="MorningOperationsAdvisor",
         trigger=TRIGGER_ALWAYS,
-        token_ceiling=1600,
+        # Ölçüm: 8 koşuda ortalama ~182 token. 1600'lük tavan bir bütçe değil,
+        # boş bir çekti — gerçek tüketimin 8 katıydı.
+        token_ceiling=400,
         data_owner="gmail_calendar",
     ),
     _live(
@@ -229,7 +231,10 @@ _LIVE_ROSTER = (
         CATEGORY_CAREER,
         advisor_class="CareerDevelopmentAdvisor",
         trigger=TRIGGER_DATA,
-        token_ceiling=1200,
+        # Ölçüm: 10 koşuda ortalama 2.431 token. Çıktı payı token payından
+        # yüksek — yani verimli; tavan gerçeğe çekildi, istem değil uzunluk
+        # hedefi (700-900 -> 550-700 kelime) kısıldı.
+        token_ceiling=2000,
         data_owner="career_feeds",
     ),
     _live(
@@ -239,7 +244,12 @@ _LIVE_ROSTER = (
         CATEGORY_SECTOR,
         advisor_class="MarketIntelligenceAdvisor",
         trigger=TRIGGER_USER_REQUESTED,
-        token_ceiling=1400,
+        # EN PAHALI AJAN: 21 koşuda 93.063 token, koşu başına ~4.431 — son 7
+        # koşuda harcamanın %55'i, üretilen metnin %37,6'sı. Dört alt brifingi
+        # tek çağrıda topladığı için 1400 hiçbir zaman gerçekçi değildi.
+        # İstem kısaltıldı ve uzunluk hedefi 800-1000'den 550-700 kelimeye
+        # çekildi; 2600 bunun ÖLÇÜLEN değil HEDEFLENEN karşılığı.
+        token_ceiling=2600,
         data_owner="market_feeds",
     ),
     _live(
@@ -249,7 +259,10 @@ _LIVE_ROSTER = (
         CATEGORY_SECTOR,
         advisor_class="ComplaintRadarAdvisor",
         trigger=TRIGGER_DATA,
-        token_ceiling=1200,
+        # Ölçüm: 4 koşuda ortalama 2.410 token — harcamanın %25,6'sı, üretilen
+        # metnin %14,7'si. Pazar/rakip blokları market_intelligence ile
+        # örtüştüğü için tek bloğa indirildi, sekiz blok altıya düştü.
+        token_ceiling=1600,
         data_owner="complaint_feeds",
     ),
     _live(
@@ -299,7 +312,10 @@ _LIVE_ROSTER = (
         CATEGORY_GROWTH,
         advisor_class="AiInnovationAdvisor",
         trigger=TRIGGER_WEEKLY,
-        token_ceiling=1000,
+        # Ölçüm: 10 koşuda ortalama 2.469 token; koşu başına en çok METİN
+        # üreten ajan (~11k karakter). Ücretsiz sertifika bloğu
+        # career_development ile birebir örtüşüyordu, kaldırıldı.
+        token_ceiling=2000,
         data_owner="ai_feeds",
     ),
     _live(
@@ -311,7 +327,8 @@ _LIVE_ROSTER = (
         # No feed, no cadence: it is timeless coaching, so it runs when asked
         # rather than burning a slice of every quota window.
         trigger=TRIGGER_USER_REQUESTED,
-        token_ceiling=800,
+        # Ölçüm: 9 koşuda ortalama 614 token.
+        token_ceiling=700,
         data_owner="",
     ),
     _live(
@@ -321,7 +338,8 @@ _LIVE_ROSTER = (
         CATEGORY_GROWTH,
         advisor_class="ExecutiveCoachingAdvisor",
         trigger=TRIGGER_WEEKLY,
-        token_ceiling=900,
+        # Ölçüm: 6 koşuda ortalama 331 token.
+        token_ceiling=500,
         data_owner="",
     ),
     _live(
@@ -360,7 +378,8 @@ _LIVE_ROSTER = (
         # veri tetiklemeli. ``run_history`` sahibi olduğu için geçmiş
         # büyümediğinde model hiç çağrılmaz.
         trigger=TRIGGER_DATA,
-        token_ceiling=1200,
+        # Ölçüm: tek koşuda 356 token.
+        token_ceiling=600,
         data_owner="run_history",
     ),
     _live(
@@ -406,7 +425,9 @@ _LIVE_ROSTER = (
         CATEGORY_OPS,
         advisor_class="OperationsDirectorAdvisor",
         trigger=TRIGGER_ALWAYS,
-        token_ceiling=1600,
+        # Ölçüm: 8 koşuda ortalama 46 token. Kendi istemini göndermez; diğer
+        # brifinglerin üzerinden sentez yapar, o yüzden girdi payı sıfırdır.
+        token_ceiling=300,
         data_owner="run_briefings",
     ),
     _live(
