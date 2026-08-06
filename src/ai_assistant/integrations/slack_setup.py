@@ -304,6 +304,19 @@ ADVISOR_CHANNELS: Tuple[ChannelSpec, ...] = (
         advisor_key="risk_sentinel",
     ),
     ChannelSpec(
+        env_key=advisor_channel_env("decision_intelligence"),
+        name="ai-karar-zekasi",
+        label="Karar Zekâsı",
+        purpose=(
+            "Karar Zekâsı ajanının kanalı. Verilmiş kararların sonucu, karar "
+            "kalitesi geri bildirimi ve tekrar eden örüntüler. KENDİ "
+            "KARARLARINIZI içerir; panoya yazılmaz."
+        ),
+        topic="⚖️ Kararların sonucu · süreç kalitesi · 🔒 kişisel",
+        private=True,
+        advisor_key="decision_intelligence",
+    ),
+    ChannelSpec(
         env_key=advisor_channel_env("work_analyst"),
         name="ai-is-analisti",
         label="İş Analisti Danışmanı",

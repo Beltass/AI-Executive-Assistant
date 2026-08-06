@@ -350,6 +350,18 @@ _LIVE_ROSTER = (
         data_owner="run_history",
     ),
     _live(
+        "decision_intelligence",
+        "Karar Zekâsı (Sonuç Takibi · Karar Kalitesi)",
+        "⚖️",
+        CATEGORY_OPS,
+        advisor_class="DecisionIntelligenceAdvisor",
+        # Bir kararın sonucu bir günde belli olmaz: haftalık ritim, hem tekrarı
+        # hem kota israfını engeller.
+        trigger=TRIGGER_WEEKLY,
+        token_ceiling=1000,
+        data_owner="",
+    ),
+    _live(
         "work_analyst",
         "İş Analisti Danışmanı",
         "📈",

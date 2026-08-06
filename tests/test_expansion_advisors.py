@@ -27,6 +27,7 @@ from ai_assistant.integrations import STATUS_SKIPPED
 NEW_ADVISORS = (
     ("productivity_coach", status_report.TRIGGER_WEEKLY),
     ("risk_sentinel", status_report.TRIGGER_DATA),
+    ("decision_intelligence", status_report.TRIGGER_WEEKLY),
 )
 
 _LLM_ENV = ("GEMINI_API_KEY", "OPENAI_API_KEY")
@@ -235,3 +236,69 @@ def test_risk_sentinel_prompt_refuses_the_watchdogs_job(monkeypatch):
     assert "Anlık sistem sağlığı kontrolü" in section.user_prompt
     assert "Başarısız danışman sayısı" in section.user_prompt
     assert advisor.new_finding_count() >= 1
+
+
+# --- decision_intelligence: SONUÇ, yeni karar DEĞİL -------------------------
+
+
+def test_decision_intelligence_invents_no_decisions_when_none_are_logged(
+    monkeypatch,
+):
+    """Kayıt yoksa karar UYDURULMAZ; onun yerine günlük protokolü verilir."""
+    from ai_assistant.advisors import decision_intelligence as module
+
+    monkeypatch.delenv(module.DECISIONS_ENV, raising=False)
+
+    assert module.recent_decisions() == []
+    block = module.decisions_block()
+    assert block == module.NO_LOG_INSTRUCTION
+    assert "UYDURMA" in block
+    assert module.DECISIONS_ENV in block
+
+
+def test_decision_intelligence_reads_the_logged_decisions(monkeypatch):
+    from ai_assistant.advisors import decision_intelligence as module
+
+    monkeypatch.setenv(
+        module.DECISIONS_ENV,
+        "Vendor A ile devam | beklenen: SLA %98\nEkip büyütme ertelendi",
+    )
+
+    entries = module.recent_decisions()
+    assert entries == [
+        "Vendor A ile devam | beklenen: SLA %98",
+        "Ekip büyütme ertelendi",
+    ]
+    block = module.decisions_block()
+    assert "[KARAR 1] Vendor A ile devam" in block
+    assert "[KARAR 2] Ekip büyütme ertelendi" in block
+
+
+def test_decision_intelligence_caps_how_many_decisions_it_reviews(monkeypatch):
+    from ai_assistant.advisors import decision_intelligence as module
+
+    monkeypatch.setenv(
+        module.DECISIONS_ENV,
+        ";".join(f"karar {index}" for index in range(module.MAX_DECISIONS + 4)),
+    )
+    assert len(module.recent_decisions()) == module.MAX_DECISIONS
+
+
+def test_decision_intelligence_refuses_the_directors_job(monkeypatch):
+    """``operations_director`` bugünü kurar; bu bölüm dünü okur."""
+    from ai_assistant.advisors import decision_intelligence as module
+
+    monkeypatch.delenv(module.DECISIONS_ENV, raising=False)
+    advisor = module.DecisionIntelligenceAdvisor()
+
+    assert "Yeni karar ÖNERME" in advisor.user_prompt
+    assert "SENİN İŞİN DEĞİL" in module.SYSTEM_PROMPT
+    assert advisor.private is True
+
+
+def test_decision_intelligence_appends_its_caveat_to_the_batched_text():
+    from ai_assistant.advisors import decision_intelligence as module
+
+    briefing = module.DecisionIntelligenceAdvisor().briefing_from_batch("gövde")
+    assert briefing.text.startswith("gövde")
+    assert module.CAVEAT in briefing.text

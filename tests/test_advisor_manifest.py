@@ -168,6 +168,7 @@ def test_the_trigger_plan_is_the_one_that_was_agreed():
         "ai_innovation",
         "executive_coaching",
         "productivity_coach",
+        "decision_intelligence",
     )
     assert status_report.advisors_with_trigger(
         status_report.TRIGGER_USER_REQUESTED

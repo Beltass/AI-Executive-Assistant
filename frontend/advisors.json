@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "count": 19,
+  "count": 20,
   "advisors": [
     {
       "id": "morning-operations",
@@ -145,7 +145,7 @@
     {
       "id": "data-analyst",
       "advisor_id": "data_analyst",
-      "name_tr": "Veri Analisti (Çağrı Merkezi Operasyonu)",
+      "name_tr": "Raporlama & Veri Analisti (Excel · Sunum Taslağı · Yazılı Rapor)",
       "emoji": "🔬",
       "category": "operasyon",
       "topic": "business-analytics",
@@ -227,6 +227,20 @@
       "slack_target": "#risk-sentinel"
     },
     {
+      "id": "decision-intelligence",
+      "advisor_id": "decision_intelligence",
+      "name_tr": "Karar Zekâsı (Sonuç Takibi · Karar Kalitesi)",
+      "emoji": "⚖️",
+      "category": "operasyon",
+      "topic": "business-analytics",
+      "color": "#4A90E2",
+      "dashboard_order": 17,
+      "trigger": "weekly",
+      "token_ceiling": 1000,
+      "data_owner": "",
+      "slack_target": "#decision-intelligence"
+    },
+    {
       "id": "work-analyst",
       "advisor_id": "work_analyst",
       "name_tr": "İş Analisti Danışmanı",
@@ -234,7 +248,7 @@
       "category": "operasyon",
       "topic": "business-analytics",
       "color": "#4A90E2",
-      "dashboard_order": 17,
+      "dashboard_order": 18,
       "trigger": "always",
       "token_ceiling": 0,
       "data_owner": "run_briefings",
@@ -248,7 +262,7 @@
       "category": "operasyon",
       "topic": "business-analytics",
       "color": "#4A90E2",
-      "dashboard_order": 18,
+      "dashboard_order": 19,
       "trigger": "always",
       "token_ceiling": 1600,
       "data_owner": "run_briefings",
@@ -262,7 +276,7 @@
       "category": "operasyon",
       "topic": "innovation-tech",
       "color": "#9B59B6",
-      "dashboard_order": 19,
+      "dashboard_order": 20,
       "trigger": "always",
       "token_ceiling": 0,
       "data_owner": "system_health",
