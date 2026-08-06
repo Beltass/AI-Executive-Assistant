@@ -41,6 +41,10 @@ jobs:
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
           GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
           GOOGLE_DRIVE_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
+          # Data analyst input; with neither secret set the advisor reports
+          # `skipped` ("no source") instead of inventing data.
+          DATA_ANALYST_SOURCE: ${{ secrets.DATA_ANALYST_SOURCE }}
+          DATA_ANALYST_DRIVE_FOLDER_ID: ${{ secrets.DATA_ANALYST_DRIVE_FOLDER_ID }}
           SLACK_ADVISOR_BRIDGE_ENABLED: 'true'
           SLACK_ADVISOR_UPDATE_HOUR: '7'
           SLACK_ADVISOR_INCLUDE: 'data_analyst,linkedin_coach,social_media_coach,personal_assistant'
@@ -51,6 +55,8 @@ jobs:
           echo "GOOGLE_CLIENT_SECRET=$GOOGLE_CLIENT_SECRET" >> $GITHUB_ENV
           echo "GOOGLE_REFRESH_TOKEN=$GOOGLE_REFRESH_TOKEN" >> $GITHUB_ENV
           echo "GOOGLE_DRIVE_FOLDER_ID=$GOOGLE_DRIVE_FOLDER_ID" >> $GITHUB_ENV
+          echo "DATA_ANALYST_SOURCE=$DATA_ANALYST_SOURCE" >> $GITHUB_ENV
+          echo "DATA_ANALYST_DRIVE_FOLDER_ID=$DATA_ANALYST_DRIVE_FOLDER_ID" >> $GITHUB_ENV
           echo "SLACK_ADVISOR_BRIDGE_ENABLED=$SLACK_ADVISOR_BRIDGE_ENABLED" >> $GITHUB_ENV
           echo "SLACK_ADVISOR_UPDATE_HOUR=$SLACK_ADVISOR_UPDATE_HOUR" >> $GITHUB_ENV
           echo "SLACK_ADVISOR_INCLUDE=$SLACK_ADVISOR_INCLUDE" >> $GITHUB_ENV
@@ -103,6 +109,10 @@ jobs:
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
           GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
           GOOGLE_DRIVE_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
+          # Data analyst input; with neither secret set the advisor reports
+          # `skipped` ("no source") instead of inventing data.
+          DATA_ANALYST_SOURCE: ${{ secrets.DATA_ANALYST_SOURCE }}
+          DATA_ANALYST_DRIVE_FOLDER_ID: ${{ secrets.DATA_ANALYST_DRIVE_FOLDER_ID }}
           SLACK_ADVISOR_REQUEST_ENABLED: 'true'
         run: |
           echo "SLACK_BOT_TOKEN=$SLACK_BOT_TOKEN" >> $GITHUB_ENV
@@ -110,6 +120,8 @@ jobs:
           echo "GOOGLE_CLIENT_SECRET=$GOOGLE_CLIENT_SECRET" >> $GITHUB_ENV
           echo "GOOGLE_REFRESH_TOKEN=$GOOGLE_REFRESH_TOKEN" >> $GITHUB_ENV
           echo "GOOGLE_DRIVE_FOLDER_ID=$GOOGLE_DRIVE_FOLDER_ID" >> $GITHUB_ENV
+          echo "DATA_ANALYST_SOURCE=$DATA_ANALYST_SOURCE" >> $GITHUB_ENV
+          echo "DATA_ANALYST_DRIVE_FOLDER_ID=$DATA_ANALYST_DRIVE_FOLDER_ID" >> $GITHUB_ENV
           echo "SLACK_ADVISOR_REQUEST_ENABLED=$SLACK_ADVISOR_REQUEST_ENABLED" >> $GITHUB_ENV
 
       - name: Process Advisor Requests
