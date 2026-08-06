@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "date": "2026-08-06",
+  "generated_at": "2026-08-06T03:51:26+03:00",
+  "generated_at_istanbul": "06.08.2026 03:51",
+  "mode": "full",
+  "mode_label": "tam brifing",
+  "count": 4,
+  "reports": [
+    {
+      "id": "morning_operations",
+      "name": "Sabah İşletme Brifingi",
+      "emoji": "📋",
+      "category": "operasyon",
+      "headline": "Güne stratejik bir başlangıç yaparak dünün performansını değerlendirmek ve bugünün önceliklerini kritik yollar üzerindeki engelleri aşarak yönetmek, verimliliği artırmanın anahtarıdır.",
+      "excerpt": "Günün ilk saatleri, operasyonel hızınızı ve stratejik netliğinizi belirler. Kaos içinde bir başlangıç yapmak yerine, odaklanmış ve planlı bir yaklaşımla gününüzü nasıl şekillendireceğinizi hiç…",
+      "words": 572,
+      "read_minutes": 3,
+      "action_count": 0,
+      "actions": [],
+      "generated_at": "2026-08-06T03:51:26+03:00",
+      "generated_at_istanbul": "06.08.2026 03:51",
+      "path": "morning_operations.json"
+    },
+    {
+      "id": "career_development",
+      "name": "Kariyer Gelişimi (İK · İlanlar · İngilizce · Sertifika)",
+      "emoji": "💼",
+      "category": "kariyer",
+      "headline": "Banka çağrı merkezi yöneticisi olarak kariyerinizi bir üst seviyeye taşımak için veriyle hikâye anlatma yetkinliğinizi geliştirmeli, hedefli ilanlara başvurmalı ve ücretsiz sertifikalarla bilgi birikiminizi güçlendirmelisiniz.",
+      "excerpt": "Bir kariyer yolculuğu, sadece mevcut yetenekleri kullanmak değil, aynı zamanda geleceğin ihtiyaçlarına göre kendini sürekli yenilemektir. Bankacılık çağrı merkezi yöneticisi olarak, sektördeki hızlı…",
+      "words": 1867,
+      "read_minutes": 9,
+      "action_count": 0,
+      "actions": [],
+      "generated_at": "2026-08-06T03:51:26+03:00",
+      "generated_at_istanbul": "06.08.2026 03:51",
+      "path": "career_development.json"
+    },
+    {
+      "id": "market_intelligence",
+      "name": "Pazar İstihbaratı (Sektör · YZ · CX · Bankacılık)",
+      "emoji": "📊",
+      "category": "sektör",
+      "headline": "Yapay zekâ teknolojileri bankacılık sektöründe veri yönetimini yeniden şekillendirirken, çağrı merkezi operasyonlarında kayıt ve saklama süreçlerindeki uyum ve güvenlik riskleri, özellikle kart verisi ve biyometrik veri boyutunda, kritik…",
+      "excerpt": "Pazarın dinamikleri, regülasyonlar ve teknolojik gelişmeler, bankacılık çağrı merkezleri gibi yüksek hacimli ve hassas veri işleyen operasyonlar için sürekli bir değişim ve adaptasyon ihtiyacı…",
+      "words": 1969,
+      "read_minutes": 10,
+      "action_count": 0,
+      "actions": [],
+      "generated_at": "2026-08-06T03:51:26+03:00",
+      "generated_at_istanbul": "06.08.2026 03:51",
+      "path": "market_intelligence.json"
+    },
+    {
+      "id": "complaint_radar",
+      "name": "Pazar Trendleri & Kapsamlı Analiz Danışmanı",
+      "emoji": "📊",
+      "category": "sektör",
+      "headline": "Bugün, bankacılık sektöründeki şikâyet dinamiklerini anlamak ve operasyonel mekanizmaları iyileştirmek için, mevcut akışta spesifik veri olmasa da genel eğilimleri ve regülatif beklentileri göz önünde bulundurarak proaktif adımlar atmak…",
+      "excerpt": "Müşteri şikâyetleri, bir kurumun operasyonel zayıflıklarının ve pazarın nabzının en net göstergesidir. Ham verilerin ötesine geçerek, şikâyetlerin ardındaki temel mekanizmaları ve pazar trendleriyle…",
+      "words": 1260,
+      "read_minutes": 6,
+      "action_count": 0,
+      "actions": [],
+      "generated_at": "2026-08-06T03:51:26+03:00",
+      "generated_at_istanbul": "06.08.2026 03:51",
+      "path": "complaint_radar.json"
+    }
+  ]
+}
