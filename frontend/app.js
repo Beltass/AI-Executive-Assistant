@@ -725,6 +725,37 @@
     return found;
   }
 
+  /* Manifestteki `trigger` alanı, bir ajanın NEDEN atlandığını okumanın en
+   * kısa yolu: `weekly` bir ajanın çoğu koşuda atlanması normaldir,
+   * `always` bir ajanın atlanması değildir. Tablo bu yüzden tetikleyiciyi
+   * durumun yanında gösterir. */
+  var TRIGGER_LABEL = {
+    always: "Her koşu",
+    data_triggered: "Veri değişince",
+    weekly: "Haftalık",
+    user_requested: "İstek üzerine"
+  };
+  var TRIGGER_ORDER = { always: 0, data_triggered: 1, weekly: 2, user_requested: 3 };
+
+  function advisorTrigger(advisorId) {
+    var trigger = "";
+    Object.keys(EXPERTISE_AREAS).forEach(function (key) {
+      if (EXPERTISE_AREAS[key].advisor_id === advisorId) {
+        trigger = EXPERTISE_AREAS[key].trigger || "";
+      }
+    });
+    return trigger;
+  }
+
+  /** Ajan güncel roster'da (manifestte) var mı? Yoksa emekli/pasiftir. */
+  function isRosterAdvisor(advisorId) {
+    var found = false;
+    Object.keys(EXPERTISE_AREAS).forEach(function (key) {
+      if (EXPERTISE_AREAS[key].advisor_id === advisorId) found = true;
+    });
+    return found;
+  }
+
   function advisorCategory(advisorId) {
     var category = "";
     Object.keys(EXPERTISE_AREAS).forEach(function (key) {
@@ -965,6 +996,124 @@
     return 4;
   }
 
+  /* --- 7: öncelik dağılımı + tam aksiyon listesi ------------------------- */
+
+  /* Öncelik SIRALI bir ölçek (P0 en acil), kategorik bir küme değil. Bu yüzden
+   * kategorik seri renkleri değil, durum paletinin adımları kullanılır — ve
+   * dilim adı her zaman kodu yazar ("P0 · acil"), yani renk tek başına anlam
+   * taşımaz. */
+  var PRIORITY_LABEL = {
+    P0: "P0 · acil",
+    P1: "P1 · bugün",
+    P2: "P2 · bu hafta",
+    P3: "P3 · bilgi"
+  };
+  var PRIORITY_COLOR = {
+    P0: "var(--prio-p0)",
+    P1: "var(--prio-p1)",
+    P2: "var(--prio-p2)",
+    P3: "var(--prio-p3)"
+  };
+
+  var APPROVAL_LABEL = {
+    pending: "🖊️ onay bekliyor",
+    approved: "✅ onaylandı",
+    rejected: "⛔ reddedildi",
+    not_required: "— gerekmiyor"
+  };
+  var APPROVAL_ORDER = { pending: 0, rejected: 1, approved: 2, not_required: 3 };
+
+  function renderActionPriorityDonut(actions) {
+    var host = $("chart-action-priorities");
+    if (!host || !charts.donutChart) return;
+
+    var counts = {};
+    actions.forEach(function (action) {
+      counts[action.priority] = (counts[action.priority] || 0) + 1;
+    });
+
+    charts.donutChart(
+      host,
+      ["P0", "P1", "P2", "P3"]
+        .filter(function (code) {
+          return counts[code];
+        })
+        .map(function (code) {
+          return {
+            name: PRIORITY_LABEL[code],
+            value: counts[code],
+            color: PRIORITY_COLOR[code]
+          };
+        }),
+      {
+        // Öncelik sıralı bir ölçek: P0 en küçük dilim olsa bile göstergenin
+        // başında durmalı, çünkü okuyucu onu bir şiddet merdiveni gibi tarar.
+        preserveOrder: true,
+        aria: "Bugünün aksiyonlarının öncelik kırılımı",
+        centerValue: String(actions.length),
+        centerLabel: "aksiyon",
+        legendLabel: "Öncelik göstergesi",
+        format: function (value) {
+          return trNumber(value) + " aksiyon";
+        },
+        empty: "Bugünün raporlarında hiç aksiyon yok."
+      }
+    );
+
+    text(
+      $("ac-priority-donut-sub"),
+      actions.length ? actions.length + " aksiyon · adet" : "veri yok"
+    );
+  }
+
+  function renderActionTable(actions) {
+    var host = $("table-actions");
+    if (!host || !charts.dataTable) return;
+
+    var rows = actions.slice().sort(byPriority).map(function (action) {
+      var approval = APPROVAL_LABEL[action.approval] ? action.approval : "not_required";
+      return {
+        oncelik: {
+          // Sıralama koda göre yapılır (P0 < P1 < P2 < P3); Türkçe etikete göre
+          // alfabetik sıralamak "P2 · bu hafta"yı en üste koyardı.
+          tone: action.priority.toLowerCase(),
+          label: action.priority,
+          order: PRIORITY_ORDER[action.priority]
+        },
+        baslik: action.title,
+        sahip: action.owner || "",
+        son: action.due || "",
+        onay: {
+          tone: approval === "pending" ? "warn" : approval === "rejected" ? "failed" : "ok",
+          label: APPROVAL_LABEL[approval],
+          order: APPROVAL_ORDER[approval]
+        }
+      };
+    });
+
+    charts.dataTable(
+      host,
+      [
+        { key: "oncelik", label: "Öncelik", type: "badge", width: "6.5rem" },
+        { key: "baslik", label: "Başlık" },
+        { key: "sahip", label: "Sahip", format: function (v) { return v || "—"; } },
+        { key: "son", label: "Son tarih", format: function (v) { return v || "—"; } },
+        { key: "onay", label: "Onay durumu", type: "badge" }
+      ],
+      rows,
+      {
+        sort: { key: "oncelik", dir: "asc" },
+        caption: "Bugünün aksiyonları: öncelik, başlık, sahip, son tarih ve onay durumu",
+        empty: "Bugünün raporlarında hiç aksiyon yok — ilk koşu bekleniyor.",
+        note:
+          "Sahip ve son tarih danışmanın kendi cümlesinden okunur; yazmadıysa " +
+          "“—” görürsün, tahmin edilmez. Başlığa tıklayarak sıralayabilirsin."
+      }
+    );
+
+    text($("ac-all-meta"), rows.length ? rows.length + " aksiyon · sıralanabilir" : "");
+  }
+
   function renderAksiyon() {
     if (!$("aksiyon-body")) return;
     var actions = collectActions();
@@ -988,6 +1137,8 @@
     renderActionKpis();
     renderActionGrowth(actions);
     renderActionSystem();
+    renderActionPriorityDonut(actions);
+    renderActionTable(actions);
 
     var badge = $("badge-aksiyon");
     if (badge) {
@@ -1419,10 +1570,23 @@
       var quiet = advisor.nothing_new === true;
       var tokens = num(m.tokens);
       var chars = num(m.chars);
+      var trigger = advisorTrigger(advisor.id);
+      // Manifestte olmayan bir ajan hâlâ durum dosyasında görünebilir. Bunu
+      // sessizce normal bir satır gibi çizmek, panoyu "canlı ekip bu" diye
+      // okutur; o yüzden adının yanına açıkça yazılıyor.
+      var retired = !isRosterAdvisor(advisor.id);
       return {
         id: advisor.id,
-        advisor: (advisor.emoji ? advisor.emoji + " " : "") + (advisor.name || advisor.id),
+        advisor:
+          (advisor.emoji ? advisor.emoji + " " : "") +
+          (advisor.name || advisor.id) +
+          (retired ? " (pasif · manifestte yok)" : ""),
         sortName: advisor.name || advisor.id,
+        tetik: {
+          tone: retired ? "skipped" : "info",
+          label: retired ? "Pasif" : (TRIGGER_LABEL[trigger] || "Bilinmiyor"),
+          order: retired ? 9 : (TRIGGER_ORDER[trigger] != null ? TRIGGER_ORDER[trigger] : 8)
+        },
         durum: {
           tone: status,
           icon: quiet ? "🟰" : STATUS_ICON[status],
@@ -1447,6 +1611,7 @@
       host,
       [
         { key: "advisor", label: "Ajan", sortValue: function (row) { return row.sortName; } },
+        { key: "tetik", label: "Tetikleyici", type: "badge" },
         { key: "durum", label: "Durum", type: "badge" },
         {
           key: "sure",
@@ -1486,9 +1651,12 @@
       rows,
       {
         sort: { key: "token", dir: "desc" },
-        caption: "Ajan başına durum, süre, token, verim ve son çalışma",
-        empty: "Veri yok.",
+        caption: "Ajan başına tetikleyici, durum, süre, token, verim ve son çalışma",
+        empty: "Henüz ajan durumu yok — ilk koşu bekleniyor.",
         note:
+          "Tetikleyici, ajanın manifestteki çalışma kuralıdır: haftalık bir " +
+          "ajanın çoğu koşuda atlanması normaldir, her koşu çalışması gereken " +
+          "bir ajanın atlanması değildir. " +
           "Süre ve token ajan başına ölçülmez: son 7 çalıştırmanın toplam " +
           "gecikmesi ve token'ı, ajanların tahmini payına göre bölüştürülmüştür. " +
           "Verim = 1.000 token başına üretilen karakter (yüksek olan iyi). " +
@@ -3644,6 +3812,7 @@
   function renderCharts() {
     // Called on load and whenever the theme changes (the charts read their
     // colours from CSS custom properties).
+    if (state.status || state.metrics) renderAksiyon();
     if (state.status) renderHistory(Array.isArray(state.status.history) ? state.status.history : []);
     if (state.metrics) renderPerformans();
     if (state.status) renderPerformance();

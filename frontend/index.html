@@ -281,6 +281,36 @@
             </div>
             <div class="tiles tiles--4" id="ac-system"></div>
           </section>
+
+          <!-- 7 · En derin katman, bilerek en altta: yukarıdaki üç madde
+               "bugün ne yapmalıyım" sorusunu cevaplar, bu bölüm ise "başka ne
+               var" sorusunu. Halka öncelik kırılımını, tablo listenin
+               tamamını verir; ikisi de aynı `collectActions()` çıktısını
+               okur, yani sayılar birbirini tutar. -->
+          <section aria-labelledby="ac-all-title">
+            <div class="section-head">
+              <h2 id="ac-all-title">7 · Tüm aksiyonlar</h2>
+              <span class="section-head__meta" id="ac-all-meta"></span>
+            </div>
+
+            <div class="charts charts--sidekick">
+              <div class="chart-card">
+                <div class="chart-card__head">
+                  <span class="chart-card__title">Öncelik dağılımı</span>
+                  <span class="chart-card__sub" id="ac-priority-donut-sub"></span>
+                </div>
+                <div class="chart" id="chart-action-priorities"></div>
+              </div>
+
+              <div class="chart-card">
+                <div class="chart-card__head">
+                  <span class="chart-card__title">Aksiyon listesi</span>
+                  <span class="chart-card__sub">başlığa tıklayarak sırala</span>
+                </div>
+                <div id="table-actions"></div>
+              </div>
+            </div>
+          </section>
         </div>
       </section>
 

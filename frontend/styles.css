@@ -1337,6 +1337,16 @@ button {
   }
 }
 
+/* Bir özet + onun ayrıntı tablosu. Yarı yarıya bölmek yanlış: halka ~300px
+ * ile doyar, tablo ise ne kadar genişlik verirsen o kadarını kullanır. Eşit
+ * iki sütunda tablo gereksiz yere yatay kaydırmaya giriyordu. */
+@media (min-width: 960px) {
+  .charts--sidekick {
+    grid-template-columns: minmax(0, 300px) minmax(0, 1fr);
+    align-items: start;
+  }
+}
+
 .chart-card {
   background: var(--surface-1);
   border: 1px solid var(--border);
@@ -1347,6 +1357,16 @@ button {
   min-width: 0;
   align-content: start;
   transition: border-color var(--ease), box-shadow var(--ease);
+}
+
+/* Bir grid öğesinin varsayılan `min-width: auto`'su, içeriği kadar geniş
+ * kalmakta ısrar eder. `white-space: nowrap` hücreleri olan bir tablo bu
+ * yüzden kartını 528px'den 856px'e şişiriyor ve taşmayı sayfanın tamamına
+ * yıkıyordu: yatay kaydırma tablonun içinde değil, gövdede oluşuyordu.
+ * `min-width: 0` öğenin küçülmesine izin verir; kaydırma da olması gereken
+ * yere, `.dtable-wrap`'in içine döner. */
+.chart-card > * {
+  min-width: 0;
 }
 
 .chart-card__head {
@@ -2496,6 +2516,12 @@ button {
 
 .dtable tbody tr:last-child td {
   border-bottom: 0;
+}
+
+/* Zebra deseni: yatay kaydırılan geniş bir tabloda gözün satırı kaybetmemesi
+ * için. Tint çok hafif — desen, satırın kendisinden daha görünür olmamalı. */
+.dtable tbody tr:nth-child(even) td {
+  background: color-mix(in srgb, var(--surface-2) 55%, transparent);
 }
 
 .dtable tbody tr:hover td {
