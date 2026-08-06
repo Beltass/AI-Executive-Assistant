@@ -840,8 +840,8 @@ def test_the_hidden_attribute_is_reset_so_a_display_class_cannot_beat_it(css):
 # --- the metrics history outlives the roster --------------------------------
 #
 # `frontend/metrics.json` is an append-only measurement log, so it keeps rows
-# for advisors that have since been retired (`weather` is the live example) and
-# has no rows at all for advisors added after the last run. Both directions can
+# for advisors that have since been retired (`weather` was one) and it has no
+# rows at all for advisors added after the last run. Both directions can
 # mislead: a retired agent renders as a slice of the token ring as if it were
 # still on staff, and a new advisor's absence reads as "costs nothing".
 #
@@ -850,28 +850,18 @@ def test_the_hidden_attribute_is_reset_so_a_display_class_cannot_beat_it(css):
 # and skew the run-level totals. The dashboard labels instead.
 
 
-def test_a_retired_advisor_is_marked_archive_in_the_agent_charts():
-    """Runs the real `aggregateAgents` under node against the real data files.
+def _aggregate_agents(expertise, runs):
+    """Runs the real `aggregateAgents` from app.js under node.
 
-    Asserts against the shipped `metrics.json`/`advisors.json` rather than a
-    fixture: the point is that TODAY's data is labelled correctly.
+    `expertise` is EXPERTISE_AREAS as applyAdvisorManifest() builds it: keyed by
+    the hyphen id, carrying the underscore `advisor_id` metrics.json agents use.
+    Returns the produced rows keyed by agent id.
     """
-    if shutil_which_node() is None:
-        pytest.skip("node is not installed")
     body = APP.read_text(encoding="utf-8")
     num = re.search(r"function num\(value\) \{.*?\n  \}\n", body, re.DOTALL)
     roster = re.search(r"function rosterAdvisorIds\(\) \{.*?\n  \}\n", body, re.DOTALL)
     agg = re.search(r"function aggregateAgents\(runs\) \{.*?\n  \}\n", body, re.DOTALL)
     assert num and roster and agg
-
-    metrics = json.loads((FRONTEND / "metrics.json").read_text(encoding="utf-8"))
-    advisors = json.loads((FRONTEND / "advisors.json").read_text(encoding="utf-8"))
-    # EXPERTISE_AREAS as applyAdvisorManifest() builds it: keyed by the hyphen
-    # id, carrying the underscore `advisor_id` that metrics.json agents use.
-    expertise = {
-        row["advisor_id"].replace("_", "-"): {"advisor_id": row["advisor_id"]}
-        for row in advisors["advisors"]
-    }
 
     script = (
         "var input = JSON.parse(require('fs').readFileSync(0, 'utf8'));"
@@ -883,26 +873,81 @@ def test_a_retired_advisor_is_marked_archive_in_the_agent_charts():
     )
     result = subprocess.run(
         ["node", "-e", script],
-        input=json.dumps({"expertise": expertise, "runs": metrics["runs"]}),
+        input=json.dumps({"expertise": expertise, "runs": runs}),
         capture_output=True,
         text=True,
         timeout=15,
     )
     assert result.returncode == 0, result.stderr
-    rows = {row["id"]: row for row in json.loads(result.stdout)}
+    return {row["id"]: row for row in json.loads(result.stdout)}
+
+
+def test_a_retired_advisor_is_marked_archive_in_the_agent_charts():
+    """A metrics row for an advisor no longer on the roster is labelled `(arşiv)`.
+
+    Driven by a fixture, not by the shipped `metrics.json`: whether a given
+    retired advisor still happens to fall inside the trailing 7-run chart window
+    is an accident of the append-only log, and the labelling rule holds either
+    way.
+    """
+    if shutil_which_node() is None:
+        pytest.skip("node is not installed")
+
+    # One advisor on the roster, one that has been retired off it.
+    expertise = {"morning-operations": {"advisor_id": "morning_operations"}}
+    runs = [
+        {
+            "agents": [
+                {
+                    "id": "morning_operations",
+                    "name": "Sabah İşletme Brifingi",
+                    "est_total_tokens": 400,
+                    "output_chars": 2000,
+                },
+                {
+                    "id": "retired_advisor",
+                    "name": "Emekli Danışman",
+                    "est_total_tokens": 600,
+                    "output_chars": 1000,
+                },
+            ]
+        }
+    ]
+    rows = _aggregate_agents(expertise, runs)
+    assert set(rows) == {"morning_operations", "retired_advisor"}
+
+    # The retired advisor still bills tokens — the row is kept, not dropped …
+    assert rows["retired_advisor"]["tokens"] == 600
+    assert rows["retired_advisor"]["retired"] is True
+    # … and the label the charts draw carries the marker, so a reader of the
+    # ring never has to cross-check the roster by hand.
+    assert rows["retired_advisor"]["label"] == "Emekli Danışman (arşiv)"
+
+    # An advisor still on the roster is left unmarked.
+    assert rows["morning_operations"]["retired"] is False
+    assert rows["morning_operations"]["label"] == "Sabah İşletme Brifingi"
+
+
+def test_the_shipped_metrics_agents_are_labelled_against_the_shipped_roster():
+    """Same rule, applied to TODAY's data: every row agrees with advisors.json."""
+    if shutil_which_node() is None:
+        pytest.skip("node is not installed")
+
+    metrics = json.loads((FRONTEND / "metrics.json").read_text(encoding="utf-8"))
+    advisors = json.loads((FRONTEND / "advisors.json").read_text(encoding="utf-8"))
+    expertise = {
+        row["advisor_id"].replace("_", "-"): {"advisor_id": row["advisor_id"]}
+        for row in advisors["advisors"]
+    }
+
+    rows = _aggregate_agents(expertise, metrics["runs"])
     assert rows, "the shipped metrics.json produced no agent rows"
 
     roster_ids = {row["advisor_id"] for row in advisors["advisors"]}
     for agent_id, row in rows.items():
         expected = agent_id not in roster_ids
         assert row["retired"] is expected, f"{agent_id}: retired={row['retired']}"
-        # The label the charts draw carries the marker, so a reader of the ring
-        # never has to cross-check the roster by hand.
         assert row["label"].endswith(" (arşiv)") is expected, row["label"]
-
-    # The regression this guards: `weather` was retired but still bills tokens
-    # in the most recent full runs, so it is inside the 7-run chart window.
-    assert "weather" in rows and rows["weather"]["retired"] is True
 
 
 def test_the_roster_note_element_exists_and_is_filled_by_the_renderer(html, app):

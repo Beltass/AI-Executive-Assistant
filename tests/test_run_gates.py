@@ -20,15 +20,19 @@ from __future__ import annotations
 
 import pytest
 
-from ai_assistant import config, memory
+from ai_assistant import config, memory, metrics
 from ai_assistant.advisors import Advisor, BatchSection
 from ai_assistant.advisors._batch import SECTION_MARKER
+from ai_assistant.status_report import TRIGGER_WEEKLY
 from ai_assistant.integrations import STATUS_OK, STATUS_SKIPPED, llm
 from ai_assistant.operations_manager import (
     SKIP_DATA_UNCHANGED,
+    SKIP_NO_OUTPUT,
     SKIP_NOT_TRIGGERED,
     OperationsManager,
     forced_advisors,
+    not_triggered_reason,
+    skip_note,
     trigger_allows,
     weekly_due,
 )
@@ -130,7 +134,7 @@ def test_weekly_advisor_stays_out_of_a_daily_run(run_env, calls, monkeypatch):
 
     supervision = _run([always, weekly])
 
-    assert supervision.skipped_advisors[WEEKLY] == SKIP_NOT_TRIGGERED
+    assert supervision.skipped_advisors[WEEKLY] == "tetiklenmedi(weekly)"
     assert weekly.own_calls == 0
     assert WEEKLY not in "\n".join(calls)  # never even entered the prompt
 
@@ -151,7 +155,7 @@ def test_user_requested_advisor_only_runs_when_named(run_env, calls, monkeypatch
     on_request = FakeAdvisor(ON_REQUEST)
 
     quiet = _run([always, FakeAdvisor(ON_REQUEST)])
-    assert quiet.skipped_advisors[ON_REQUEST] == SKIP_NOT_TRIGGERED
+    assert quiet.skipped_advisors[ON_REQUEST] == "tetiklenmedi(user_requested)"
 
     monkeypatch.setenv("DIGEST_FORCE_ADVISORS", f"{ON_REQUEST}, birseyler")
     asked = _run([always, on_request])
@@ -297,3 +301,85 @@ def test_briefings_explain_the_skip_in_turkish(run_env, calls, monkeypatch):
     assert weekly.status == STATUS_SKIPPED
     assert "tetiklenmedi" in weekly.text
     assert [b.status for b in supervision.briefings if b.key == ALWAYS] == [STATUS_OK]
+
+
+# --- the counters and the rosters are ONE number -----------------------------
+#
+# `advisors_ok: 7` under a list of eleven names is not a rounding error, it is
+# two different questions answered by two different mechanisms. The counters
+# now DERIVE from the rosters, so the dashboard cannot contradict itself.
+
+
+class MuteAdvisor(FakeAdvisor):
+    """Runs, and reports `skipped` — no credentials, nothing gathered.
+
+    It stays out of the batch (like every non-LLM advisor) and takes its own
+    path, which is where the real "yapılandırılmadı" skips come from.
+    """
+
+    def batch_section(self):
+        return None
+
+    def _generate(self):
+        self.own_calls += 1
+        return self.skipped("yapılandırılmadı")
+
+
+def test_the_counters_are_derived_from_the_rosters(run_env, calls, monkeypatch):
+    monkeypatch.setenv("DIGEST_WEEKLY_RUN", "false")
+    team = [FakeAdvisor(ALWAYS), FakeAdvisor(DATA_A), FakeAdvisor(WEEKLY)]
+
+    supervision = _run(team)
+    record = metrics.build_run_metrics(supervision)
+
+    assert record["advisors_ok"] == len(record["executed_advisors"])
+    assert record["advisors_skipped"] == len(record["skipped_advisors"])
+    # Nobody falls between the two rosters.
+    executed = set(record["executed_advisors"])
+    assert executed | set(record["skipped_advisors"]) == {a.key for a in team}
+    assert not executed & set(record["skipped_advisors"])
+
+
+def test_an_advisor_that_reports_nothing_is_not_an_executed_one(run_env, calls):
+    """The exact 7-vs-11 bug: it ran, it produced no section, it is a skip."""
+    mute = MuteAdvisor(DATA_A)
+
+    supervision = _run([FakeAdvisor(ALWAYS), mute])
+    record = metrics.build_run_metrics(supervision)
+
+    assert record["executed_advisors"] == [ALWAYS]
+    assert record["skipped_advisors"] == {DATA_A: SKIP_NO_OUTPUT}
+    assert record["advisors_ok"] == 1
+    assert record["advisors_skipped"] == 1
+
+
+# --- WHICH gate closed ------------------------------------------------------
+
+
+def test_each_gate_names_itself_in_the_skip_reason(run_env, calls, monkeypatch):
+    monkeypatch.setenv("DIGEST_WEEKLY_RUN", "false")
+    _run([FakeAdvisor(DATA_A, "haber 1")])
+    memory.commit()  # the digest went out: DATA_A's source hash is now known
+
+    supervision = _run(
+        [
+            FakeAdvisor(ALWAYS),
+            FakeAdvisor(DATA_A, "haber 1"),  # unchanged source
+            FakeAdvisor(WEEKLY),  # not the weekly slot
+            FakeAdvisor(ON_REQUEST),  # nobody asked for it
+        ]
+    )
+
+    assert supervision.skipped_advisors == {
+        DATA_A: SKIP_DATA_UNCHANGED,
+        WEEKLY: "tetiklenmedi(weekly)",
+        ON_REQUEST: "tetiklenmedi(user_requested)",
+    }
+    assert len(set(supervision.skipped_advisors.values())) == 3
+
+
+def test_the_skip_note_spells_out_the_trigger_class():
+    assert not_triggered_reason(TRIGGER_WEEKLY) == "tetiklenmedi(weekly)"
+    assert not_triggered_reason("") == SKIP_NOT_TRIGGERED
+    assert "weekly" in skip_note(not_triggered_reason(TRIGGER_WEEKLY))
+    assert skip_note(SKIP_DATA_UNCHANGED).startswith("kaynak verisi")

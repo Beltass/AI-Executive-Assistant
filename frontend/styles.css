@@ -49,10 +49,53 @@
   --critical: #d03b3b;
   --neutral: #898781;
 
-  /* --- categorical series (dark steps) ---------------------------------- */
-  --series-1: #3987e5; /* blue   */
-  --series-2: #d95926; /* orange */
-  --series-3: #199e70; /* aqua   */
+  /* --- priority scale (ORDERED severity, not categorical) -----------------
+   * P0 red · P1 orange · P2 yellow · P3 grey. Two tokens per step because a
+   * chart mark and a piece of text have different contrast obligations:
+   *
+   *   --prio-N       the MARK hue (donut arc, bar fill) — >= 3:1 vs surface,
+   *                  which is what a non-text graphic needs;
+   *   --prio-N-ink   the TEXT step — measured >= 4.98:1 against the badge's
+   *                  own 14% tint, against --surface-1 AND against --plane,
+   *                  so the code passes WCAG AA (4.5:1) wherever it lands.
+   *
+   * Colour is never the only carrier: the code itself ("P0"…"P3") is always
+   * written inside the badge. */
+  --prio-p0: #d03b3b;
+  --prio-p1: #ec835a;
+  --prio-p2: #fab219;
+  --prio-p3: #898781;
+  --prio-p0-ink: #e07575;
+  --prio-p1-ink: #ef9271;
+  --prio-p2-ink: #fbbe3d;
+  --prio-p3-ink: #9d9c96;
+
+  /* --- categorical series (dark steps) -----------------------------------
+   * ONE fixed order, assigned by slot and never cycled or re-ranked. Slots
+   * 4–8 were validated as one set together with 1–3 against BOTH surfaces:
+   * worst adjacent CVD ΔE 8.4 dark / 9.1 light, worst adjacent normal-vision
+   * ΔE 19.3 dark / 19.6 light. Three light steps (aqua, yellow, magenta) sit
+   * under 3:1 on the light surface, which is why every builder that can reach
+   * them ships direct value labels AND a table view.
+   * -------------------------------------------------------------------- */
+  --series-1: #3987e5; /* blue    */
+  --series-2: #d95926; /* orange  */
+  --series-3: #199e70; /* aqua    */
+  --series-4: #c98500; /* yellow  */
+  --series-5: #d55181; /* magenta */
+  --series-6: #008300; /* green   */
+  --series-7: #9085e9; /* violet  */
+  --series-8: #e66767; /* red     */
+
+  /* --- sequential ramp (ONE hue, magnitude only; never a rainbow) --------
+   * Stepped separately per surface — dark→bright on dark, light→dark on
+   * light. The light ramp is not an inversion of the dark one. */
+  --ramp-0: #232322; /* "no activity" — reads as surface, not as data */
+  --ramp-1: #184f95;
+  --ramp-2: #256abf;
+  --ramp-3: #3987e5;
+  --ramp-4: #6da7ec;
+  --ramp-5: #9ec5f4;
 
   /* --- 4/8px spacing scale ---------------------------------------------- */
   --s1: 4px;
@@ -99,9 +142,30 @@
   --border: rgba(11, 11, 11, 0.1);
   --border-strong: rgba(11, 11, 11, 0.18);
   --shadow: 0 1px 2px rgba(11, 11, 11, 0.06), 0 4px 16px rgba(11, 11, 11, 0.06);
+
+  /* Priority inks are re-stepped for the light surface — the dark steps would
+   * land at 1.6–2.3:1 here. Measured >= 4.98:1 on badge tint, surface and
+   * plane. The mark hues stay put: they are the same status colours. */
+  --prio-p0-ink: #b02d2d;
+  --prio-p1-ink: #985237;
+  --prio-p2-ink: #8a6100;
+  --prio-p3-ink: #64635e;
+
   --series-1: #2a78d6;
   --series-2: #eb6834;
   --series-3: #1baf7a;
+  --series-4: #eda100;
+  --series-5: #e87ba4;
+  --series-6: #008300;
+  --series-7: #4a3aa7;
+  --series-8: #e34948;
+
+  --ramp-0: #f0efec;
+  --ramp-1: #b7d3f6;
+  --ramp-2: #86b6ef;
+  --ramp-3: #5598e7;
+  --ramp-4: #2a78d6;
+  --ramp-5: #184f95;
 }
 
 /* ========================================================================== */
@@ -403,6 +467,24 @@ button {
   border-radius: var(--r-lg);
   padding: var(--s4);
   box-shadow: var(--shadow);
+  transition: border-color var(--ease), box-shadow var(--ease);
+}
+
+/* Hover, tek bir kartı kalabalıktan ayırır: kenar biraz belirginleşir, gölge
+ * bir kademe derinleşir. Konum DEĞİŞMEZ — kart yukarı zıplarsa altındaki
+ * satırlar da kayar ve okuma yeri kaybolur. Dokunmatik ekranda hover yok,
+ * o yüzden bilgi taşımaz; sadece "buradasın" der. */
+.card:hover,
+.chart-card:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow), 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card,
+  .chart-card {
+    transition: none;
+  }
 }
 
 .section-head {
@@ -1255,6 +1337,16 @@ button {
   }
 }
 
+/* Bir özet + onun ayrıntı tablosu. Yarı yarıya bölmek yanlış: halka ~300px
+ * ile doyar, tablo ise ne kadar genişlik verirsen o kadarını kullanır. Eşit
+ * iki sütunda tablo gereksiz yere yatay kaydırmaya giriyordu. */
+@media (min-width: 960px) {
+  .charts--sidekick {
+    grid-template-columns: minmax(0, 300px) minmax(0, 1fr);
+    align-items: start;
+  }
+}
+
 .chart-card {
   background: var(--surface-1);
   border: 1px solid var(--border);
@@ -1264,6 +1356,17 @@ button {
   gap: var(--s3);
   min-width: 0;
   align-content: start;
+  transition: border-color var(--ease), box-shadow var(--ease);
+}
+
+/* Bir grid öğesinin varsayılan `min-width: auto`'su, içeriği kadar geniş
+ * kalmakta ısrar eder. `white-space: nowrap` hücreleri olan bir tablo bu
+ * yüzden kartını 528px'den 856px'e şişiriyor ve taşmayı sayfanın tamamına
+ * yıkıyordu: yatay kaydırma tablonun içinde değil, gövdede oluşuyordu.
+ * `min-width: 0` öğenin küçülmesine izin verir; kaydırma da olması gereken
+ * yere, `.dtable-wrap`'in içine döner. */
+.chart-card > * {
+  min-width: 0;
 }
 
 .chart-card__head {
@@ -1312,6 +1415,38 @@ button {
   font-size: 10px;
   font-family: var(--font);
   font-variant-numeric: tabular-nums;
+}
+
+/* Referans (taban) çizgisi — SERİ DEĞİL.
+ *
+ * Bu yüzden kesikli çizilir, kategorik bir seri rengi yerine sönük eksen
+ * mürekkebini giyer ve kendi etiketini taşır: okuyucunun hangi yatay çizginin
+ * hedef olduğunu tahmin etmesi gerekmez. Grafiğin göstergesinde yer almaz. */
+.chart__refline {
+  stroke: var(--text-3);
+  stroke-width: 1.5;
+  stroke-dasharray: 5 4;
+  opacity: 0.85;
+}
+
+.chart__reflabel {
+  fill: var(--text-3);
+  font-size: 10px;
+  font-family: var(--font);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Eksen başlığı: ne ölçülüyor ve hangi birimde.
+ *
+ * Figürün İÇİNDE döndürülmüş bir y başlığı yerine ÜSTÜNDE bir satır metin.
+ * Dikey başlık, tick sütunuyla aynı dar oluk için yarışır, telefon
+ * genişliğinde okunmaz ve ekran okuyucu onu sırasız duyurur. */
+.chart__axis-note {
+  margin: 0 0 var(--s1);
+  font-size: var(--t-xs);
+  line-height: 1.4;
+  color: var(--text-3);
 }
 
 .chart__label {
@@ -2103,23 +2238,26 @@ button {
   margin: 0;
 }
 
-/* Light theme adjustments */
-@media (prefers-color-scheme: light) {
-  .alert-item--critical {
-    background: color-mix(in srgb, var(--critical) 12%, var(--surface-1));
-  }
+/* Light theme adjustments.
+ *
+ * Keyed off the STAMPED theme, not the OS query. `applyTheme()` always writes
+ * `data-theme` on <html>, so the toggle is the single source of truth; the
+ * `prefers-color-scheme` version this replaces could fire on a light OS while
+ * the user was reading the dark theme, washing the alert tints out. */
+:root[data-theme="light"] .alert-item--critical {
+  background: color-mix(in srgb, var(--critical) 12%, var(--surface-1));
+}
 
-  .alert-item--warning {
-    background: color-mix(in srgb, var(--serious) 12%, var(--surface-1));
-  }
+:root[data-theme="light"] .alert-item--warning {
+  background: color-mix(in srgb, var(--serious) 12%, var(--surface-1));
+}
 
-  .alert-item--info {
-    background: color-mix(in srgb, var(--warning) 12%, var(--surface-1));
-  }
+:root[data-theme="light"] .alert-item--info {
+  background: color-mix(in srgb, var(--warning) 12%, var(--surface-1));
+}
 
-  .alert-item--success {
-    background: color-mix(in srgb, var(--good) 12%, var(--surface-1));
-  }
+:root[data-theme="light"] .alert-item--success {
+  background: color-mix(in srgb, var(--good) 12%, var(--surface-1));
 }
 
 @media (max-width: 640px) {
@@ -2161,49 +2299,13 @@ button {
    ==  it can be moved or removed in one piece.                             ==
    ========================================================================== */
 
-/* --- 1. palette extension -------------------------------------------------
- * Slots 1–3 are already defined at the top of this file; 4–8 continue the
- * SAME fixed categorical order (hues are assigned by slot, never cycled and
- * never by rank). The eight-slot order was validated as a set against both
- * surfaces: worst adjacent CVD ΔE 8.4 dark / 9.1 light, worst adjacent
- * normal-vision ΔE 19.3 dark / 19.6 light. Three light steps (aqua, yellow,
- * magenta) sit under 3:1 on the light surface, which is why every builder
- * that can use them ships direct value labels AND a table view.
- *
- * The ramp is SEQUENTIAL (one hue, magnitude only) and is stepped separately
- * for each surface — light→dark on light, dark→bright on dark. It is not an
- * inversion of the other, and it is never a rainbow.
+/* --- 1. palette -----------------------------------------------------------
+ * Nothing to declare here any more: series slots 1–8 and the sequential ramp
+ * moved up into section 1 (TOKENS) so that every colour decision in this file
+ * is made in exactly one place. See the comments there for how the set was
+ * validated. This note stays so the block below is not read as if the v2
+ * charts carried a private palette — they do not.
  * -------------------------------------------------------------------------- */
-
-:root {
-  --series-4: #c98500; /* yellow  */
-  --series-5: #d55181; /* magenta */
-  --series-6: #008300; /* green   */
-  --series-7: #9085e9; /* violet  */
-  --series-8: #e66767; /* red     */
-
-  --ramp-0: #232322; /* "no activity" — reads as surface, not as data */
-  --ramp-1: #184f95;
-  --ramp-2: #256abf;
-  --ramp-3: #3987e5;
-  --ramp-4: #6da7ec;
-  --ramp-5: #9ec5f4;
-}
-
-:root[data-theme="light"] {
-  --series-4: #eda100;
-  --series-5: #e87ba4;
-  --series-6: #008300;
-  --series-7: #4a3aa7;
-  --series-8: #e34948;
-
-  --ramp-0: #f0efec;
-  --ramp-1: #b7d3f6;
-  --ramp-2: #86b6ef;
-  --ramp-3: #5598e7;
-  --ramp-4: #2a78d6;
-  --ramp-5: #184f95;
-}
 
 /* --- 2. first-paint entrance ---------------------------------------------
  * Added exactly once per host by firstPaint() in charts.js, so the 60-second
@@ -2414,6 +2516,12 @@ button {
 
 .dtable tbody tr:last-child td {
   border-bottom: 0;
+}
+
+/* Zebra deseni: yatay kaydırılan geniş bir tabloda gözün satırı kaybetmemesi
+ * için. Tint çok hafif — desen, satırın kendisinden daha görünür olmamalı. */
+.dtable tbody tr:nth-child(even) td {
+  background: color-mix(in srgb, var(--surface-2) 55%, transparent);
 }
 
 .dtable tbody tr:hover td {
@@ -3197,22 +3305,35 @@ button {
 }
 
 /* Öncelik rozeti: renk TEK BAŞINA anlam taşımaz — kodun kendisi (P0…P3)
- * her zaman yazılıdır. */
+ * her zaman yazılıdır.
+ *
+ * Dört adımın dördü de ayrı bir renk taşır (P0 kırmızı · P1 turuncu ·
+ * P2 sarı · P3 gri): eskiden P2 ile P3 aynı gri idi, yani "yapılabilir" ile
+ * "bilgi" rozet üstünde ayırt edilemiyordu. Metin rengi `--prio-*-ink`
+ * adımından gelir; bu adımlar rozetin kendi %14 zeminine, --surface-1'e ve
+ * --plane'e karşı >= 4,98:1 ölçüldü (WCAG AA eşiği 4,5:1). */
 .badge--p0 {
-  color: var(--critical);
-  border-color: color-mix(in srgb, var(--critical) 45%, transparent);
-  background: color-mix(in srgb, var(--critical) 14%, transparent);
+  color: var(--prio-p0-ink);
+  border-color: color-mix(in srgb, var(--prio-p0) 45%, transparent);
+  background: color-mix(in srgb, var(--prio-p0) 14%, transparent);
 }
 
 .badge--p1 {
-  color: var(--warning);
-  border-color: color-mix(in srgb, var(--warning) 45%, transparent);
-  background: color-mix(in srgb, var(--warning) 14%, transparent);
+  color: var(--prio-p1-ink);
+  border-color: color-mix(in srgb, var(--prio-p1) 45%, transparent);
+  background: color-mix(in srgb, var(--prio-p1) 14%, transparent);
 }
 
-.badge--p2,
+.badge--p2 {
+  color: var(--prio-p2-ink);
+  border-color: color-mix(in srgb, var(--prio-p2) 45%, transparent);
+  background: color-mix(in srgb, var(--prio-p2) 14%, transparent);
+}
+
 .badge--p3 {
-  color: var(--text-2);
+  color: var(--prio-p3-ink);
+  border-color: color-mix(in srgb, var(--prio-p3) 45%, transparent);
+  background: color-mix(in srgb, var(--prio-p3) 14%, transparent);
 }
 
 .badge--approval {

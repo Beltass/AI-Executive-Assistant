@@ -281,6 +281,36 @@
             </div>
             <div class="tiles tiles--4" id="ac-system"></div>
           </section>
+
+          <!-- 7 · En derin katman, bilerek en altta: yukarıdaki üç madde
+               "bugün ne yapmalıyım" sorusunu cevaplar, bu bölüm ise "başka ne
+               var" sorusunu. Halka öncelik kırılımını, tablo listenin
+               tamamını verir; ikisi de aynı `collectActions()` çıktısını
+               okur, yani sayılar birbirini tutar. -->
+          <section aria-labelledby="ac-all-title">
+            <div class="section-head">
+              <h2 id="ac-all-title">7 · Tüm aksiyonlar</h2>
+              <span class="section-head__meta" id="ac-all-meta"></span>
+            </div>
+
+            <div class="charts charts--sidekick">
+              <div class="chart-card">
+                <div class="chart-card__head">
+                  <span class="chart-card__title">Öncelik dağılımı</span>
+                  <span class="chart-card__sub" id="ac-priority-donut-sub"></span>
+                </div>
+                <div class="chart" id="chart-action-priorities"></div>
+              </div>
+
+              <div class="chart-card">
+                <div class="chart-card__head">
+                  <span class="chart-card__title">Aksiyon listesi</span>
+                  <span class="chart-card__sub">başlığa tıklayarak sırala</span>
+                </div>
+                <div id="table-actions"></div>
+              </div>
+            </div>
+          </section>
         </div>
       </section>
 
@@ -345,6 +375,21 @@
               </div>
             </div>
           </div>
+
+          <!-- --- taşınan hatalar ---------------------------------------
+               `status.json` içindeki hata alanları (batch failure_reason,
+               Slack teslim hatası, Gmail/Takvim last_fetch_error) daha önce
+               hiçbir yerde çizilmiyordu: dosyada yazıyordu, ekranda yoktu.
+               Burası onların tek toplanma noktası. Panik kutusu değil, sakin
+               bir uyarı: ne olduğu ve dosyanın söylediği ham detay. Hata
+               yoksa bölüm tamamen gizlenir — boş kutu bırakılmaz. -->
+          <section id="system-notices-section" aria-labelledby="system-notices-title" hidden>
+            <div class="section-head">
+              <h2 id="system-notices-title"><span aria-hidden="true">⚠️</span> Dikkat edilmesi gerekenler</h2>
+              <span class="section-head__meta" id="system-notices-meta"></span>
+            </div>
+            <div class="alerts-list" id="system-notices"></div>
+          </section>
 
           <!-- --- watchdog (health.json) --- -->
           <section aria-labelledby="watchdog-title">
@@ -690,6 +735,30 @@
             </div>
           </div>
 
+          <!-- Kapılar bir ajanı BİLEREK durdurur; atlanan ajan hata değildir.
+               Bu iki grafik o ayrımı görünür kılar: soldaki koşu başına kaç
+               ajanın çalıştığını/atlandığını, sağdaki SON koşuda hangi
+               nedenle atlandığını gösterir. Geçmiş koşular için neden kaydı
+               tutulmadığı için sağdaki grafik bilerek tek koşuluktur ve
+               eksen notu bunu yazar. -->
+          <div class="charts charts--2">
+            <div class="chart-card">
+              <div class="chart-card__head">
+                <span class="chart-card__title">Çalışan vs atlanan ajanlar</span>
+                <span class="chart-card__sub" id="run-outcome-sub"></span>
+              </div>
+              <div class="chart" id="chart-run-outcome"></div>
+            </div>
+
+            <div class="chart-card">
+              <div class="chart-card__head">
+                <span class="chart-card__title">Atlanma nedenleri</span>
+                <span class="chart-card__sub" id="skip-reasons-sub"></span>
+              </div>
+              <div class="chart" id="chart-skip-reasons"></div>
+            </div>
+          </div>
+
           <div class="chart-card">
             <div class="chart-card__head">
               <span class="chart-card__title">Token dağılımı — girdi / çıktı / düşünme</span>
@@ -914,6 +983,11 @@
         </div>
 
         <div id="gmail-body" hidden class="stack">
+          <!-- Çekme hatası, altındaki sayıların hangi koşulda üretildiğini
+               değiştirir; o yüzden sayıların ÜSTÜNDE durur. Hata yoksa
+               tamamen gizlenir. -->
+          <div class="alerts-list" id="gmail-notices" hidden></div>
+
           <!-- --- Gmail & Calendar Stats Grid --- -->
           <div class="charts charts--2">
             <!-- Gmail Card -->

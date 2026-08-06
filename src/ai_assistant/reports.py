@@ -74,6 +74,7 @@ _PRIVATE_ADVISOR_KEYS_CURRENT = frozenset(
     {
         "communications_calendar",  # real names, subjects and meetings
         "meeting_prep",  # calendar entries and meeting note content
+        "drive_insight",  # Drive file names and document content
         "data_analyst",  # the operation's own performance data
         "ai_innovation",  # reasons about the user's own backlog
         "executive_coaching",  # personal development + accountability
