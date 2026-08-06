@@ -362,6 +362,18 @@ _LIVE_ROSTER = (
         data_owner="",
     ),
     _live(
+        "social_guardian",
+        "İtibar Muhafızı (Kriz Erken Uyarısı)",
+        "🛟",
+        CATEGORY_SECTOR,
+        advisor_class="SocialGuardianAdvisor",
+        # Konusu izleme AKIŞI: yeni başlık yoksa uyarı da yok. ``reputation_feeds``
+        # sahibi olduğu için akış değişmediğinde model hiç çağrılmaz.
+        trigger=TRIGGER_DATA,
+        token_ceiling=1200,
+        data_owner="reputation_feeds",
+    ),
+    _live(
         "work_analyst",
         "İş Analisti Danışmanı",
         "📈",

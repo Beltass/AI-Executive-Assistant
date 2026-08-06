@@ -161,6 +161,7 @@ def test_the_trigger_plan_is_the_one_that_was_agreed():
         "linkedin_coach",
         "data_analyst",
         "risk_sentinel",
+        "social_guardian",
     )
     assert status_report.advisors_with_trigger(status_report.TRIGGER_WEEKLY) == (
         "social_media_coach",

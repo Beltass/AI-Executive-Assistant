@@ -28,6 +28,7 @@ NEW_ADVISORS = (
     ("productivity_coach", status_report.TRIGGER_WEEKLY),
     ("risk_sentinel", status_report.TRIGGER_DATA),
     ("decision_intelligence", status_report.TRIGGER_WEEKLY),
+    ("social_guardian", status_report.TRIGGER_DATA),
 )
 
 _LLM_ENV = ("GEMINI_API_KEY", "OPENAI_API_KEY")

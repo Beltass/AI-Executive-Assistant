@@ -317,6 +317,18 @@ ADVISOR_CHANNELS: Tuple[ChannelSpec, ...] = (
         advisor_key="decision_intelligence",
     ),
     ChannelSpec(
+        env_key=advisor_channel_env("social_guardian"),
+        name="ai-itibar-muhafizi",
+        label="İtibar Muhafızı",
+        purpose=(
+            "İtibar Muhafızı ajanının kanalı. Marka zararı riski, kriz erken "
+            "uyarısı, cevap penceresi ve duruş önerisi. İçerik koçluğu değil, "
+            "risk değerlendirmesi."
+        ),
+        topic="🛟 İtibar riski · şiddet + cevap penceresi",
+        advisor_key="social_guardian",
+    ),
+    ChannelSpec(
         env_key=advisor_channel_env("work_analyst"),
         name="ai-is-analisti",
         label="İş Analisti Danışmanı",

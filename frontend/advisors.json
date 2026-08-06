@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "count": 20,
+  "count": 21,
   "advisors": [
     {
       "id": "morning-operations",
@@ -241,6 +241,20 @@
       "slack_target": "#decision-intelligence"
     },
     {
+      "id": "social-guardian",
+      "advisor_id": "social_guardian",
+      "name_tr": "İtibar Muhafızı (Kriz Erken Uyarısı)",
+      "emoji": "🛟",
+      "category": "sektör",
+      "topic": "marketing-sales",
+      "color": "#F5A623",
+      "dashboard_order": 18,
+      "trigger": "data_triggered",
+      "token_ceiling": 1200,
+      "data_owner": "reputation_feeds",
+      "slack_target": "#social-guardian"
+    },
+    {
       "id": "work-analyst",
       "advisor_id": "work_analyst",
       "name_tr": "İş Analisti Danışmanı",
@@ -248,7 +262,7 @@
       "category": "operasyon",
       "topic": "business-analytics",
       "color": "#4A90E2",
-      "dashboard_order": 18,
+      "dashboard_order": 19,
       "trigger": "always",
       "token_ceiling": 0,
       "data_owner": "run_briefings",
@@ -262,7 +276,7 @@
       "category": "operasyon",
       "topic": "business-analytics",
       "color": "#4A90E2",
-      "dashboard_order": 19,
+      "dashboard_order": 20,
       "trigger": "always",
       "token_ceiling": 1600,
       "data_owner": "run_briefings",
@@ -276,7 +290,7 @@
       "category": "operasyon",
       "topic": "innovation-tech",
       "color": "#9B59B6",
-      "dashboard_order": 20,
+      "dashboard_order": 21,
       "trigger": "always",
       "token_ceiling": 0,
       "data_owner": "system_health",
