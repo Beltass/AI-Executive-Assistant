@@ -238,7 +238,9 @@ def test_a_single_note_is_summarised_without_a_menu(store, ready):
         seen["user"] = user
         return "Özet gövdesi"
 
-    result = _handle(store, "toplantı notlarını özetle", drive=drive, generator=generate)
+    result = _handle(
+        store, "toplantı notlarını özetle", drive=drive, generator=generate
+    )
 
     assert result.summarised is True
     assert len(result.messages) == 1
@@ -277,7 +279,7 @@ def test_the_user_hears_about_the_request_before_the_long_call(store, ready):
 
 
 def test_a_named_meeting_skips_the_menu(store, ready):
-    """"tahsilat toplantısı" points at exactly one file — do not ask."""
+    """ "tahsilat toplantısı" points at exactly one file — do not ask."""
     drive = FakeDrive(bodies={"note-1": "içerik"})
     result = _handle(
         store,
@@ -345,7 +347,9 @@ def test_the_menu_survives_a_fresh_process(tmp_path, ready):
 def test_a_note_can_be_chosen_by_name(store, ready):
     _handle(store, "toplantı notlarını özetle", drive=FakeDrive())
     drive = FakeDrive(bodies={"note-2": "Bütçe kararları"})
-    result = _handle(store, "Bütçe planlama notlari", drive=drive, generator=lambda s, u: "Ö")
+    result = _handle(
+        store, "Bütçe planlama notlari", drive=drive, generator=lambda s, u: "Ö"
+    )
     assert result.summarised is True
     assert drive.read == ["note-2"]
 
@@ -394,12 +398,16 @@ def test_a_forgotten_menu_expires_like_any_session(store, ready, monkeypatch):
 # --- wiring into the session engine -----------------------------------------
 
 
-def test_the_session_engine_routes_the_request_to_this_module(store, ready, monkeypatch):
+def test_the_session_engine_routes_the_request_to_this_module(
+    store, ready, monkeypatch
+):
     from ai_assistant.chat.session import SessionEngine
 
     drive = FakeDrive(files=[FILES[0]], bodies={"note-1": "içerik"})
     monkeypatch.setattr(ask_mod, "_default_client", lambda: drive)
-    monkeypatch.setattr(ask_mod.llm, "generate_text", lambda s, u: "Özet gövdesi")
+    # ``**kw`` because the real call now passes ``thinking_budget``: the summary
+    # is lifted out of the note, so it pays for no "thinking" tokens.
+    monkeypatch.setattr(ask_mod.llm, "generate_text", lambda s, u, **kw: "Özet gövdesi")
 
     posted = []
     engine = SessionEngine(store=store, notifier=posted.append)

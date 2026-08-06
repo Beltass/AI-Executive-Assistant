@@ -46,9 +46,7 @@ class JobScoutAdvisor(Advisor):
         if not keywords:
             return self.skipped("missing env var(s): JOB_KEYWORDS")
         if not llm.is_configured():
-            return self.skipped(
-                "missing env var(s): GEMINI_API_KEY or OPENAI_API_KEY"
-            )
+            return self.skipped("missing env var(s): GEMINI_API_KEY or OPENAI_API_KEY")
 
         try:
             body = llm.generate_text(SYSTEM_PROMPT, self._user_prompt())

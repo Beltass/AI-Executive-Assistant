@@ -1,0 +1,33 @@
+[flake8]
+# 88, not pycodestyle's default 79: black reformats to 88 and is now an
+# enforced CI gate. With 79 here the two tools contradicted each other on every
+# long line — 94 of the 118 warnings were E501 on lines black had just produced
+# — and the only way to keep the step green was `--exit-zero`, which hid the
+# real findings (F401/F841/F811/E712) along with the noise.
+max-line-length = 88
+
+# Black-incompatible checks. Black writes `x[a : b]` for complex slices (E203)
+# and puts binary operators at the start of a continuation line (W503, which
+# pycodestyle itself considers superseded by W504).
+extend-ignore = E203, W503
+
+exclude =
+    .git,
+    __pycache__,
+    .pytest_cache,
+    build,
+    dist,
+    *.egg-info,
+    node_modules,
+    venv,
+    .venv,
+    # Checkouts of *other* branches living inside this working tree
+    # (`git worktree list` shows both). Their contents are not this branch's
+    # source and linting them made flake8 report the same file three times:
+    # 852 findings from .claude/worktrees and 657 from linkedin-coach, against
+    # 443 in the code this branch actually owns. linkedin-coach/ is already in
+    # .gitignore for the same reason.
+    .claude,
+    linkedin-coach
+
+max-complexity = 10

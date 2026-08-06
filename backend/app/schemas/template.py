@@ -1,12 +1,13 @@
 """Pydantic schemas for template-related endpoints."""
 
 from datetime import datetime
-from typing import Optional, List, Any
+from typing import Optional, List
 from pydantic import BaseModel
 
 
 class TemplateBase(BaseModel):
     """Base template schema."""
+
     name: str
     category: str
     content_type: str
@@ -18,11 +19,13 @@ class TemplateBase(BaseModel):
 
 class TemplateCreate(TemplateBase):
     """Schema for creating template."""
+
     pass
 
 
 class TemplateUpdate(BaseModel):
     """Schema for updating template."""
+
     name: Optional[str] = None
     category: Optional[str] = None
     system_prompt: Optional[str] = None
@@ -32,6 +35,7 @@ class TemplateUpdate(BaseModel):
 
 class Template(TemplateBase):
     """Template response schema."""
+
     id: int
     is_active: bool
     created_at: datetime

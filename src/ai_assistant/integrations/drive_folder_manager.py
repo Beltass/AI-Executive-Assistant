@@ -33,6 +33,7 @@ logger = logging.getLogger(__name__)
 
 class AdvisorType(Enum):
     """Advisor types with folder mappings."""
+
     MEETING_NOTES = "meeting_notes"
     DATA_ANALYST = "data_analyst"
     LINKEDIN_COACH = "linkedin_coach"
@@ -43,6 +44,7 @@ class AdvisorType(Enum):
 @dataclass
 class FolderStructure:
     """Defines folder hierarchy for each advisor."""
+
     root_folder_id: str
     current_month_folder: str
     archive_folder: str
@@ -60,28 +62,33 @@ class DriveFolderManager:
         AdvisorType.MEETING_NOTES: {
             "display_name": "Meeting Notes",
             "subfolders": ["active", "archive", "backups"],
-            "date_format": "%Y-%m"
+            "date_format": "%Y-%m",
         },
         AdvisorType.DATA_ANALYST: {
             "display_name": "Data Analysis",
             "subfolders": ["active", "archive", "backups", "templates"],
-            "date_format": "%Y-%m"
+            "date_format": "%Y-%m",
         },
         AdvisorType.LINKEDIN_COACH: {
             "display_name": "LinkedIn Coach",
-            "subfolders": ["profile_analysis", "content_calendar", "engagement_reports", "backups"],
-            "date_format": "%Y-%m"
+            "subfolders": [
+                "profile_analysis",
+                "content_calendar",
+                "engagement_reports",
+                "backups",
+            ],
+            "date_format": "%Y-%m",
         },
         AdvisorType.SOCIAL_MEDIA_COACH: {
             "display_name": "Social Media Analysis",
             "subfolders": ["linkedin", "instagram", "twitter", "backups"],
-            "date_format": "%Y-%m"
+            "date_format": "%Y-%m",
         },
         AdvisorType.PERSONAL_ASSISTANT: {
             "display_name": "Personal Assistant",
             "subfolders": ["daily_briefs", "tasks", "goals", "backups"],
-            "date_format": "%Y-%m"
-        }
+            "date_format": "%Y-%m",
+        },
     }
 
     def __init__(self, drive_manager: Any, root_folder_id: str):
@@ -109,14 +116,18 @@ class DriveFolderManager:
             try:
                 folder_id = await self._create_advisor_root(advisor_type, config)
                 results[advisor_type.value] = folder_id
-                self.logger.info(f"Initialized folder structure for {advisor_type.value}")
+                self.logger.info(
+                    f"Initialized folder structure for {advisor_type.value}"
+                )
             except Exception as e:
                 self.logger.error(f"Failed to initialize {advisor_type.value}: {e}")
                 raise
 
         return results
 
-    async def _create_advisor_root(self, advisor_type: AdvisorType, config: dict) -> str:
+    async def _create_advisor_root(
+        self, advisor_type: AdvisorType, config: dict
+    ) -> str:
         """Create advisor root folder and subfolders.
 
         Args:
@@ -128,37 +139,38 @@ class DriveFolderManager:
         """
         # Check if folder already exists
         existing_folder = self.drive_manager.get_folder_id_by_name(
-            config["display_name"],
-            self.root_folder_id
+            config["display_name"], self.root_folder_id
         )
 
         if existing_folder:
-            self.logger.info(f"Advisor folder '{config['display_name']}' already exists")
+            self.logger.info(
+                f"Advisor folder '{config['display_name']}' already exists"
+            )
             advisor_folder_id = existing_folder
         else:
             # Create root folder: AI-Executive-Assistant/[Advisor Name]
             advisor_folder_id = self.drive_manager.create_folder(
-                folder_name=config["display_name"],
-                parent_folder_id=self.root_folder_id
+                folder_name=config["display_name"], parent_folder_id=self.root_folder_id
             )
             if not advisor_folder_id:
-                raise Exception(f"Failed to create advisor root folder for {config['display_name']}")
+                raise Exception(
+                    f"Failed to create advisor root folder for {config['display_name']}"
+                )
 
         # Create/verify subfolders
         subfolders = {}
         for subfolder in config["subfolders"]:
             subfolder_id = self.drive_manager.get_or_create_folder(
-                folder_name=subfolder,
-                parent_folder_id=advisor_folder_id
+                folder_name=subfolder, parent_folder_id=advisor_folder_id
             )
             if subfolder_id:
                 subfolders[subfolder] = subfolder_id
 
         # Cache for quick access
         self.folder_cache[advisor_type] = {
-            'root': advisor_folder_id,
-            'subfolders': subfolders,
-            'config': config
+            "root": advisor_folder_id,
+            "subfolders": subfolders,
+            "config": config,
         }
 
         return advisor_folder_id
@@ -177,18 +189,17 @@ class DriveFolderManager:
         if advisor_type not in self.folder_cache:
             await self._ensure_advisor_initialized(advisor_type)
 
-        root_id = self.folder_cache[advisor_type]['root']
+        root_id = self.folder_cache[advisor_type]["root"]
 
         # Check if folder exists
         existing = self.drive_manager.get_file_by_name(root_id, date_str)
 
         if existing:
-            return existing['id']
+            return existing["id"]
 
         # Create month folder
         month_folder_id = self.drive_manager.create_folder(
-            folder_name=date_str,
-            parent_folder_id=root_id
+            folder_name=date_str, parent_folder_id=root_id
         )
 
         if not month_folder_id:
@@ -207,10 +218,7 @@ class DriveFolderManager:
             await self._create_advisor_root(advisor_type, config)
 
     async def upload_advisor_output(
-        self,
-        advisor_type: AdvisorType,
-        output_name: str,
-        files: Dict[str, str]
+        self, advisor_type: AdvisorType, output_name: str, files: Dict[str, str]
     ) -> Dict[str, str]:
         """Upload advisor output to organized structure.
 
@@ -237,8 +245,7 @@ class DriveFolderManager:
 
         # Create output folder (e.g., "Sales Analysis 2026-08-05")
         output_folder_id = self.drive_manager.create_folder(
-            folder_name=output_name,
-            parent_folder_id=month_folder_id
+            folder_name=output_name, parent_folder_id=month_folder_id
         )
 
         if not output_folder_id:
@@ -252,9 +259,7 @@ class DriveFolderManager:
                 file_name = f"{file_key}_{timestamp}"
 
                 file_id = self.drive_manager.upload_file(
-                    file_path=file_path,
-                    folder_id=output_folder_id,
-                    file_name=file_name
+                    file_path=file_path, folder_id=output_folder_id, file_name=file_name
                 )
 
                 if file_id:
@@ -269,10 +274,7 @@ class DriveFolderManager:
         return drive_links
 
     async def create_version(
-        self,
-        advisor_type: AdvisorType,
-        output_name: str,
-        file_path: str
+        self, advisor_type: AdvisorType, output_name: str, file_path: str
     ) -> str:
         """Create versioned copy (v1, v2, v3...) in same folder.
 
@@ -292,8 +294,7 @@ class DriveFolderManager:
         # Check for existing versions
         existing_files = self.drive_manager.list_files(month_folder_id)
         versions = [
-            f for f in existing_files
-            if output_name in f['name'] and 'v' in f['name']
+            f for f in existing_files if output_name in f["name"] and "v" in f["name"]
         ]
         version_num = len(versions) + 1
 
@@ -301,7 +302,7 @@ class DriveFolderManager:
         file_id = self.drive_manager.upload_file(
             file_path=file_path,
             folder_id=month_folder_id,
-            file_name=f"{output_name}_v{version_num}"
+            file_name=f"{output_name}_v{version_num}",
         )
 
         if not file_id:
@@ -319,19 +320,19 @@ class DriveFolderManager:
             Dictionary with folder statistics
         """
         await self._ensure_advisor_initialized(advisor_type)
-        root_id = self.folder_cache[advisor_type]['root']
+        root_id = self.folder_cache[advisor_type]["root"]
 
         files = self.drive_manager.list_files(root_id)
 
         total_files = len(files)
-        total_size = sum(int(f.get('size', 0)) for f in files if 'size' in f)
+        total_size = sum(int(f.get("size", 0)) for f in files if "size" in f)
 
         return {
             "advisor_type": advisor_type.value,
             "root_folder_id": root_id,
             "total_files": total_files,
             "total_size_bytes": total_size,
-            "created_at": datetime.now().isoformat()
+            "created_at": datetime.now().isoformat(),
         }
 
 
@@ -348,7 +349,7 @@ class DriveBackupManager:
         self,
         drive_manager: Any,
         folder_manager: DriveFolderManager,
-        archive_older_than_days: int = 30
+        archive_older_than_days: int = 30,
     ):
         """Initialize the Backup Manager.
 
@@ -376,7 +377,9 @@ class DriveBackupManager:
         try:
             await self.folder_manager._ensure_advisor_initialized(advisor_type)
 
-            backup_folder_id = self.folder_manager.folder_cache[advisor_type]['subfolders'].get('backups')
+            backup_folder_id = self.folder_manager.folder_cache[advisor_type][
+                "subfolders"
+            ].get("backups")
             if not backup_folder_id:
                 self.logger.error(f"Backup folder not found for {advisor_type.value}")
                 return None
@@ -385,26 +388,34 @@ class DriveBackupManager:
 
             # Create daily backup folder
             daily_backup = self.drive_manager.create_folder(
-                folder_name=today,
-                parent_folder_id=backup_folder_id
+                folder_name=today, parent_folder_id=backup_folder_id
             )
 
             if not daily_backup:
                 raise Exception(f"Failed to create backup folder for {today}")
 
             # Copy all files from current month to backup
-            current_month_id = await self.folder_manager.get_current_month_folder(advisor_type)
+            current_month_id = await self.folder_manager.get_current_month_folder(
+                advisor_type
+            )
             files_to_backup = self.drive_manager.list_files(current_month_id)
 
             backup_count = 0
             for file in files_to_backup:
                 try:
                     # Copy file to backup folder
-                    new_file = self.drive_manager.service.files().copy(
-                        fileId=file['id'],
-                        body={'parents': [daily_backup], 'name': f"{file['name']}_backup"},
-                        fields='id'
-                    ).execute()
+                    new_file = (
+                        self.drive_manager.service.files()
+                        .copy(
+                            fileId=file["id"],
+                            body={
+                                "parents": [daily_backup],
+                                "name": f"{file['name']}_backup",
+                            },
+                            fields="id",
+                        )
+                        .execute()
+                    )
 
                     if new_file:
                         backup_count += 1
@@ -413,17 +424,19 @@ class DriveBackupManager:
                 except Exception as e:
                     self.logger.error(f"Failed to backup file {file['name']}: {e}")
 
-            self.logger.info(f"Daily backup created with {backup_count} files for {advisor_type.value}")
+            self.logger.info(
+                f"Daily backup created with {backup_count} files for {advisor_type.value}"
+            )
             return daily_backup
 
         except Exception as e:
-            self.logger.error(f"Failed to create daily backup for {advisor_type.value}: {e}")
+            self.logger.error(
+                f"Failed to create daily backup for {advisor_type.value}: {e}"
+            )
             return None
 
     async def archive_old_files(
-        self,
-        advisor_type: AdvisorType,
-        older_than_days: Optional[int] = None
+        self, advisor_type: AdvisorType, older_than_days: Optional[int] = None
     ) -> int:
         """Move files older than N days to archive folder.
 
@@ -444,8 +457,10 @@ class DriveBackupManager:
         try:
             await self.folder_manager._ensure_advisor_initialized(advisor_type)
 
-            root_id = self.folder_manager.folder_cache[advisor_type]['root']
-            archive_folder_id = self.folder_manager.folder_cache[advisor_type]['subfolders'].get('archive')
+            root_id = self.folder_manager.folder_cache[advisor_type]["root"]
+            archive_folder_id = self.folder_manager.folder_cache[advisor_type][
+                "subfolders"
+            ].get("archive")
 
             if not archive_folder_id:
                 self.logger.error(f"Archive folder not found for {advisor_type.value}")
@@ -453,8 +468,7 @@ class DriveBackupManager:
 
             # List all month folders
             month_folders = self.drive_manager.list_files(
-                root_id,
-                mime_type='application/vnd.google-apps.folder'
+                root_id, mime_type="application/vnd.google-apps.folder"
             )
 
             archived_count = 0
@@ -463,28 +477,34 @@ class DriveBackupManager:
             for month_folder in month_folders:
                 try:
                     # Parse folder date
-                    folder_date = datetime.strptime(month_folder['name'], "%Y-%m")
+                    folder_date = datetime.strptime(month_folder["name"], "%Y-%m")
 
                     if folder_date < cutoff_date:
                         # Move folder to archive
                         self.drive_manager.move_file(
-                            file_id=month_folder['id'],
-                            parent_folder_id=archive_folder_id
+                            file_id=month_folder["id"],
+                            parent_folder_id=archive_folder_id,
                         )
                         archived_count += 1
                         self.logger.info(f"Archived folder: {month_folder['name']}")
 
                 except ValueError:
                     # Skip folders that don't match date format
-                    self.logger.debug(f"Skipping non-date folder: {month_folder['name']}")
+                    self.logger.debug(
+                        f"Skipping non-date folder: {month_folder['name']}"
+                    )
                 except Exception as e:
                     self.logger.error(f"Failed to archive {month_folder['name']}: {e}")
 
-            self.logger.info(f"Archived {archived_count} folders for {advisor_type.value}")
+            self.logger.info(
+                f"Archived {archived_count} folders for {advisor_type.value}"
+            )
             return archived_count
 
         except Exception as e:
-            self.logger.error(f"Failed to archive old files for {advisor_type.value}: {e}")
+            self.logger.error(
+                f"Failed to archive old files for {advisor_type.value}: {e}"
+            )
             return 0
 
     async def create_monthly_archive(self, advisor_type: AdvisorType) -> Optional[str]:
@@ -501,7 +521,9 @@ class DriveBackupManager:
         try:
             await self.folder_manager._ensure_advisor_initialized(advisor_type)
 
-            archive_folder_id = self.folder_manager.folder_cache[advisor_type]['subfolders'].get('archive')
+            archive_folder_id = self.folder_manager.folder_cache[advisor_type][
+                "subfolders"
+            ].get("archive")
             if not archive_folder_id:
                 self.logger.error(f"Archive folder not found for {advisor_type.value}")
                 return None
@@ -511,25 +533,32 @@ class DriveBackupManager:
 
             # Create archive folder
             archive_snapshot = self.drive_manager.create_folder(
-                folder_name=archive_snapshot_name,
-                parent_folder_id=archive_folder_id
+                folder_name=archive_snapshot_name, parent_folder_id=archive_folder_id
             )
 
             if not archive_snapshot:
-                raise Exception(f"Failed to create archive folder {archive_snapshot_name}")
+                raise Exception(
+                    f"Failed to create archive folder {archive_snapshot_name}"
+                )
 
             # Copy entire month folder to archive
-            current_month_id = await self.folder_manager.get_current_month_folder(advisor_type)
+            current_month_id = await self.folder_manager.get_current_month_folder(
+                advisor_type
+            )
             files = self.drive_manager.list_files(current_month_id)
 
             copy_count = 0
             for file in files:
                 try:
-                    new_file = self.drive_manager.service.files().copy(
-                        fileId=file['id'],
-                        body={'parents': [archive_snapshot], 'name': file['name']},
-                        fields='id'
-                    ).execute()
+                    new_file = (
+                        self.drive_manager.service.files()
+                        .copy(
+                            fileId=file["id"],
+                            body={"parents": [archive_snapshot], "name": file["name"]},
+                            fields="id",
+                        )
+                        .execute()
+                    )
 
                     if new_file:
                         copy_count += 1
@@ -538,17 +567,19 @@ class DriveBackupManager:
                 except Exception as e:
                     self.logger.error(f"Failed to archive file {file['name']}: {e}")
 
-            self.logger.info(f"Monthly archive created with {copy_count} files for {advisor_type.value}")
+            self.logger.info(
+                f"Monthly archive created with {copy_count} files for {advisor_type.value}"
+            )
             return archive_snapshot
 
         except Exception as e:
-            self.logger.error(f"Failed to create monthly archive for {advisor_type.value}: {e}")
+            self.logger.error(
+                f"Failed to create monthly archive for {advisor_type.value}: {e}"
+            )
             return None
 
     async def cleanup_old_backups(
-        self,
-        advisor_type: AdvisorType,
-        keep_days: int = 7
+        self, advisor_type: AdvisorType, keep_days: int = 7
     ) -> int:
         """Delete backup snapshots older than keep_days.
 
@@ -559,20 +590,23 @@ class DriveBackupManager:
         Returns:
             Number of backup folders deleted
         """
-        self.logger.info(f"Cleaning up backups older than {keep_days} days for {advisor_type.value}")
+        self.logger.info(
+            f"Cleaning up backups older than {keep_days} days for {advisor_type.value}"
+        )
 
         try:
             await self.folder_manager._ensure_advisor_initialized(advisor_type)
 
-            backup_folder_id = self.folder_manager.folder_cache[advisor_type]['subfolders'].get('backups')
+            backup_folder_id = self.folder_manager.folder_cache[advisor_type][
+                "subfolders"
+            ].get("backups")
             if not backup_folder_id:
                 self.logger.error(f"Backup folder not found for {advisor_type.value}")
                 return 0
 
             # List all backup folders
             backup_folders = self.drive_manager.list_files(
-                backup_folder_id,
-                mime_type='application/vnd.google-apps.folder'
+                backup_folder_id, mime_type="application/vnd.google-apps.folder"
             )
 
             deleted_count = 0
@@ -581,26 +615,35 @@ class DriveBackupManager:
             for backup_folder in backup_folders:
                 try:
                     # Parse folder date
-                    backup_date = datetime.strptime(backup_folder['name'], "%Y-%m-%d")
+                    backup_date = datetime.strptime(backup_folder["name"], "%Y-%m-%d")
 
                     if backup_date < cutoff_date:
                         # Move to trash
                         self.drive_manager.service.files().update(
-                            fileId=backup_folder['id'],
-                            body={'trashed': True}
+                            fileId=backup_folder["id"], body={"trashed": True}
                         ).execute()
                         deleted_count += 1
-                        self.logger.info(f"Deleted backup folder: {backup_folder['name']}")
+                        self.logger.info(
+                            f"Deleted backup folder: {backup_folder['name']}"
+                        )
 
                 except ValueError:
                     # Skip folders that don't match date format
-                    self.logger.debug(f"Skipping non-date backup folder: {backup_folder['name']}")
+                    self.logger.debug(
+                        f"Skipping non-date backup folder: {backup_folder['name']}"
+                    )
                 except Exception as e:
-                    self.logger.error(f"Failed to delete backup {backup_folder['name']}: {e}")
+                    self.logger.error(
+                        f"Failed to delete backup {backup_folder['name']}: {e}"
+                    )
 
-            self.logger.info(f"Deleted {deleted_count} backup folders for {advisor_type.value}")
+            self.logger.info(
+                f"Deleted {deleted_count} backup folders for {advisor_type.value}"
+            )
             return deleted_count
 
         except Exception as e:
-            self.logger.error(f"Failed to cleanup backups for {advisor_type.value}: {e}")
+            self.logger.error(
+                f"Failed to cleanup backups for {advisor_type.value}: {e}"
+            )
             return 0

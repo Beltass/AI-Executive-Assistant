@@ -68,6 +68,7 @@ def test_manager_runs_all_advisors_offline(no_config):
     assert [b.key for b in supervision.briefings] == [
         "morning_operations",
         "communications_calendar",
+        "meeting_prep",
         "career_development",
         "market_intelligence",
         "complaint_radar",
@@ -145,7 +146,9 @@ def test_build_digest_offline(no_config):
 # unconfigured -> skip (naming the missing setting), ran-but-did-nothing ->
 # say so, and success ONLY when work really happened.
 
-_BRIEFING = Briefing(key="boom", title="Patlayan Danışman", status=STATUS_OK, text="metin")
+_BRIEFING = Briefing(
+    key="boom", title="Patlayan Danışman", status=STATUS_OK, text="metin"
+)
 
 
 @pytest.fixture()
@@ -185,7 +188,9 @@ def test_unconfigured_integration_logs_skip_not_success(no_integrations, caplog)
     """The headline regression: no credentials must NOT read as success."""
     manager = OperationsManager(advisors=[])
     with caplog.at_level("INFO"):
-        manager._distribute_results("boom", "Patlayan Danışman", _BRIEFING, "2026-08-04")
+        manager._distribute_results(
+            "boom", "Patlayan Danışman", _BRIEFING, "2026-08-04"
+        )
 
     text = caplog.text
     assert "Asana senkronizasyonu başarılı" not in text
@@ -209,7 +214,9 @@ def test_integration_that_did_nothing_says_so(caplog, monkeypatch):
         manager, "_archive_to_drive", lambda *a, **k: "no-op: belge yüklenmedi"
     )
     with caplog.at_level("INFO"):
-        manager._distribute_results("boom", "Patlayan Danışman", _BRIEFING, "2026-08-04")
+        manager._distribute_results(
+            "boom", "Patlayan Danışman", _BRIEFING, "2026-08-04"
+        )
 
     assert "Asana senkronizasyonu başarılı" not in caplog.text
     assert "Asana senkronizasyonu çalıştı ama hiçbir iş yapmadı" in caplog.text
@@ -225,7 +232,9 @@ def test_success_is_logged_only_when_work_happened(caplog, monkeypatch):
         manager, "_archive_to_drive", lambda *a, **k: "success: 1 belge yüklendi"
     )
     with caplog.at_level("INFO"):
-        manager._distribute_results("boom", "Patlayan Danışman", _BRIEFING, "2026-08-04")
+        manager._distribute_results(
+            "boom", "Patlayan Danışman", _BRIEFING, "2026-08-04"
+        )
 
     assert "Asana senkronizasyonu başarılı: Patlayan Danışman" in caplog.text
     assert "Google Drive arşivlemesi başarılı: Patlayan Danışman" in caplog.text
@@ -239,7 +248,9 @@ def test_failing_integration_is_reported_as_failure(caplog, monkeypatch):
 
     monkeypatch.setattr(manager, "_sync_to_asana", _boom)
     with caplog.at_level("INFO"):
-        manager._distribute_results("boom", "Patlayan Danışman", _BRIEFING, "2026-08-04")
+        manager._distribute_results(
+            "boom", "Patlayan Danışman", _BRIEFING, "2026-08-04"
+        )
 
     assert "Asana senkronizasyonu başarısız" in caplog.text
     assert "intentional boom" in caplog.text
@@ -252,10 +263,16 @@ def test_distribution_summary_counts_only_real_successes(caplog):
     with caplog.at_level("INFO"):
         _save_distribution_status(
             {
-                "a": {"slack": "routed: C1", "asana": "skipped: ASANA_TOKEN tanımlı değil",
-                      "drive": "no-op: belge yüklenmedi"},
-                "b": {"slack": "routed: C2", "asana": "success: 1 görev oluşturuldu",
-                      "drive": "success: 1 belge yüklendi"},
+                "a": {
+                    "slack": "routed: C1",
+                    "asana": "skipped: ASANA_TOKEN tanımlı değil",
+                    "drive": "no-op: belge yüklenmedi",
+                },
+                "b": {
+                    "slack": "routed: C2",
+                    "asana": "success: 1 görev oluşturuldu",
+                    "drive": "success: 1 belge yüklendi",
+                },
             }
         )
 

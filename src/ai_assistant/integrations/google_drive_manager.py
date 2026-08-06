@@ -83,19 +83,21 @@ class GoogleDriveManager:
             media = MediaFileUpload(file_path, mimetype=mime_type)
 
             file_metadata = {
-                'name': file_name,
-                'parents': [folder_id],
-                'mimeType': mime_type,
+                "name": file_name,
+                "parents": [folder_id],
+                "mimeType": mime_type,
             }
 
-            file = self.service.files().create(
-                body=file_metadata,
-                media_body=media,
-                fields='id'
-            ).execute()
+            file = (
+                self.service.files()
+                .create(body=file_metadata, media_body=media, fields="id")
+                .execute()
+            )
 
-            file_id = file.get('id')
-            self.logger.info(f"Uploaded file '{file_name}' (ID: {file_id}) to folder {folder_id}")
+            file_id = file.get("id")
+            self.logger.info(
+                f"Uploaded file '{file_name}' (ID: {file_id}) to folder {folder_id}"
+            )
             return file_id
 
         except Exception as e:
@@ -118,7 +120,7 @@ class GoogleDriveManager:
         """
         try:
             request = self.service.files().get_media(fileId=file_id)
-            file_handle = io.FileIO(output_path, mode='wb')
+            file_handle = io.FileIO(output_path, mode="wb")
             downloader = MediaIoBaseDownload(file_handle, request)
 
             done = False
@@ -151,19 +153,18 @@ class GoogleDriveManager:
         """
         try:
             folder_metadata = {
-                'name': folder_name,
-                'mimeType': 'application/vnd.google-apps.folder',
+                "name": folder_name,
+                "mimeType": "application/vnd.google-apps.folder",
             }
 
             if parent_folder_id:
-                folder_metadata['parents'] = [parent_folder_id]
+                folder_metadata["parents"] = [parent_folder_id]
 
-            folder = self.service.files().create(
-                body=folder_metadata,
-                fields='id'
-            ).execute()
+            folder = (
+                self.service.files().create(body=folder_metadata, fields="id").execute()
+            )
 
-            folder_id = folder.get('id')
+            folder_id = folder.get("id")
             self.logger.info(f"Created folder '{folder_name}' (ID: {folder_id})")
             return folder_id
 
@@ -192,14 +193,18 @@ class GoogleDriveManager:
                 f"trashed = false"
             )
 
-            results = self.service.files().list(
-                q=query,
-                spaces='drive',
-                fields='files(id, name, mimeType, createdTime, modifiedTime)',
-                pageSize=1
-            ).execute()
+            results = (
+                self.service.files()
+                .list(
+                    q=query,
+                    spaces="drive",
+                    fields="files(id, name, mimeType, createdTime, modifiedTime)",
+                    pageSize=1,
+                )
+                .execute()
+            )
 
-            files = results.get('files', [])
+            files = results.get("files", [])
             if files:
                 self.logger.info(f"Found file '{file_name}' in folder {folder_id}")
                 return files[0]
@@ -231,14 +236,18 @@ class GoogleDriveManager:
             if mime_type:
                 query += f" and mimeType = '{mime_type}'"
 
-            results = self.service.files().list(
-                q=query,
-                spaces='drive',
-                fields='files(id, name, mimeType, createdTime, modifiedTime, size)',
-                pageSize=100
-            ).execute()
+            results = (
+                self.service.files()
+                .list(
+                    q=query,
+                    spaces="drive",
+                    fields="files(id, name, mimeType, createdTime, modifiedTime, size)",
+                    pageSize=100,
+                )
+                .execute()
+            )
 
-            files = results.get('files', [])
+            files = results.get("files", [])
             self.logger.info(f"Listed {len(files)} files in folder {folder_id}")
             return files
 
@@ -268,15 +277,13 @@ class GoogleDriveManager:
                 return False
 
             permission = {
-                'type': 'user',
-                'role': role,
-                'emailAddress': email,
+                "type": "user",
+                "role": role,
+                "emailAddress": email,
             }
 
             self.service.permissions().create(
-                fileId=file_id,
-                body=permission,
-                fields='id'
+                fileId=file_id, body=permission, fields="id"
             ).execute()
 
             self.logger.info(f"Shared file {file_id} with {email} as {role}")
@@ -302,20 +309,21 @@ class GoogleDriveManager:
         """
         try:
             # Get current parents
-            file = self.service.files().get(
-                fileId=file_id,
-                fields='parents'
-            ).execute()
+            file = self.service.files().get(fileId=file_id, fields="parents").execute()
 
-            previous_parents = ",".join(file.get('parents', []))
+            previous_parents = ",".join(file.get("parents", []))
 
             # Move to new folder
-            file = self.service.files().update(
-                fileId=file_id,
-                addParents=parent_folder_id,
-                removeParents=previous_parents,
-                fields='id, parents'
-            ).execute()
+            file = (
+                self.service.files()
+                .update(
+                    fileId=file_id,
+                    addParents=parent_folder_id,
+                    removeParents=previous_parents,
+                    fields="id, parents",
+                )
+                .execute()
+            )
 
             self.logger.info(f"Moved file {file_id} to folder {parent_folder_id}")
             return True
@@ -353,17 +361,16 @@ class GoogleDriveManager:
         """
         try:
             file_metadata = {
-                'name': title,
-                'mimeType': 'application/vnd.google-apps.document',
-                'parents': [folder_id],
+                "name": title,
+                "mimeType": "application/vnd.google-apps.document",
+                "parents": [folder_id],
             }
 
-            file = self.service.files().create(
-                body=file_metadata,
-                fields='id'
-            ).execute()
+            file = (
+                self.service.files().create(body=file_metadata, fields="id").execute()
+            )
 
-            doc_id = file.get('id')
+            doc_id = file.get("id")
             self.logger.info(f"Created Google Doc '{title}' (ID: {doc_id})")
 
             # If content provided, append it
@@ -419,16 +426,15 @@ class GoogleDriveManager:
             if parent_folder_id:
                 query = f"'{parent_folder_id}' in parents and " + query
 
-            results = self.service.files().list(
-                q=query,
-                spaces='drive',
-                fields='files(id, name)',
-                pageSize=1
-            ).execute()
+            results = (
+                self.service.files()
+                .list(q=query, spaces="drive", fields="files(id, name)", pageSize=1)
+                .execute()
+            )
 
-            files = results.get('files', [])
+            files = results.get("files", [])
             if files:
-                folder_id = files[0]['id']
+                folder_id = files[0]["id"]
                 self.logger.info(f"Found folder '{folder_name}' (ID: {folder_id})")
                 return folder_id
             else:

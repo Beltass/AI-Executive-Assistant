@@ -218,9 +218,7 @@ SCOPE_PROBLEM = (
 
 ACK = "Toplantı notlarına bakıyorum, özeti birazdan yazacağım…"
 
-_EMPTY_NOTE = (
-    "*{name}* notunu açtım ama içi boş görünüyor; özetlenecek bir metin yok."
-)
+_EMPTY_NOTE = "*{name}* notunu açtım ama içi boş görünüyor; özetlenecek bir metin yok."
 
 _CANCELLED = "Tamam, not özetini bıraktım."
 
@@ -339,7 +337,9 @@ def _resolve_pending(
     # "baştan" ya da yeni bir özet isteği: menüyü at, sıfırdan başla.
     if command == COMMAND_RESTART or is_summary_request(text):
         _drop_pending(store, channel, user)
-        return _begin(text, store, channel, user, client_factory, generator, notify, now)
+        return _begin(
+            text, store, channel, user, client_factory, generator, notify, now
+        )
 
     notes = [_note_from_dict(item) for item in pending.get("notes") or []]
     prompt = _menu(notes)
@@ -384,7 +384,7 @@ def _summarise(
     if not read.text:
         return Result(handled=True, messages=[_EMPTY_NOTE.format(name=note.name)])
 
-    call = generator or llm.generate_text
+    call = generator or _generate_summary
     try:
         body = call(prep_mod.SYSTEM_PROMPT, _user_prompt(note, read.text))
     except Exception as exc:
@@ -460,6 +460,19 @@ def _menu(notes: List[prep_mod.Note]) -> Prompt:
         ],
         note="_Vazgeçmek için `iptal` yazın._",
         footer=False,
+    )
+
+
+def _generate_summary(system_prompt: str, user_prompt: str) -> str:
+    """The default generator: one Gemini call with NO thinking budget.
+
+    Summarising a meeting note is structured inference — every decision, owner
+    and open item is already written in the note, and the prompt forbids adding
+    anything that is not. So the billed "thinking" pass has nothing to work out
+    (see :data:`ai_assistant.integrations.llm.STRUCTURED_THINKING_BUDGET`).
+    """
+    return llm.generate_text(
+        system_prompt, user_prompt, thinking_budget=llm.STRUCTURED_THINKING_BUDGET
     )
 
 

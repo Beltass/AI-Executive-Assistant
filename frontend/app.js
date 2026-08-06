@@ -31,13 +31,17 @@
   var METRICS_URL = "./metrics.json";
   var HEALTH_URL = "./health.json";
   var ARCHIVE_URL = "./reports/index.json";
+  /* Canlı ajan listesi. `ai_assistant.frontend_manifest` bunu ADVISOR_META'dan
+   * üretir (`python -m ai_assistant.frontend_manifest`), yani roster burada
+   * ELLE tutulmaz. Dosya yoksa aşağıdaki gömülü yedek kullanılır. */
+  var ADVISORS_URL = "./advisors.json";
 
   var REFRESH_MS = 60000; // live monitor: re-read the files every minute
   var CLOCK_MS = 20000; // how often the "x dk önce" label is recomputed
   var STALE_HOURS = 12; // older than this and we say so, loudly
 
-  var TABS = ["sistem", "icerik", "performans", "isler", "fikirler", "entegrasyonlar", "gmail", "analiz"];
-  var DEFAULT_TAB = "sistem";
+  var TABS = ["aksiyon", "sistem", "icerik", "performans", "isler", "fikirler", "entegrasyonlar", "gmail", "analiz"];
+  var DEFAULT_TAB = "aksiyon";
 
   var STATUS_LABEL = { ok: "Çalıştı", failed: "Hata", skipped: "Atlandı" };
   var STATUS_ICON = { ok: "✅", failed: "⚠️", skipped: "⏭️" };
@@ -143,14 +147,15 @@
     }
   };
 
-  /* The live advisor roster, grouped by konu (topic) and uzmanlık (expertise).
+  /* YEDEK roster — advisors.json okunamazsa kullanılır.
    *
-   * `advisor_id`, `name_tr`, `emoji` and `category` mirror ADVISOR_META in
-   * ai_assistant/status_report.py — that module is the source of truth, so a
-   * new advisor there needs one new entry here and nothing else. `topic` is
-   * the TOPICS key this expertise is filed under in the "Konuya göre" view.
+   * Tek kaynak ADVISOR_META (ai_assistant/status_report.py); pano onu
+   * `frontend/advisors.json` üzerinden okur ve EXPERTISE_AREAS'i çalışma
+   * anında ondan TÜRETİR (bkz. applyAdvisorManifest). Buradaki liste artık
+   * senkronize tutulması gereken ikinci bir kayıt değil, dosya sunulamadığında
+   * panonun boş kalmaması için bir emniyet ağıdır.
    */
-  var EXPERTISE_AREAS = {
+  var FALLBACK_EXPERTISE_AREAS = {
     /* -- İş Analitikleri ------------------------------------------------- */
     "morning-operations": {
       id: "morning-operations",
@@ -328,10 +333,56 @@
     }
   };
 
+  /* Çalışma anındaki roster. Manifest gelene kadar yedek; geldiğinde
+   * applyAdvisorManifest() bunu manifestten yeniden kurar. */
+  var EXPERTISE_AREAS = FALLBACK_EXPERTISE_AREAS;
+
+  /** advisors.json -> EXPERTISE_AREAS. Bozuk/eksik dosyada yedeği korur.
+   *
+   * Sıra `dashboard_order`dan gelir; alan yoksa dosyadaki sıraya düşer, çünkü
+   * eski bir manifest sürümünü okurken panonun listesi kaybolmamalı.
+   */
+  function applyAdvisorManifest(manifest) {
+    var rows = manifest && Array.isArray(manifest.advisors) ? manifest.advisors : [];
+    var usable = rows.filter(function (row) {
+      return row && typeof row.advisor_id === "string" && row.advisor_id;
+    });
+    if (!usable.length) return false;
+
+    usable = usable.slice().sort(function (a, b) {
+      var left = typeof a.dashboard_order === "number" ? a.dashboard_order : 0;
+      var right = typeof b.dashboard_order === "number" ? b.dashboard_order : 0;
+      if (left === right) return usable.indexOf(a) - usable.indexOf(b);
+      return left - right;
+    });
+
+    var built = {};
+    usable.forEach(function (row, index) {
+      var key = row.id || row.advisor_id.replace(/_/g, "-");
+      var previous = FALLBACK_EXPERTISE_AREAS[key] || {};
+      built[key] = {
+        id: key,
+        name_tr: row.name_tr || previous.name_tr || row.advisor_id,
+        name_en: previous.name_en || row.name_tr || row.advisor_id,
+        emoji: row.emoji || previous.emoji || "📄",
+        advisor_id: row.advisor_id,
+        color: row.color || previous.color || "#4A90E2",
+        category: row.category || previous.category || "",
+        topic: row.topic || previous.topic || "business-analytics",
+        trigger: row.trigger || "",
+        token_ceiling: row.token_ceiling || 0,
+        order: typeof row.dashboard_order === "number" ? row.dashboard_order : index + 1
+      };
+    });
+    EXPERTISE_AREAS = built;
+    return true;
+  }
+
   var state = {
     status: null,
     metrics: null,
     health: null,
+    advisors: null, // advisors.json (manifestten üretilen canlı roster)
     archive: null,
     days: {}, // date -> day index
     docs: {}, // "date/id" -> document
@@ -568,6 +619,383 @@
     // The charts read their colours from CSS custom properties, so they must be
     // rebuilt for the new theme's values.
     if (state.loaded) renderCharts();
+  }
+
+  /* ====================================================================== */
+  /* TAB 0 — 🎯 Aksiyon Merkezi                                             */
+  /*                                                                        */
+  /* Altı bölümün HEPSİ gerçek dosyalardan okur:                            */
+  /*   · günün rapor index'i (reports/<gün>/index.json -> card.actions)     */
+  /*   · status.json (takvim, Gmail, KPI, alarmlar, ajan durumları)         */
+  /*   · metrics.json (token, çağrı, gecikme, yedeğe düşme)                 */
+  /* Sabit örnek veri YOK: veri gelmediyse bölüm bunu yazar.                */
+  /* ====================================================================== */
+
+  var PRIORITY_ORDER = { P0: 0, P1: 1, P2: 2, P3: 3 };
+  var TOP_PRIORITY_LIMIT = 3;
+  /* 5. bölüm bu kategorilerin raporlarına bakar; kategori manifestten gelir,
+   * yani yeni bir gelişim danışmanı eklendiğinde burada iş yok. */
+  var GROWTH_CATEGORIES = ["kariyer", "kişisel gelişim"];
+
+  /** Günün index'indeki her rapordan aksiyonları toplar (advisor bilgisiyle). */
+  function collectActions() {
+    var date = latestDay();
+    var day = state.days[date];
+    var entries = day && Array.isArray(day.reports) ? day.reports : [];
+    var out = [];
+    entries.forEach(function (entry) {
+      var actions = Array.isArray(entry.actions) ? entry.actions : [];
+      actions.forEach(function (action) {
+        if (!action || !action.title) return;
+        out.push({
+          title: action.title,
+          priority: PRIORITY_ORDER[action.priority] != null ? action.priority : "P2",
+          owner: action.owner || "",
+          due: action.due_date || "",
+          approval: action.approval_status || "not_required",
+          advisor: action.source_advisor || entry.id || "",
+          advisorName: entry.name || "",
+          emoji: entry.emoji || "",
+          category: entry.category || "",
+          route: "#/rapor/" + date + "/" + entry.id
+        });
+      });
+    });
+    return out;
+  }
+
+  /** Bir aksiyonu checklist satırına çevirir — rozetler: öncelik, tarih, sahip. */
+  function actionRow(action) {
+    var row = make("div", "checklist__item");
+    row.appendChild(make("span", "checklist__box", "☐"));
+    var body = make("div", "checklist__body");
+    body.appendChild(make("p", "checklist__text", action.title));
+
+    var badges = make("div", "checklist__badges");
+    badges.appendChild(
+      make("span", "badge badge--" + action.priority.toLowerCase(), action.priority)
+    );
+    if (action.due) {
+      badges.appendChild(make("span", "badge badge--deadline", "📅 " + action.due));
+    }
+    if (action.owner) {
+      badges.appendChild(make("span", "badge badge--owner", "👤 " + action.owner));
+    }
+    if (action.approval === "pending") {
+      badges.appendChild(make("span", "badge badge--approval", "🖊️ onay bekliyor"));
+    }
+    var source = make("a", "badge badge--source",
+      (action.emoji ? action.emoji + " " : "") + (action.advisorName || action.advisor));
+    source.href = action.route;
+    badges.appendChild(source);
+    body.appendChild(badges);
+    row.appendChild(body);
+    return row;
+  }
+
+  /** Boş bölüm: neden boş olduğunu YAZAR, sessizce boş kalmaz. */
+  function fillList(host, rows, emptyText) {
+    host.innerHTML = "";
+    if (!rows.length) {
+      host.appendChild(make("p", "section-note", emptyText));
+      return 0;
+    }
+    rows.forEach(function (row) {
+      host.appendChild(row);
+    });
+    return rows.length;
+  }
+
+  function byPriority(a, b) {
+    var left = PRIORITY_ORDER[a.priority];
+    var right = PRIORITY_ORDER[b.priority];
+    if (left !== right) return left - right;
+    return (advisorOrder(a.advisor) - advisorOrder(b.advisor));
+  }
+
+  /** Ajanın manifestteki sırası; tanımadığı ajan listenin sonuna gider. */
+  function advisorOrder(advisorId) {
+    var found = 999;
+    Object.keys(EXPERTISE_AREAS).forEach(function (key) {
+      var area = EXPERTISE_AREAS[key];
+      if (area.advisor_id === advisorId && typeof area.order === "number") {
+        found = area.order;
+      }
+    });
+    return found;
+  }
+
+  function advisorCategory(advisorId) {
+    var category = "";
+    Object.keys(EXPERTISE_AREAS).forEach(function (key) {
+      if (EXPERTISE_AREAS[key].advisor_id === advisorId) {
+        category = EXPERTISE_AREAS[key].category || "";
+      }
+    });
+    return category;
+  }
+
+  /* --- 1 & 2: öncelikler ve onay bekleyenler ---------------------------- */
+
+  function renderActionPriorities(actions) {
+    var top = actions
+      .filter(function (action) {
+        return action.priority === "P0" || action.priority === "P1";
+      })
+      .sort(byPriority)
+      .slice(0, TOP_PRIORITY_LIMIT);
+
+    var count = fillList(
+      $("ac-priorities"),
+      top.map(actionRow),
+      "Bugünün raporlarında P0/P1 seviyesinde bir aksiyon yok."
+    );
+    text(
+      $("ac-priorities-meta"),
+      count + " / " + actions.length + " aksiyon"
+    );
+    return count;
+  }
+
+  function renderActionApprovals(actions) {
+    var waiting = actions
+      .filter(function (action) {
+        return action.approval === "pending";
+      })
+      .sort(byPriority);
+    var count = fillList(
+      $("ac-approvals"),
+      waiting.map(actionRow),
+      "Karar veya onay bekleyen aksiyon yok."
+    );
+    text($("ac-approvals-meta"), count + " madde");
+    return count;
+  }
+
+  /* --- 3: takvim ve operasyon riskleri ---------------------------------- */
+
+  function renderActionRisks() {
+    var data = state.status || {};
+    var calendar = data.calendar || {};
+    var gmail = data.gmail || {};
+    var run = data.run || {};
+    var rows = [];
+
+    if (calendar.today_meetings) {
+      var hours = calendar.total_meeting_time_hours;
+      rows.push(
+        renderAlertItem(
+          hours != null && hours >= 4 ? "warning" : "info",
+          "Bugün " + calendar.today_meetings + " toplantı" +
+            (hours != null ? " · " + hours.toFixed(1) + " saat" : "") +
+            (calendar.focus_blocks != null
+              ? " · " + calendar.focus_blocks + " odak bloğu"
+              : "")
+        )
+      );
+    }
+    if (calendar.next_meeting) {
+      rows.push(renderAlertItem("info", "Sıradaki toplantı: " + calendar.next_meeting));
+    }
+    if (gmail.urgent_count) {
+      rows.push(
+        renderAlertItem("warning", gmail.urgent_count + " acil e-posta yanıt bekliyor")
+      );
+    }
+
+    var failed = (Array.isArray(data.advisors) ? data.advisors : []).filter(
+      function (advisor) {
+        return advisor.status === "failed";
+      }
+    );
+    failed.forEach(function (advisor) {
+      rows.push(
+        renderAlertItem(
+          "critical",
+          (advisor.emoji ? advisor.emoji + " " : "") + (advisor.name || advisor.id) +
+            " çalışmadı: " + (advisor.detail || "hata")
+        )
+      );
+    });
+    if (run.conclusion === "failed") {
+      rows.push(renderAlertItem("critical", "Son koşu hata ile bitti."));
+    }
+
+    return fillList(
+      $("ac-risks"),
+      rows,
+      "Takvim ve operasyon tarafında işaretlenmiş bir risk yok."
+    );
+  }
+
+  /* --- 4: KPI sapmaları ve alarmlar ------------------------------------- */
+
+  /** Son değerin kendi 7 günlük ortalamasından yüzde kaç saptığı. */
+  function deviation(series, current) {
+    if (!Array.isArray(series) || series.length < 2) return null;
+    var history = series.slice(0, -1);
+    var sum = history.reduce(function (acc, value) {
+      return acc + value;
+    }, 0);
+    var mean = sum / history.length;
+    if (!mean) return null;
+    return ((current - mean) / mean) * 100;
+  }
+
+  function renderActionKpis() {
+    var performance = (state.status && state.status.performance) || {};
+    var daily = performance.daily_metrics || {};
+    var trends = performance.trends || {};
+    var host = $("ac-kpi");
+    host.innerHTML = "";
+
+    var specs = [
+      { key: "completion_rate", label: "Tamamlanma", series: "completion_7d", unit: "%" },
+      { key: "deadline_adherence", label: "Termine uyum", series: "deadline_7d", unit: "%" },
+      { key: "success_rate", label: "Başarı", series: "success_7d", unit: "%" },
+      { key: "token_efficiency", label: "Token verimi", series: "token_efficiency_7d", unit: "" }
+    ];
+
+    var deviations = [];
+    specs.forEach(function (spec) {
+      if (daily[spec.key] == null) return;
+      var series = trendSeries(trends, spec.key, spec.series);
+      var drift = series ? deviation(series, Number(daily[spec.key])) : null;
+      var arrow = drift == null ? "" : (drift >= 0 ? "▲ " : "▼ ") + Math.abs(drift).toFixed(0) + "%";
+      if (drift != null && Math.abs(drift) >= 20) {
+        deviations.push({ label: spec.label, drift: drift });
+      }
+      mountMetricCard(
+        host,
+        renderMetricCard(
+          spec.label,
+          Number(daily[spec.key]).toFixed(1),
+          spec.unit,
+          arrow,
+          series,
+          "var(--series-1)"
+        )
+      );
+    });
+
+    var rows = [];
+    deviations.forEach(function (item) {
+      rows.push(
+        renderAlertItem(
+          Math.abs(item.drift) >= 40 ? "critical" : "warning",
+          item.label + " 7 günlük ortalamasından %" +
+            Math.abs(item.drift).toFixed(0) + " " +
+            (item.drift < 0 ? "aşağıda" : "yukarıda")
+        )
+      );
+    });
+    (performance.alerts || []).forEach(function (alert) {
+      rows.push(renderAlertItem(alert.severity || "info", alert.message || ""));
+    });
+
+    if (!host.children.length) {
+      host.appendChild(make("p", "section-note", "KPI ölçümü henüz yazılmadı."));
+    }
+    return fillList($("ac-kpi-alerts"), rows, "Eşiği aşan bir KPI sapması yok.");
+  }
+
+  /* --- 5: kariyer / öğrenme -------------------------------------------- */
+
+  function renderActionGrowth(actions) {
+    var rows = actions.filter(function (action) {
+      var category = action.category || advisorCategory(action.advisor);
+      return GROWTH_CATEGORIES.indexOf(category) !== -1;
+    });
+    return fillList(
+      $("ac-growth"),
+      rows.sort(byPriority).map(actionRow),
+      "Bugün kariyer veya öğrenme tarafından bir aksiyon gelmedi."
+    );
+  }
+
+  /* --- 6: token, çağrı, maliyet, sistem sağlığı ------------------------- */
+
+  function renderActionSystem() {
+    var runs = metricRuns();
+    var totals = (state.metrics && state.metrics.totals) || {};
+    var last = runs.length ? runs[runs.length - 1] : null;
+    var run = (state.status && state.status.run) || {};
+    var host = $("ac-system");
+    host.innerHTML = "";
+
+    if (!last) {
+      host.appendChild(make("p", "section-note", "Ölçüm dosyası (metrics.json) henüz yok."));
+      text($("ac-system-meta"), "");
+      return 0;
+    }
+
+    var series = runs.slice(-7).map(function (entry) {
+      return Number(entry.total_tokens) || 0;
+    });
+    mountMetricCard(
+      host,
+      renderMetricCard("Son koşu tokeni", trNumber(last.total_tokens), "token", "", series, "var(--series-1)", true)
+    );
+    mountMetricCard(
+      host,
+      renderMetricCard(
+        "LLM çağrısı",
+        String((run.tokens && run.tokens.called ? 1 : 0) + (last.retries || 0)),
+        "çağrı",
+        (last.fallback_used ? "yedek model" : ""),
+        null,
+        "var(--series-2)",
+        true
+      )
+    );
+    mountMetricCard(
+      host,
+      renderMetricCard("Koşu başı ortalama", trNumber(totals.avg_tokens_per_run || 0), "token", "", null, "var(--series-3)", true)
+    );
+    mountMetricCard(
+      host,
+      renderMetricCard("Gecikme", (last.latency_seconds || 0).toFixed(0), "sn", "", null, "var(--series-4)", true)
+    );
+
+    text(
+      $("ac-system-meta"),
+      (last.model || "—") + " · " + (run.conclusion ? (CONCLUSION[run.conclusion] || {}).label || run.conclusion : "—") +
+        " · " + (totals.runs || runs.length) + " kayıtlı koşu"
+    );
+    return 4;
+  }
+
+  function renderAksiyon() {
+    if (!$("aksiyon-body")) return;
+    var actions = collectActions();
+    var hasData = !!(state.status || state.metrics || actions.length);
+
+    show($("aksiyon-empty"), !hasData);
+    show($("aksiyon-body"), hasData);
+    if (!hasData) return;
+
+    var date = latestDay();
+    text(
+      $("aksiyon-note"),
+      (date ? prettyDate(date) + " · " : "") + actions.length +
+        " aksiyon, " + Object.keys(EXPERTISE_AREAS).length + " canlı ajan" +
+        (state.advisors ? " (manifestten)" : " (yedek liste)")
+    );
+
+    var urgent = renderActionPriorities(actions);
+    var approvals = renderActionApprovals(actions);
+    renderActionRisks();
+    renderActionKpis();
+    renderActionGrowth(actions);
+    renderActionSystem();
+
+    var badge = $("badge-aksiyon");
+    if (badge) {
+      var pending = urgent + approvals;
+      badge.hidden = !pending;
+      badge.className = "tab__badge";
+      badge.textContent = String(pending);
+    }
   }
 
   /* ====================================================================== */
@@ -1705,6 +2133,7 @@
       if (!date) {
         renderReports();
         renderIdeas();
+        renderAksiyon();
         return null;
       }
       // Always re-read the newest day: an incremental run adds to it.
@@ -1712,6 +2141,8 @@
       return loadDay(date).then(function (day) {
         renderReports();
         renderIdeas();
+        // Aksiyon Merkezi günün index'inden beslenir; gün gelmeden çizilemez.
+        renderAksiyon();
         return day;
       });
     });
@@ -1880,7 +2311,7 @@
       charts.donutChart(
         $("chart-agents"),
         agents.map(function (row) {
-          return { name: row.name || row.id, value: num(row.tokens) };
+          return { name: row.label || row.name || row.id, value: num(row.tokens) };
         }),
         {
           aria: "Ajan başına tahmini token dağılımı",
@@ -1900,13 +2331,67 @@
       );
     }
 
+    /* --- ölçüm penceresi ile güncel roster arasındaki fark -----------------
+     * Grafikler ölçüm dosyasını olduğu gibi çizer, ama o dosya roster'dan
+     * bağımsız yaşıyor: emekli ajanlar geçmişte kalır, yeni danışmanların
+     * henüz ölçümü olmaz. İkisini de burada adıyla yazıyoruz — sessiz
+     * bırakmak, panoyu "16 danışmanın tamamı bu" diye okutur.
+     * -------------------------------------------------------------------- */
+    var windowRuns = runs.slice(-7);
+    var measured = {};
+    agents.forEach(function (row) {
+      measured[row.id] = true;
+    });
+    var retiredNames = agents
+      .filter(function (row) {
+        return row.retired;
+      })
+      .map(function (row) {
+        return row.name || row.id;
+      });
+    var unmeasured = Object.keys(rosterAdvisorIds()).filter(function (id) {
+      return !measured[id];
+    });
+
+    var rosterNote = [];
+    if (windowRuns.length) {
+      var firstRun = windowRuns[0];
+      var lastRun = windowRuns[windowRuns.length - 1];
+      rosterNote.push(
+        "Aşağıdaki üç grafik " +
+          (firstRun.at_istanbul || firstRun.at || "?") +
+          " – " +
+          (lastRun.at_istanbul || lastRun.at || "?") +
+          " arasındaki " +
+          windowRuns.length +
+          " çalıştırmanın ölçümüdür."
+      );
+    }
+    if (retiredNames.length) {
+      rosterNote.push(
+        retiredNames.length +
+          " ajan güncel roster'da yok, arşiv olarak işaretlendi: " +
+          retiredNames.join(", ") +
+          "."
+      );
+    }
+    if (unmeasured.length) {
+      rosterNote.push(
+        "Güncel roster'daki " +
+          unmeasured.length +
+          " danışmanın bu pencerede hiç ölçümü yok; grafiklerde yer almamaları " +
+          "0 token harcadıkları anlamına gelmez."
+      );
+    }
+    text($("agents-roster-note"), rosterNote.join(" "));
+
     /* --- the same advisors, ranked ---------------------------------------- */
     if (charts.barChart) {
       charts.barChart(
         $("chart-agent-bars"),
         agents.map(function (row) {
           return {
-            label: row.name || row.id,
+            label: row.label || row.name || row.id,
             value: num(row.tokens),
             note:
               "token payı %" + String(row.token_share).replace(".", ",") +
@@ -1930,7 +2415,7 @@
         agents
           .map(function (row) {
             return {
-              label: row.name || row.id,
+              label: row.label || row.name || row.id,
               value: num(row.tokens) ? Math.round((num(row.chars) / num(row.tokens)) * 1000) : 0,
               note: trNumber(Math.round(num(row.chars))) + " karakter · " +
                 trNumber(Math.round(num(row.tokens))) + " token"
@@ -1962,7 +2447,7 @@
         ],
         agents.map(function (row) {
           return [
-            row.name,
+            row.label || row.name,
             trNumber(row.tokens),
             "%" + String(row.token_share).replace(".", ","),
             "%" + String(row.output_share).replace(".", ","),
@@ -2006,7 +2491,26 @@
     }
   }
 
-  /** Sum the per-run agent estimates into one table, mirroring metrics.py. */
+  /* Güncel roster'daki `advisor_id`'ler (metrics.json'daki `agent.id` ile aynı
+   * yazım). EXPERTISE_AREAS manifestten geldiyse canlı roster, gelemediyse
+   * yedek liste — ikisi de advisor_id taşır, yani bu küme her durumda dolu. */
+  function rosterAdvisorIds() {
+    var ids = {};
+    Object.keys(EXPERTISE_AREAS).forEach(function (key) {
+      var entry = EXPERTISE_AREAS[key];
+      if (entry && entry.advisor_id) ids[entry.advisor_id] = true;
+    });
+    return ids;
+  }
+
+  /** Sum the per-run agent estimates into one table, mirroring metrics.py.
+   *
+   * Ölçüm geçmişi roster'ı takip etmez: bir ajan emekliye ayrıldığında eski
+   * koşulardaki satırları yerinde kalır. Bunlar uydurma değil, gerçekten
+   * yapılmış çağrılar — o yüzden silinmiyor, `retired` ile işaretlenip
+   * etiketine "(arşiv)" ekleniyor. Aksi hâlde grafikteki dilim, panonun
+   * danışman listesinde bulunmayan bir ajanı aktifmiş gibi gösterirdi.
+   */
   function aggregateAgents(runs) {
     var bucket = {};
     runs.slice(-7).forEach(function (run) {
@@ -2030,10 +2534,13 @@
       return acc + row.chars;
     }, 0);
 
+    var roster = rosterAdvisorIds();
     rows.forEach(function (row) {
       row.token_share = tokenTotal ? Math.round((row.tokens / tokenTotal) * 1000) / 10 : 0;
       row.output_share = charTotal ? Math.round((row.chars / charTotal) * 1000) / 10 : 0;
       row.gap = Math.round((row.token_share - row.output_share) * 10) / 10;
+      row.retired = !roster[row.id];
+      row.label = (row.name || row.id) + (row.retired ? " (arşiv)" : "");
     });
     rows.sort(function (a, b) {
       return b.tokens - a.tokens;
@@ -2317,6 +2824,22 @@
   /* TAB 7 — 📧 Gmail & Takvim                                              */
   /* ====================================================================== */
 
+  /* `calendar.next_meeting` arrives as an object from status.json, but older
+   * snapshots stored a ready-made string. Return "" when there is nothing to
+   * show so the caller can hide the tile rather than print a placeholder. */
+  function formatNextMeeting(meeting) {
+    if (!meeting) return "";
+    if (typeof meeting === "string") return meeting.trim();
+    if (typeof meeting !== "object") return "";
+    var parts = [];
+    if (meeting.summary) parts.push(String(meeting.summary));
+    if (meeting.time) parts.push(String(meeting.time));
+    if (meeting.duration_minutes != null) {
+      parts.push(meeting.duration_minutes + " dk");
+    }
+    return parts.join(" · ");
+  }
+
   function renderGmailCalendar() {
     var data = state.status;
     if (!data) return;
@@ -2338,21 +2861,39 @@
     text($("gmail-total-24h"), gmail.total_emails_24h || 0);
     text($("gmail-urgent"), gmail.urgent_count || 0);
     text($("gmail-action-items"), gmail.action_items || 0);
-    text($("gmail-vip-count"), (gmail.vip_emails && gmail.vip_emails.length) || 0);
+    /* `vip_emails` is written two different ways by the backend: the
+     * communications advisor emits a LIST of e-mail objects, while the
+     * status-report stub emits a plain COUNT (0). Accept both so the tile
+     * never reads 0 just because the shape changed. */
+    var vipEmails = Array.isArray(gmail.vip_emails) ? gmail.vip_emails : [];
+    var vipCount = Array.isArray(gmail.vip_emails)
+      ? gmail.vip_emails.length
+      : (typeof gmail.vip_emails === "number" ? gmail.vip_emails : 0);
+    text($("gmail-vip-count"), vipCount);
 
     // --- Calendar Stats ---
     text($("calendar-today-meetings"), calendar.today_meetings || 0);
     text($("calendar-total-time"), calendar.total_meeting_time_hours != null
       ? calendar.total_meeting_time_hours.toFixed(1) + " sa"
       : "—");
-    text($("calendar-focus-blocks"), calendar.focus_blocks || 0);
+    /* status.json calls this `focus_blocks_available`; the older name is kept
+     * as a fallback so archived snapshots still render. */
+    text($("calendar-focus-blocks"),
+      calendar.focus_blocks_available != null
+        ? calendar.focus_blocks_available
+        : (calendar.focus_blocks || 0));
 
-    // Next meeting display
+    /* Next meeting display.
+     * `next_meeting` is an OBJECT ({summary, time, duration_minutes}) in
+     * status.json — assigning it straight to textContent printed
+     * "[object Object]". Format it, and stay hidden while every field is
+     * empty (which is what "no meeting scheduled" looks like). */
     var nextMeetingContainer = $("calendar-next-meeting-container");
     var nextMeetingEl = $("calendar-next-meeting");
     if (nextMeetingEl) {
-      if (calendar.next_meeting) {
-        nextMeetingEl.textContent = calendar.next_meeting;
+      var nextMeetingLabel = formatNextMeeting(calendar.next_meeting);
+      if (nextMeetingLabel) {
+        nextMeetingEl.textContent = nextMeetingLabel;
         if (nextMeetingContainer) nextMeetingContainer.hidden = false;
       } else {
         if (nextMeetingContainer) nextMeetingContainer.hidden = true;
@@ -2378,8 +2919,11 @@
     // --- Recent Emails ---
     var emailsList = $("gmail-recent-emails");
     emailsList.innerHTML = "";
-    if (gmail.vip_emails && Array.isArray(gmail.vip_emails)) {
-      gmail.vip_emails.slice(0, 5).forEach(function (email) {
+    /* Never leave this section silently blank: the markup ships an honest
+     * "Son e-postalar yok." line, so toggle it instead of showing nothing. */
+    show($("gmail-empty-emails"), vipEmails.length === 0);
+    if (vipEmails.length) {
+      vipEmails.slice(0, 5).forEach(function (email) {
         var row = make("div", "gmail-email-row");
 
         var from = make("div", "gmail-email-from");
@@ -2403,11 +2947,17 @@
       });
     }
 
-    // Update last sync time
-    if (gmail.last_update || calendar.last_update) {
-      var lastUpdate = gmail.last_update || calendar.last_update;
-      text($("gmail-last-update"), "Son güncelleme: " + relativeTime(lastUpdate));
+    // Update last sync time, and say so out loud when a fetch failed.
+    var notes = [];
+    var lastUpdate = gmail.last_update || calendar.last_update;
+    if (lastUpdate) notes.push("Son güncelleme: " + relativeTime(lastUpdate));
+    if (gmail.last_fetch_error) {
+      notes.push("Gmail verisi alınamadı: " + gmail.last_fetch_error);
     }
+    if (calendar.last_fetch_error) {
+      notes.push("Takvim verisi alınamadı: " + calendar.last_fetch_error);
+    }
+    text($("gmail-last-update"), notes.join(" — "));
   }
 
   /* ====================================================================== */
@@ -2898,6 +3448,7 @@
 
   function renderAll() {
     state.loaded = true;
+    renderAksiyon();
     renderSistem();
     renderPerformans();
     renderIsler();
@@ -2935,12 +3486,16 @@
         return { __error: error };
       }),
       fetchOptional(METRICS_URL),
-      fetchOptional(HEALTH_URL)
+      fetchOptional(HEALTH_URL),
+      fetchOptional(ADVISORS_URL)
     ])
       .then(function (results) {
         state.lastFetch = new Date().toISOString();
         state.metrics = results[1];
         state.health = results[2];
+        if (results[3] && applyAdvisorManifest(results[3])) {
+          state.advisors = results[3];
+        }
 
         if (results[0] && results[0].__error) {
           // Keep showing the last good data; only freshness changes.
@@ -2953,6 +3508,7 @@
         else {
           renderPerformans();
           renderIsler();
+          renderAksiyon();
         }
       })
       .then(function () {

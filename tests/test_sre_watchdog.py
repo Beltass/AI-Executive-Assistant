@@ -149,7 +149,11 @@ def test_findings_are_reported_with_their_remedy(no_feeds, monkeypatch):
 
 def test_a_clean_verdict_says_there_is_nothing_to_do():
     text = watchdog_module.format_briefing(
-        [watchdog.Check(id="quota", name="Kota", severity=watchdog.SEVERITY_OK, detail="temiz")]
+        [
+            watchdog.Check(
+                id="quota", name="Kota", severity=watchdog.SEVERITY_OK, detail="temiz"
+            )
+        ]
     )
     assert "yapılacak bir" in text
     assert "1 temiz · 0 uyarı · 0 kritik" in text

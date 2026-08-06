@@ -23,11 +23,23 @@ dependencies = [
     # ama artık son çare, varsayılan değil. Bağımlılık burada olmadığı sürece
     # temiz bir kurulumda Excel yolu sessizce ölüydü ve testler bunu görmüyordu.
     "openpyxl>=3.1.0",
+    # `import pytz` modül düzeyinde yapılıyor
+    # (ai_assistant.integrations.notification_manager) — try/except ile
+    # sarılmamış, yani paket yoksa modül import edilemez ve bildirimlere dokunan
+    # her test toplama (collection) aşamasında çöker. Bu bir runtime
+    # bağımlılığıdır, dev değil; kullanıcı kurulumunda da gereklidir.
+    # SİLMEYİN: notification_manager'daki import kaldırılmadıkça bu satır kalmalı.
+    "pytz>=2023.3",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=8.0.0",
+    # Üst sınır bilinçli: 61 kök test `@pytest.mark.asyncio` kullanıyor ve
+    # pytest 10 ile birlikte tanınmayan mark'lar uyarı değil HATA sayılıyor.
+    # Sınır olmadan CI kendiliğinden yeni major'a atlayıp suite'i kırıyor.
+    "pytest>=8.0.0,<10",
+    # Async testler bu eklenti olmadan "skipped" olarak sessizce geçiliyordu.
+    "pytest-asyncio>=0.21.1",
 ]
 
 [project.scripts]
@@ -37,5 +49,9 @@ ai-assistant-check = "ai_assistant.health:main"
 where = ["src"]
 
 [tool.pytest.ini_options]
-pythonpath = ["src"]
+pythonpath = ["src", "."]
 testpaths = ["tests"]
+# backend/pytest.ini bunu yıllardır ayarlıyordu ama kök suite'e uygulanmıyordu;
+# kök testler `@pytest.mark.asyncio` yazsa da eklenti strict modda olduğu için
+# koşmuyordu. "auto" ile async test fonksiyonları otomatik olarak çalıştırılır.
+asyncio_mode = "auto"

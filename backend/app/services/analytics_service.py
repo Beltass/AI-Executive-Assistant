@@ -1,12 +1,11 @@
 """Service for analytics and metrics."""
 
 import logging
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
-from sqlalchemy import func
 
-from app.db.models import EngagementMetric, Content, ScheduledPost
+from app.db.models import EngagementMetric, Content
 
 logger = logging.getLogger(__name__)
 
@@ -18,9 +17,7 @@ class AnalyticsService:
         """Initialize analytics service."""
         self.db = db
 
-    async def get_content_metrics(
-        self, content_id: int
-    ) -> Dict[str, Any]:
+    async def get_content_metrics(self, content_id: int) -> Dict[str, Any]:
         """Get aggregated metrics for content."""
         metrics = (
             self.db.query(EngagementMetric)
@@ -53,17 +50,16 @@ class AnalyticsService:
             "by_platform": self._group_metrics_by_platform(metrics),
         }
 
-    async def get_user_analytics(
-        self, user_id: int, days: int = 30
-    ) -> Dict[str, Any]:
+    async def get_user_analytics(self, user_id: int, days: int = 30) -> Dict[str, Any]:
         """Get analytics summary for user."""
         since = datetime.utcnow() - timedelta(days=days)
 
         # Get user's content
-        contents = self.db.query(Content).filter(
-            Content.user_id == user_id,
-            Content.created_at >= since
-        ).all()
+        contents = (
+            self.db.query(Content)
+            .filter(Content.user_id == user_id, Content.created_at >= since)
+            .all()
+        )
 
         if not contents:
             return self._empty_user_analytics()
@@ -75,7 +71,7 @@ class AnalyticsService:
             self.db.query(EngagementMetric)
             .filter(
                 EngagementMetric.content_id.in_(content_ids),
-                EngagementMetric.metric_date >= since
+                EngagementMetric.metric_date >= since,
             )
             .all()
         )
@@ -86,9 +82,7 @@ class AnalyticsService:
         approved = len([c for c in contents if c.status == "approved"])
 
         total_views = sum(m.views for m in metrics)
-        total_engagement = (
-            sum(m.likes + m.comments + m.shares for m in metrics)
-        )
+        total_engagement = sum(m.likes + m.comments + m.shares for m in metrics)
 
         return {
             "period_days": days,
@@ -105,13 +99,9 @@ class AnalyticsService:
             "top_content": await self._get_top_content(contents, metrics),
         }
 
-    async def get_platform_performance(
-        self, user_id: int
-    ) -> Dict[str, Any]:
+    async def get_platform_performance(self, user_id: int) -> Dict[str, Any]:
         """Get performance breakdown by platform."""
-        contents = self.db.query(Content).filter(
-            Content.user_id == user_id
-        ).all()
+        contents = self.db.query(Content).filter(Content.user_id == user_id).all()
 
         content_ids = [c.id for c in contents]
 
@@ -129,9 +119,7 @@ class AnalyticsService:
         """Get engagement trends over time."""
         since = datetime.utcnow() - timedelta(days=days)
 
-        contents = self.db.query(Content).filter(
-            Content.user_id == user_id
-        ).all()
+        contents = self.db.query(Content).filter(Content.user_id == user_id).all()
 
         content_ids = [c.id for c in contents]
 
@@ -139,7 +127,7 @@ class AnalyticsService:
             self.db.query(EngagementMetric)
             .filter(
                 EngagementMetric.content_id.in_(content_ids),
-                EngagementMetric.metric_date >= since
+                EngagementMetric.metric_date >= since,
             )
             .order_by(EngagementMetric.metric_date)
             .all()
@@ -232,9 +220,7 @@ class AnalyticsService:
                 "views": total_views,
                 "engagement": total_engagement,
                 "engagement_rate": (
-                    total_engagement / total_views * 100
-                    if total_views > 0
-                    else 0
+                    total_engagement / total_views * 100 if total_views > 0 else 0
                 ),
             }
 
@@ -269,11 +255,13 @@ class AnalyticsService:
         for content_id, perf in top_ids:
             content = next((c for c in contents if c.id == content_id), None)
             if content:
-                top_content.append({
-                    "id": content.id,
-                    "title": content.title,
-                    "views": perf["views"],
-                    "engagement": perf["engagement"],
-                })
+                top_content.append(
+                    {
+                        "id": content.id,
+                        "title": content.title,
+                        "views": perf["views"],
+                        "engagement": perf["engagement"],
+                    }
+                )
 
         return top_content

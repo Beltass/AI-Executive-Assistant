@@ -208,7 +208,9 @@ def test_gemini_falls_back_to_next_model_on_503(monkeypatch, gemini_env):
     monkeypatch.setattr(
         httpx.Response,
         "json",
-        lambda self: {"candidates": [{"content": {"parts": [{"text": "yedek model"}]}}]},
+        lambda self: {
+            "candidates": [{"content": {"parts": [{"text": "yedek model"}]}}]
+        },
         raising=False,
     )
 
@@ -216,7 +218,11 @@ def test_gemini_falls_back_to_next_model_on_503(monkeypatch, gemini_env):
 
     assert text == "yedek model"
     # Primary tried (initial + 1 retry) and then the first fallback served it.
-    assert seen_models == ["gemini-2.5-flash", "gemini-2.5-flash", "gemini-flash-latest"]
+    assert seen_models == [
+        "gemini-2.5-flash",
+        "gemini-2.5-flash",
+        "gemini-flash-latest",
+    ]
 
 
 def test_gemini_all_models_fail_error_is_redacted(monkeypatch, gemini_env):
@@ -400,9 +406,7 @@ def test_budget_still_allows_a_retry_that_fits(monkeypatch, gemini_env):
     responses = [_resp(429), _resp(200)]
     sleeps = []
 
-    monkeypatch.setattr(
-        llm, "http_post", lambda url, **kw: responses.pop(0)
-    )
+    monkeypatch.setattr(llm, "http_post", lambda url, **kw: responses.pop(0))
     monkeypatch.setattr(llm.time, "sleep", lambda s: sleeps.append(s))
     monkeypatch.setattr(
         httpx.Response,
@@ -438,9 +442,7 @@ def _usage_payload(text: str = "merhaba", **usage) -> dict:
 
 
 def test_usage_metadata_is_captured_from_the_response(monkeypatch, gemini_env):
-    monkeypatch.setattr(
-        llm, "http_post", lambda *a, **k: _resp(200)
-    )
+    monkeypatch.setattr(llm, "http_post", lambda *a, **k: _resp(200))
     monkeypatch.setattr(
         httpx.Response, "json", lambda self: _usage_payload(), raising=False
     )
@@ -600,5 +602,63 @@ def test_openai_usage_is_captured_too(monkeypatch):
 
     stats = llm.last_call_stats()
     assert stats.provider == "openai"
-    assert (stats.prompt_tokens, stats.output_tokens, stats.total_tokens) == (90, 40, 130)
+    assert (stats.prompt_tokens, stats.output_tokens, stats.total_tokens) == (
+        90,
+        40,
+        130,
+    )
     assert stats.thoughts_tokens == 12
+
+
+# --- counting the calls, and paying for no thinking on structured work -------
+
+
+def test_every_generation_is_counted(monkeypatch, gemini_env):
+    """``last_call_stats`` describes the last call; this counts them all.
+
+    One batched call for the whole team and fifteen per-advisor retries after
+    a failed batch look identical in the token record of the LAST call — the
+    count is what makes the difference visible in the metrics file.
+    """
+    monkeypatch.setattr(llm, "http_post", lambda *a, **k: _resp(200))
+    monkeypatch.setattr(
+        httpx.Response, "json", lambda self: _usage_payload(), raising=False
+    )
+
+    llm.start_time_budget()
+    assert llm.call_count() == 0
+
+    llm.generate_text("sys", "user")
+    llm.generate_text("sys", "user")
+
+    assert llm.call_count() == 2
+
+    llm.start_time_budget()  # a new run starts from zero
+    assert llm.call_count() == 0
+
+
+def test_a_failed_generation_is_counted_too(monkeypatch, gemini_env):
+    """A call that cost quota and returned nothing still cost quota."""
+    monkeypatch.setattr(llm, "http_post", lambda *a, **k: _resp(400, "bad"))
+    llm.start_time_budget()
+
+    with pytest.raises(Exception):
+        llm.generate_text("sys", "user")
+
+    assert llm.call_count() == 1
+
+
+def test_structured_callers_ask_for_no_thinking_budget(monkeypatch, gemini_env):
+    """Summarising a note has nothing to reason about — see ``ask._generate_summary``."""
+    from ai_assistant.chat import ask
+
+    sent = {}
+
+    def fake_generate(system_prompt, user_prompt, **kwargs):
+        sent.update(kwargs)
+        return "özet"
+
+    monkeypatch.setattr(ask.llm, "generate_text", fake_generate)
+    ask._generate_summary("sys", "user")
+
+    assert sent["thinking_budget"] == llm.STRUCTURED_THINKING_BUDGET == 0

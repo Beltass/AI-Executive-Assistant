@@ -107,22 +107,59 @@ SKIP_DETAIL = (
 
 # Keywords for email categorization (Turkish)
 URGENT_KEYWORDS = [
-    "acil", "hemen", "bugün", "deadline", "critical", "kritikal",
-    "emergency", "urgent", "önemli", "asap", "hızlı", "hızlıca",
-    "derhal", "immediately", "zanı", "zanında", "yanında"
+    "acil",
+    "hemen",
+    "bugün",
+    "deadline",
+    "critical",
+    "kritikal",
+    "emergency",
+    "urgent",
+    "önemli",
+    "asap",
+    "hızlı",
+    "hızlıca",
+    "derhal",
+    "immediately",
+    "zanı",
+    "zanında",
+    "yanında",
 ]
 
 ACTION_KEYWORDS = [
-    "lütfen", "please", "ihtiyaç", "need", "request", "istek",
-    "yapacaksınız", "yapcaksınız", "toplantı", "meeting", "görüş",
-    "sonuç", "result", "bilgi", "information", "onay", "approval"
+    "lütfen",
+    "please",
+    "ihtiyaç",
+    "need",
+    "request",
+    "istek",
+    "yapacaksınız",
+    "yapcaksınız",
+    "toplantı",
+    "meeting",
+    "görüş",
+    "sonuç",
+    "result",
+    "bilgi",
+    "information",
+    "onay",
+    "approval",
 ]
 
 # VIP sender patterns
 VIP_PATTERNS = [
-    r"\b[Cc][Ee][Oo]\b", r"\bcto\b", r"\bchief\b",
-    r"\bmanager\b", r"\byönetici\b", r"\bdirector\b", r"\bdirecteur\b",
-    r"\bkurucu\b", r"\bfounders?\b", r"\bexecutive\b", r"\bvp\b", r"\bboss\b"
+    r"\b[Cc][Ee][Oo]\b",
+    r"\bcto\b",
+    r"\bchief\b",
+    r"\bmanager\b",
+    r"\byönetici\b",
+    r"\bdirector\b",
+    r"\bdirecteur\b",
+    r"\bkurucu\b",
+    r"\bfounders?\b",
+    r"\bexecutive\b",
+    r"\bvp\b",
+    r"\bboss\b",
 ]
 
 
@@ -130,9 +167,11 @@ VIP_PATTERNS = [
 # Data classes for email analysis
 # ============================================================================
 
+
 @dataclass
 class EmailMessage:
     """Parsed email metadata."""
+
     email_id: str
     sender: str
     subject: str
@@ -154,6 +193,7 @@ class EmailMessage:
 @dataclass
 class EmailStats:
     """Email analysis statistics."""
+
     total_emails: int = 0
     unread: int = 0
     from_vip: int = 0
@@ -173,9 +213,11 @@ class EmailStats:
 # Data classes for calendar analysis
 # ============================================================================
 
+
 @dataclass
 class EventInfo:
     """Parsed calendar event."""
+
     summary: str
     start_time: str  # HH:MM format
     end_time: str  # HH:MM format
@@ -192,6 +234,7 @@ class EventInfo:
 @dataclass
 class FocusBlock:
     """Free time block suitable for focused work."""
+
     start: str  # HH:MM
     end: str  # HH:MM
     duration_minutes: int
@@ -204,6 +247,7 @@ class FocusBlock:
 @dataclass
 class AvailableSlot:
     """Recommended time slot for new meetings."""
+
     start: str  # HH:MM
     end: str  # HH:MM
     duration_minutes: int
@@ -216,6 +260,7 @@ class AvailableSlot:
 @dataclass
 class CalendarStats:
     """Calendar analysis statistics."""
+
     total_meetings: int = 0
     total_meeting_time_hours: float = 0.0
     focus_blocks: List[FocusBlock] = field(default_factory=list)
@@ -239,6 +284,7 @@ class CalendarStats:
 @dataclass
 class CommunicationsCalendarReport:
     """Unified communications + calendar report."""
+
     generated_at: str
     summary: str
     email_stats: EmailStats
@@ -271,6 +317,7 @@ class CommunicationsCalendarReport:
 # ============================================================================
 # Main Advisor
 # ============================================================================
+
 
 class CommunicationsCalendarAdvisor(Advisor):
     """Unified email + calendar advisor."""
@@ -580,15 +627,18 @@ class CommunicationsCalendarAdvisor(Advisor):
         summary_lower = summary.lower()
 
         focus_keywords = [
-            "focus", "deep work", "concentration", "workout",
-            "exercise", "lunch", "break"
+            "focus",
+            "deep work",
+            "concentration",
+            "workout",
+            "exercise",
+            "lunch",
+            "break",
         ]
         if any(kw in summary_lower for kw in focus_keywords):
             return "focus"
 
-        personal_keywords = [
-            "personal", "private", "dentist", "doctor", "appointment"
-        ]
+        personal_keywords = ["personal", "private", "dentist", "doctor", "appointment"]
         if any(kw in summary_lower for kw in personal_keywords):
             return "personal"
 
@@ -701,9 +751,7 @@ class CommunicationsCalendarAdvisor(Advisor):
         stats.back_to_back_periods = self._find_back_to_back_periods(events)
 
         # Available slots
-        stats.available_slots = self._find_available_slots(
-            events, stats.focus_blocks
-        )
+        stats.available_slots = self._find_available_slots(events, stats.focus_blocks)
 
         # Next meeting
         now = datetime.now()
@@ -851,7 +899,9 @@ class CommunicationsCalendarAdvisor(Advisor):
         slots.sort(key=lambda s: s.duration_minutes, reverse=True)
         return slots[:5]
 
-    def _get_next_meeting(self, events: List[EventInfo], now: datetime) -> Optional[str]:
+    def _get_next_meeting(
+        self, events: List[EventInfo], now: datetime
+    ) -> Optional[str]:
         """Get next upcoming meeting."""
         meetings = [e for e in events if e.event_type == "meeting"]
         if not meetings:
@@ -864,7 +914,9 @@ class CommunicationsCalendarAdvisor(Advisor):
                     attendees_str = (
                         f", {', '.join(meeting.attendees)}" if meeting.attendees else ""
                     )
-                    return f"Saat {meeting.start_time}'de {meeting.summary}{attendees_str}"
+                    return (
+                        f"Saat {meeting.start_time}'de {meeting.summary}{attendees_str}"
+                    )
             except ValueError:
                 continue
 
@@ -879,7 +931,9 @@ class CommunicationsCalendarAdvisor(Advisor):
         # Urgency score (0-10)
         urgency_score = min(
             10.0,
-            (email_stats.urgent * 3.0 + email_stats.action_needed * 2.0) / max(1, total_items) * 10,
+            (email_stats.urgent * 3.0 + email_stats.action_needed * 2.0)
+            / max(1, total_items)
+            * 10,
         )
 
         # Response velocity (emails per hour requiring attention)
@@ -931,7 +985,9 @@ class CommunicationsCalendarAdvisor(Advisor):
                 f"Verimliliği artırmak için ardışık toplantıları birleştir."
             )
         elif calendar_stats.focus_blocks:
-            best_block = max(calendar_stats.focus_blocks, key=lambda b: b.duration_minutes)
+            best_block = max(
+                calendar_stats.focus_blocks, key=lambda b: b.duration_minutes
+            )
             recommendations["schedule_optimization"] = (
                 f"✨ Harika! Saat {best_block.start}-{best_block.end} arası "
                 f"{best_block.duration_minutes} dk kesintisiz çalışma zamanı. "
@@ -992,9 +1048,13 @@ class CommunicationsCalendarAdvisor(Advisor):
 
         # Calendar part
         if calendar_stats.total_meetings > 0:
-            parts.append(f"📅 {calendar_stats.total_meetings} toplantı ({calendar_stats.total_meeting_time_hours:.1f} saat)")
+            parts.append(
+                f"📅 {calendar_stats.total_meetings} toplantı ({calendar_stats.total_meeting_time_hours:.1f} saat)"
+            )
         elif calendar_stats.focus_blocks:
-            best_block = max(calendar_stats.focus_blocks, key=lambda b: b.duration_minutes)
+            best_block = max(
+                calendar_stats.focus_blocks, key=lambda b: b.duration_minutes
+            )
             parts.append(f"💡 {best_block.duration_minutes} dk odaklanma zamanı")
 
         urgency = communication_metrics["urgency_score"]
@@ -1042,17 +1102,23 @@ class CommunicationsCalendarAdvisor(Advisor):
         cal = report.calendar_stats
         if cal.total_meetings > 0:
             lines.append("**📅 Takvim Özeti**")
-            lines.append(f"- Toplantı: {cal.total_meetings} ({cal.total_meeting_time_hours:.1f} saat)")
+            lines.append(
+                f"- Toplantı: {cal.total_meetings} ({cal.total_meeting_time_hours:.1f} saat)"
+            )
 
             if cal.focus_blocks:
                 lines.append("- **Odaklanma blokları:**")
                 for block in cal.focus_blocks[:3]:
-                    lines.append(f"  - {block.start}-{block.end} ({block.duration_minutes} dk)")
+                    lines.append(
+                        f"  - {block.start}-{block.end} ({block.duration_minutes} dk)"
+                    )
 
             if cal.available_slots:
                 lines.append("- **Uygun slotlar:**")
                 for slot in cal.available_slots[:3]:
-                    lines.append(f"  - {slot.start}-{slot.end} ({slot.duration_minutes} dk)")
+                    lines.append(
+                        f"  - {slot.start}-{slot.end} ({slot.duration_minutes} dk)"
+                    )
 
             if cal.back_to_back_periods:
                 lines.append("- **Ardışık toplantılar:**")
@@ -1080,6 +1146,7 @@ class CommunicationsCalendarAdvisor(Advisor):
 # ============================================================================
 # Configuration helpers
 # ============================================================================
+
 
 def _max_emails() -> int:
     """Get max emails to analyze."""

@@ -44,7 +44,9 @@ Halüsinasyon ve uyum riskleri dikkatli bir yönetişim gerektiriyor.
 def _report(text: str = TYPICAL, key: str = "market_intelligence", tmp_path=None):
     """Publish one briefing and hand back the resulting document."""
     supervision = Supervision(
-        briefings=[Briefing(key=key, title="Pazar İstihbaratı", status=STATUS_OK, text=text)]
+        briefings=[
+            Briefing(key=key, title="Pazar İstihbaratı", status=STATUS_OK, text=text)
+        ]
     )
     publication = reports.publish(supervision, root=str(tmp_path / "reports"), now=NOW)
     assert publication.reports, "fixture must actually publish a document"
@@ -112,7 +114,8 @@ def test_actions_and_sources_are_summarised_not_dumped(tmp_path):
     report = _report(tmp_path=tmp_path)
     report.action_items = [reports.ActionItem(text=f"Aksiyon {i}") for i in range(9)]
     report.sources = [
-        reports.Source(title=f"Kaynak {i}", url=f"https://kaynak{i}.test") for i in range(9)
+        reports.Source(title=f"Kaynak {i}", url=f"https://kaynak{i}.test")
+        for i in range(9)
     ]
     _, blocks = slack_blocks.build_report_message(report, base_url="https://pano/")
     blob = _blob(blocks)
@@ -236,7 +239,10 @@ def test_a_twenty_thousand_character_report_is_truncated_with_the_link_kept(tmp_
     # the last thing in the message.
     assert slack_blocks.TRUNCATION_NOTE in blob
     assert "Tam raporu aç" in blocks[-1]["text"]["text"]
-    assert "https://pano/#/rapor/2026-08-04/market_intelligence" in blocks[-1]["text"]["text"]
+    assert (
+        "https://pano/#/rapor/2026-08-04/market_intelligence"
+        in blocks[-1]["text"]["text"]
+    )
     assert text and len(text) <= slack_blocks.MAX_FALLBACK_CHARS
 
 
@@ -330,7 +336,12 @@ def test_clip_cuts_on_a_word_boundary_and_marks_the_cut():
 
 @pytest.fixture(autouse=True)
 def _clean_slack_env(monkeypatch):
-    for var in ["SLACK_WEBHOOK_URL", "SLACK_BOT_TOKEN", "SLACK_CHANNEL", "SLACK_MAIN_CHANNEL"]:
+    for var in [
+        "SLACK_WEBHOOK_URL",
+        "SLACK_BOT_TOKEN",
+        "SLACK_CHANNEL",
+        "SLACK_MAIN_CHANNEL",
+    ]:
         monkeypatch.delenv(var, raising=False)
     for key in channel_config.ADVISOR_KEYS:
         monkeypatch.delenv(channel_config.advisor_channel_env(key), raising=False)
@@ -384,7 +395,9 @@ def test_the_channel_fan_out_sends_the_new_card_with_its_fallback_text(
     assert payload["text"], "the notification fallback must be sent"
     assert payload["blocks"][0]["type"] == "header"
     assert "🆕 2 yeni bulgu" in _blob(payload["blocks"])
-    assert "https://pano/#/rapor/2026-08-04/market_intelligence" in _blob(payload["blocks"])
+    assert "https://pano/#/rapor/2026-08-04/market_intelligence" in _blob(
+        payload["blocks"]
+    )
 
 
 def test_the_webhook_fallback_still_carries_blocks_and_text(monkeypatch):
@@ -410,7 +423,9 @@ def test_the_webhook_fallback_still_carries_blocks_and_text(monkeypatch):
 
     monkeypatch.setattr(slack_notifier, "http_post", fake_post)
 
-    result = slack_notifier.send_message("merhaba", blocks=[slack_blocks.section("gövde")])
+    result = slack_notifier.send_message(
+        "merhaba", blocks=[slack_blocks.section("gövde")]
+    )
 
     assert result.status == STATUS_OK
     url, payload = sent[0]

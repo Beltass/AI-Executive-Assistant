@@ -32,9 +32,12 @@ def _ledger(tmp_path, name="findings.json", **kwargs):
 
 
 def test_url_normalisation_strips_tracking_and_lowercases_host():
-    assert memory.normalize_url(
-        "HTTPS://WWW.Example.ORG/a/b/?utm_source=news&id=7&fbclid=xyz#top"
-    ) == "https://example.org/a/b?id=7"
+    assert (
+        memory.normalize_url(
+            "HTTPS://WWW.Example.ORG/a/b/?utm_source=news&id=7&fbclid=xyz#top"
+        )
+        == "https://example.org/a/b?id=7"
+    )
 
 
 def test_same_article_behind_two_tracking_links_has_one_fingerprint():
@@ -63,9 +66,10 @@ def test_text_fingerprints_cover_the_body_and_its_links():
     assert prints[0].startswith("c:")
     assert memory.url_fingerprint("https://example.org/rapor") in prints
     # Cosmetic whitespace/case edits are not "news".
-    assert memory.text_fingerprints("bir özet metni. kaynak: https://example.org/rapor")[
-        0
-    ] == prints[0]
+    assert (
+        memory.text_fingerprints("bir özet metni. kaynak: https://example.org/rapor")[0]
+        == prints[0]
+    )
 
 
 def test_item_fingerprints_are_empty_for_an_empty_item():
@@ -143,10 +147,13 @@ def test_tracking_parameters_do_not_make_an_old_story_look_new(tmp_path):
     ledger.commit()
 
     later = _ledger(tmp_path)
-    assert later.filter_new_items(
-        "ai_news",
-        [FeedItem(title="Haber", link="https://www.example.org/a/?utm_source=x")],
-    ) == []
+    assert (
+        later.filter_new_items(
+            "ai_news",
+            [FeedItem(title="Haber", link="https://www.example.org/a/?utm_source=x")],
+        )
+        == []
+    )
 
 
 def test_staged_findings_are_not_persisted_until_delivery(tmp_path):
@@ -161,9 +168,14 @@ def test_staged_findings_are_not_persisted_until_delivery(tmp_path):
     assert not os.path.exists(tmp_path / "findings.json")
 
     # …and the finding is still new for the next run.
-    assert len(_ledger(tmp_path).filter_new_items(
-        "ai_news", [FeedItem(title="Haber", link="https://example.org/a")]
-    )) == 1
+    assert (
+        len(
+            _ledger(tmp_path).filter_new_items(
+                "ai_news", [FeedItem(title="Haber", link="https://example.org/a")]
+            )
+        )
+        == 1
+    )
 
 
 def test_staged_findings_are_not_reported_twice_inside_one_run(tmp_path):
@@ -232,9 +244,14 @@ def test_corrupt_file_degrades_to_everything_is_new(tmp_path, content, caplog):
     ledger = memory.FindingsMemory(path=str(path))
     # No exception, and nothing is considered already-reported.
     assert ledger.is_new("ai_news", "u:abc") is True
-    assert len(ledger.filter_new_items(
-        "ai_news", [FeedItem(title="Haber", link="https://example.org/a")]
-    )) == 1
+    assert (
+        len(
+            ledger.filter_new_items(
+                "ai_news", [FeedItem(title="Haber", link="https://example.org/a")]
+            )
+        )
+        == 1
+    )
 
 
 def test_unwritable_path_never_raises(tmp_path):
@@ -268,11 +285,18 @@ def test_module_level_helpers_use_one_shared_ledger(tmp_path, monkeypatch):
 
     memory.reset()
     assert memory.filter_new_items("ai_news", items) == []
-    assert memory.is_new("ai_news", memory.url_fingerprint("https://example.org/a")) is False
+    assert (
+        memory.is_new("ai_news", memory.url_fingerprint("https://example.org/a"))
+        is False
+    )
 
 
-def test_memory_file_path_honours_the_env_var(monkeypatch):
+def test_memory_file_path_honours_the_env_var(monkeypatch, tmp_path):
     monkeypatch.delenv(memory.MEMORY_FILE_ENV, raising=False)
     assert memory.memory_file_path() == memory.DEFAULT_MEMORY_FILE
-    monkeypatch.setenv(memory.MEMORY_FILE_ENV, "  /tmp/custom.json ")
-    assert memory.memory_file_path() == "/tmp/custom.json"
+    # The point of the surrounding spaces is that they get trimmed; the path
+    # itself only has to be a plausible absolute path, so it comes from tmp_path
+    # rather than a hardcoded POSIX-only /tmp.
+    custom = tmp_path / "custom.json"
+    monkeypatch.setenv(memory.MEMORY_FILE_ENV, f"  {custom} ")
+    assert memory.memory_file_path() == str(custom)

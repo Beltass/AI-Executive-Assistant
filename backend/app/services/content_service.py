@@ -14,7 +14,6 @@ from app.db.models import (
 )
 from app.services.gemini_service import GeminiService
 from app.schemas.content import (
-    ContentCreate,
     ContentUpdate,
     ContentStatusEnum,
     VariationTypeEnum,
@@ -79,7 +78,7 @@ class ContentService:
             main_content=generated.get("main_content", ""),
             platforms=platforms,
             status="draft",
-            metadata={
+            extra_metadata={
                 "tone": tone,
                 "language": language,
                 "generated_at": datetime.utcnow().isoformat(),
@@ -103,7 +102,7 @@ class ContentService:
                     text=var_content.get("text", ""),
                     tone=var_content.get("tone", tone),
                     language=language or user.language,
-                    metadata={
+                    extra_metadata={
                         "hooks": var_content.get("hooks", []),
                     },
                 )

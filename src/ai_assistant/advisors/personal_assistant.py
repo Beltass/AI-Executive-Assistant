@@ -87,6 +87,7 @@ Türkçe, yapılandırılmış, somut ve sabah motivasyonu içer.
 @dataclass
 class PersonalAssistantState:
     """Kişisel asistan durumu."""
+
     last_briefing: Optional[str] = None
     weekly_goals: List[str] = field(default_factory=list)
     goal_progress: Dict[str, float] = field(default_factory=dict)
@@ -105,7 +106,9 @@ class PersonalAssistantAdvisor(Advisor):
     def _generate(self) -> Briefing:
         """Günlük kişisel asistan briefingi üret."""
         if not llm.is_configured():
-            return self.skipped("LLM yapılandırılmadı (GEMINI_API_KEY veya OPENAI_API_KEY)")
+            return self.skipped(
+                "LLM yapılandırılmadı (GEMINI_API_KEY veya OPENAI_API_KEY)"
+            )
 
         try:
             # Kişisel veri topla (takvim, görevler, e-posta vb.)
@@ -116,20 +119,21 @@ class PersonalAssistantAdvisor(Advisor):
 
             # Mock veri (gerçek integrasyon daha sonra)
             if not events_summary:
-                events_summary = "4 etkinlik: 10:00 Takım Toplantısı, 14:00 Müşteri Sunumu"
+                events_summary = (
+                    "4 etkinlik: 10:00 Takım Toplantısı, 14:00 Müşteri Sunumu"
+                )
             if not urgent_tasks:
                 urgent_tasks = "Rapor sunumu (Çarşamba), Projeye feedback verme (Cuma)"
             if not weekly_goals:
-                weekly_goals = "5 yeni müşteri değer teklifi, Ekip motivasyon toplantısı"
+                weekly_goals = (
+                    "5 yeni müşteri değer teklifi, Ekip motivasyon toplantısı"
+                )
             if not urgent_emails:
                 urgent_emails = "Müdür'den feedback, Müşteriden acil soru"
 
             # LLM ile briefingi üret
             briefing_text = self._generate_briefing(
-                events_summary,
-                urgent_tasks,
-                weekly_goals,
-                urgent_emails
+                events_summary, urgent_tasks, weekly_goals, urgent_emails
             )
 
             # Durumu kaydet
@@ -166,7 +170,7 @@ class PersonalAssistantAdvisor(Advisor):
         events_summary: str,
         urgent_tasks: str,
         weekly_goals: str,
-        urgent_emails: str
+        urgent_emails: str,
     ) -> str:
         """LLM yardımıyla briefingi yarat."""
         from ._llm_base import RICH_BRIEFING_GUIDE
@@ -176,7 +180,7 @@ class PersonalAssistantAdvisor(Advisor):
             urgent_tasks=urgent_tasks,
             weekly_goals=weekly_goals,
             urgent_emails=urgent_emails,
-            briefing_guide=RICH_BRIEFING_GUIDE
+            briefing_guide=RICH_BRIEFING_GUIDE,
         )
 
         try:
@@ -233,7 +237,7 @@ class PersonalAssistantAdvisor(Advisor):
             urgent_tasks=urgent_tasks,
             weekly_goals=weekly_goals,
             urgent_emails=urgent_emails,
-            briefing_guide="(Yukarıdaki ORTAK YAZIM KURALLARI bu bölüm için de geçerli.)"
+            briefing_guide="(Yukarıdaki ORTAK YAZIM KURALLARI bu bölüm için de geçerli.)",
         )
 
         return BatchSection(

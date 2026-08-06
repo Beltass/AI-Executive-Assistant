@@ -102,10 +102,14 @@ class ChatStore:
             str(k): str(v) for k, v in (data.get("cursors") or {}).items() if str(v)
         }
         self.sessions = {
-            str(k): v for k, v in (data.get("sessions") or {}).items() if isinstance(v, dict)
+            str(k): v
+            for k, v in (data.get("sessions") or {}).items()
+            if isinstance(v, dict)
         }
         self.templates = {
-            str(k): v for k, v in (data.get("templates") or {}).items() if isinstance(v, dict)
+            str(k): v
+            for k, v in (data.get("templates") or {}).items()
+            if isinstance(v, dict)
         }
         self.last_sources = {
             str(k): v

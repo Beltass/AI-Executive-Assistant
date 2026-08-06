@@ -201,9 +201,7 @@ class Conversation:
         for name in ("source_options", "dimension_options", "metric_options"):
             value = payload.get(name)
             if isinstance(value, list):
-                setattr(
-                    conv, name, [item for item in value if isinstance(item, dict)]
-                )
+                setattr(conv, name, [item for item in value if isinstance(item, dict)])
         return conv
 
     # --- adım durumu --------------------------------------------------------
@@ -386,7 +384,9 @@ class SessionEngine:
             self.store.drop_session(conv.channel, conv.user)
             self.store.save()
             return Turn(
-                messages=["Sipariş iptal edildi. `rapor` yazarak yeniden başlayabilirsiniz."],
+                messages=[
+                    "Sipariş iptal edildi. `rapor` yazarak yeniden başlayabilirsiniz."
+                ],
                 ended=True,
             )
 
@@ -478,7 +478,9 @@ class SessionEngine:
         return handler(conv, selection, body)
 
     # 1 — kaynak
-    def _apply_source(self, conv: Conversation, selection: Selection, body: str) -> Turn:
+    def _apply_source(
+        self, conv: Conversation, selection: Selection, body: str
+    ) -> Turn:
         value = selection.value
         messages: List[str] = []
 
@@ -542,7 +544,9 @@ class SessionEngine:
         return Turn(messages=messages)
 
     # 2 — dönem
-    def _apply_period(self, conv: Conversation, selection: Selection, body: str) -> Turn:
+    def _apply_period(
+        self, conv: Conversation, selection: Selection, body: str
+    ) -> Turn:
         if selection.value == PERIOD_CUSTOM:
             conv.spec.period = PERIOD_CUSTOM
             return self._enter(conv, STEP_RANGE, from_step=STEP_PERIOD)
@@ -575,7 +579,9 @@ class SessionEngine:
         return Turn(messages=messages)
 
     # 3 — kırılım
-    def _apply_dimensions(self, conv: Conversation, selection: Selection, body: str) -> Turn:
+    def _apply_dimensions(
+        self, conv: Conversation, selection: Selection, body: str
+    ) -> Turn:
         values = [v for v in selection.values if v != AUTO]
         conv.spec.dimensions = values
         conv.mark(STEP_DIMENSIONS)
@@ -584,7 +590,9 @@ class SessionEngine:
         return Turn(messages=messages)
 
     # 4 — metrikler
-    def _apply_metrics(self, conv: Conversation, selection: Selection, body: str) -> Turn:
+    def _apply_metrics(
+        self, conv: Conversation, selection: Selection, body: str
+    ) -> Turn:
         values = [v for v in selection.values if v != AUTO]
         conv.spec.metrics = values
         conv.mark(STEP_METRICS)
@@ -601,18 +609,20 @@ class SessionEngine:
         return Turn(messages=messages)
 
     # 6 — format
-    def _apply_format(self, conv: Conversation, selection: Selection, body: str) -> Turn:
+    def _apply_format(
+        self, conv: Conversation, selection: Selection, body: str
+    ) -> Turn:
         value = selection.value
-        conv.spec.formats = (
-            [FORMAT_XLSX, FORMAT_WEB] if value == "both" else [value]
-        )
+        conv.spec.formats = [FORMAT_XLSX, FORMAT_WEB] if value == "both" else [value]
         conv.mark(STEP_FORMAT)
         messages = self._advance(conv)
         self._persist(conv)
         return Turn(messages=messages)
 
     # 7 — onay
-    def _apply_confirm(self, conv: Conversation, selection: Selection, body: str) -> Turn:
+    def _apply_confirm(
+        self, conv: Conversation, selection: Selection, body: str
+    ) -> Turn:
         word = normalize(body)
 
         # "… olarak kaydet" onay ekranında da çalışır.
@@ -625,7 +635,9 @@ class SessionEngine:
         if selection.value == "restart" or word in ("değiştir", "degistir"):
             fresh = Conversation(channel=conv.channel, user=conv.user, step=STEP_SOURCE)
             self._persist(fresh)
-            return Turn(messages=["Baştan başlıyoruz.", self._render(self._prompt(fresh))])
+            return Turn(
+                messages=["Baştan başlıyoruz.", self._render(self._prompt(fresh))]
+            )
 
         if selection.value != "onay" and word not in _CONFIRM_WORDS:
             prompt = self._prompt(conv)
@@ -638,7 +650,11 @@ class SessionEngine:
         if spec.source_kind != SOURCE_PASTE and spec.source:
             self.store.remember_source(
                 conv.user,
-                {"kind": spec.source_kind, "id": spec.source, "label": spec.source_label},
+                {
+                    "kind": spec.source_kind,
+                    "id": spec.source,
+                    "label": spec.source_label,
+                },
             )
         self.store.save()
         return Turn(
@@ -952,11 +968,19 @@ def parse_date_range(text: str) -> "tuple[Optional[datetime], Optional[datetime]
     found: List[datetime] = []
     for match in _DATE_RE.finditer(str(text or "")):
         if match.group(1):
-            day, month, year = int(match.group(1)), int(match.group(2)), int(match.group(3))
+            day, month, year = (
+                int(match.group(1)),
+                int(match.group(2)),
+                int(match.group(3)),
+            )
             if year < 100:
                 year += 2000
         else:
-            year, month, day = int(match.group(4)), int(match.group(5)), int(match.group(6))
+            year, month, day = (
+                int(match.group(4)),
+                int(match.group(5)),
+                int(match.group(6)),
+            )
         try:
             found.append(datetime(year, month, day))
         except ValueError:

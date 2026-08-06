@@ -224,12 +224,52 @@ def _advisor_names(briefings: Sequence[Any]) -> Dict[str, str]:
     }
 
 
+def _executed_advisors(supervision: Any) -> List[str]:
+    """Keys of the advisors that really ran, in roster order. Never raises."""
+    executed = getattr(supervision, "executed_advisors", None) or []
+    try:
+        return [str(key) for key in executed if key]
+    except TypeError:  # pragma: no cover - defensive only
+        return []
+
+
+def _skipped_advisors(supervision: Any) -> Dict[str, str]:
+    """``{advisor_key: reason_code}`` for everyone who did not run."""
+    skipped = getattr(supervision, "skipped_advisors", None) or {}
+    if not isinstance(skipped, dict):
+        return {}
+    return {str(key): str(reason) for key, reason in skipped.items() if key}
+
+
+def _llm_call_count(call_stats: Any, override: Any = None) -> int:
+    """How many model calls this run made.
+
+    ``call_stats`` describes only the LAST call, so on its own it cannot tell
+    ONE batched call for the whole team from fifteen per-advisor retries after
+    a failed batch. The real counter lives in the LLM layer; ``override`` wins
+    when a caller passes it, and the "did we call at all?" fallback keeps the
+    number honest for callers that predate the counter.
+    """
+    if override is not None:
+        return int(_num(override))
+    try:
+        from .integrations import llm
+
+        counted = int(llm.call_count())
+    except Exception:  # pragma: no cover - defensive only
+        counted = 0
+    if counted:
+        return counted
+    return 1 if call_stats is not None else 0
+
+
 def build_run_metrics(
     supervision: Any,
     call_stats: Any = None,
     batch: Any = None,
     duration_seconds: Optional[float] = None,
     now: Optional[datetime] = None,
+    llm_call_count: Optional[int] = None,
 ) -> Dict[str, Any]:
     """Assemble the metrics record for ONE completed run.
 
@@ -242,6 +282,8 @@ def build_run_metrics(
         batch: The ``BatchOutcome``, which carries the per-advisor prompt sizes.
         duration_seconds: Wall clock of the whole run.
         now: Injectable clock, for tests.
+        llm_call_count: How many model calls the run made; read from the LLM
+            layer when omitted.
     """
     moment = now or _now_utc()
     briefings = list(getattr(supervision, "briefings", []) or [])
@@ -277,6 +319,9 @@ def build_run_metrics(
         "model": str(getattr(call_stats, "model", "") or ""),
         "llm_called": call_stats is not None,
         "llm_ok": bool(getattr(call_stats, "ok", False)),
+        # THE cost driver: one batched call, or one per advisor? A run whose
+        # token count doubled without this number is unexplainable.
+        "llm_call_count": _llm_call_count(call_stats, llm_call_count),
         # --- tokens ---
         "prompt_tokens": int(prompt_tokens),
         "output_tokens": int(output_tokens),
@@ -294,6 +339,12 @@ def build_run_metrics(
         "advisors_ok": int(counts[STATUS_OK]),
         "advisors_failed": int(counts[STATUS_FAILED]),
         "advisors_skipped": int(counts[STATUS_SKIPPED]),
+        # WHO worked and WHY the others did not. A run that suddenly costs a
+        # tenth of yesterday's tokens is either the gates doing their job or a
+        # silent outage, and only the reason codes tell the two apart (see the
+        # ``SKIP_*`` constants in :mod:`ai_assistant.operations_manager`).
+        "executed_advisors": _executed_advisors(supervision),
+        "skipped_advisors": _skipped_advisors(supervision),
         "sections": sections,
         "sections_requested": int(_num(getattr(batch, "sections_requested", 0))),
         "characters": characters,
@@ -400,6 +451,7 @@ def record_run(
     duration_seconds: Optional[float] = None,
     path: Optional[str] = None,
     now: Optional[datetime] = None,
+    llm_call_count: Optional[int] = None,
 ) -> Optional[str]:
     """Append this run to the metrics history. Returns the path, or ``None``.
 
@@ -417,6 +469,7 @@ def record_run(
                 batch=batch,
                 duration_seconds=duration_seconds,
                 now=now,
+                llm_call_count=llm_call_count,
             )
         )
         document = build_document(runs, now=now)
@@ -474,7 +527,12 @@ def _aggregate_agents(runs: Sequence[dict]) -> List[Dict[str, Any]]:
                 continue
             entry = bucket.setdefault(
                 key,
-                {"id": key, "name": str(row.get("name") or key), "tokens": 0, "chars": 0},
+                {
+                    "id": key,
+                    "name": str(row.get("name") or key),
+                    "tokens": 0,
+                    "chars": 0,
+                },
             )
             entry["tokens"] += _num(row.get("est_total_tokens"))
             entry["chars"] += _num(row.get("output_chars"))
@@ -495,7 +553,7 @@ def _aggregate_agents(runs: Sequence[dict]) -> List[Dict[str, Any]]:
 
 
 def _efficiency_tips(runs: Sequence[dict]) -> List[Dict[str, str]]:
-    """"This agent costs more than it delivers" — the headline finding."""
+    """ "This agent costs more than it delivers" — the headline finding."""
     tips: List[Dict[str, str]] = []
     for row in _aggregate_agents(runs)[:3]:
         if row["gap"] < EFFICIENCY_GAP_POINTS or row["token_share"] < MIN_TOKEN_SHARE:
@@ -559,7 +617,9 @@ def _incremental_tips(runs: Sequence[dict]) -> List[Dict[str, str]]:
         if r.get("mode") == MODE_INCREMENTAL and _num(r.get("total_tokens")) > 0
     ]
     full = [
-        r for r in runs if r.get("mode") == MODE_FULL and _num(r.get("total_tokens")) > 0
+        r
+        for r in runs
+        if r.get("mode") == MODE_FULL and _num(r.get("total_tokens")) > 0
     ]
     if not incremental:
         return []
@@ -701,9 +761,7 @@ def _efficiency_trend_tips(runs: Sequence[dict]) -> List[Dict[str, str]]:
     ]
 
 
-def recommendations(
-    runs: Sequence[dict], window: int = WINDOW
-) -> List[Dict[str, str]]:
+def recommendations(runs: Sequence[dict], window: int = WINDOW) -> List[Dict[str, str]]:
     """Turn the recorded history into concrete Turkish optimisation advice.
 
     Looks at the last ``window`` runs. Every sentence quotes a number that came

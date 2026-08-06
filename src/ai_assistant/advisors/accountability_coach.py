@@ -127,7 +127,9 @@ class AccountabilityCoachAdvisor(Advisor):
 
         yesterday_tasks, yesterday_label = self._previous(state, today)
         streak = self._next_streak(state, today)
-        text = self._render(today, tasks, yesterday_tasks, yesterday_label, streak, state)
+        text = self._render(
+            today, tasks, yesterday_tasks, yesterday_label, streak, state
+        )
 
         if tasks:
             self._save_state(state, today, tasks, streak)
@@ -277,8 +279,8 @@ class AccountabilityCoachAdvisor(Advisor):
             lines.append("")
             lines.append(
                 "*Uygulama niyeti (implementation intention):* her görev için "
-                "şu cümleyi zihninde tamamla — _\"Saat __:__ olduğunda, "
-                "____ yerinde, ____ yapacağım.\"_ Niyeti zamana ve mekâna "
+                'şu cümleyi zihninde tamamla — _"Saat __:__ olduğunda, '
+                '____ yerinde, ____ yapacağım."_ Niyeti zamana ve mekâna '
                 "bağlamak, yapma olasılığını ciddi biçimde artırır."
             )
             lines.append(

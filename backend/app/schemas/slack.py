@@ -1,11 +1,12 @@
 """Pydantic schemas for Slack integration."""
 
-from typing import Any, Optional
+from typing import Optional
 from pydantic import BaseModel
 
 
 class SlackEventRequest(BaseModel):
     """Slack event request schema."""
+
     token: str
     team_id: str
     api_app_id: str
@@ -18,6 +19,7 @@ class SlackEventRequest(BaseModel):
 
 class SlackCommandRequest(BaseModel):
     """Slack slash command request schema."""
+
     token: str
     team_id: str
     team_domain: str
@@ -34,6 +36,7 @@ class SlackCommandRequest(BaseModel):
 
 class ContentApprovalRequest(BaseModel):
     """Request to approve content via Slack."""
+
     content_id: int
     approved: bool
     feedback: Optional[str] = None

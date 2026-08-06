@@ -53,8 +53,7 @@ def _user_prompt(items: Sequence[FeedItem] = ()) -> str:
         "bölümünde önerdiğin her kaynak için kısa bir 'neden' ve 'ücretsiz "
         "olduğunu doğrulayın' notu ekle; tercihen Coursera, edX, Khan Academy, "
         "freeCodeCamp gibi bilinen ücretsiz/açık platformların ana adreslerini "
-        "kullan.\n\n"
-        + RICH_BRIEFING_GUIDE
+        "kullan.\n\n" + RICH_BRIEFING_GUIDE
     )
     if items:
         listing = "\n".join(

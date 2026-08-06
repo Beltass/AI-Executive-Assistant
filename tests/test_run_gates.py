@@ -1,0 +1,299 @@
+"""Tests for WHO runs on a given run — the two manifest-driven gates.
+
+Every advisor used to run four times a day whatever it had to say. Two gates
+now decide instead, and both exist for one reason: a model call that would
+produce what the user already read this morning is pure quota.
+
+* the TRIGGER gate (:mod:`ai_assistant.status_report` ``trigger`` field) —
+  ``always`` runs every time, ``weekly`` only on the weekly slot,
+  ``user_requested`` only when named in ``DIGEST_FORCE_ADVISORS``;
+* the DATA gate (:mod:`ai_assistant.memory` source hashes) — a
+  ``data_triggered`` advisor whose source did not move since the last DELIVERED
+  run is skipped before a single token is spent.
+
+Everything here is offline: the LLM is a counter, the ledger is a temp file.
+The assertion that matters in almost every test is the SAME one — how many
+model calls were made.
+"""
+
+from __future__ import annotations
+
+import pytest
+
+from ai_assistant import config, memory
+from ai_assistant.advisors import Advisor, BatchSection
+from ai_assistant.advisors._batch import SECTION_MARKER
+from ai_assistant.integrations import STATUS_OK, STATUS_SKIPPED, llm
+from ai_assistant.operations_manager import (
+    SKIP_DATA_UNCHANGED,
+    SKIP_NOT_TRIGGERED,
+    OperationsManager,
+    forced_advisors,
+    trigger_allows,
+    weekly_due,
+)
+
+FAKE_KEY = "AQ.FAKE-secret-key-should-never-leak-123456"
+
+# Real manifest keys, so the gates read the real trigger/data_owner metadata.
+ALWAYS = "morning_operations"  # trigger: always
+WEEKLY = "executive_coaching"  # trigger: weekly
+DATA_A = "market_intelligence"  # trigger: data_triggered, owner market_feeds
+DATA_B = "complaint_radar"  # trigger: data_triggered, owner complaint_feeds
+ON_REQUEST = "kids_development"  # trigger: user_requested
+
+
+class FakeAdvisor(Advisor):
+    """An advisor whose gathered material is one string we control.
+
+    ``payload`` IS the batch section's user prompt, which is exactly what the
+    data gate hashes — so "the source changed" is expressed in a test by
+    handing the advisor a different string.
+    """
+
+    def __init__(self, key: str, payload: str = "aynı veri") -> None:
+        self.key = key
+        self.title = key
+        self.payload = payload
+        self.own_calls = 0
+
+    def batch_section(self) -> BatchSection:
+        return BatchSection(
+            key=self.key,
+            title=self.title,
+            system_prompt="persona",
+            user_prompt=self.payload,
+        )
+
+    def _generate(self):
+        # The per-advisor path: counted so a test can prove it was NOT taken.
+        self.own_calls += 1
+        return self.ok(f"{self.key} tekil gövde")
+
+
+@pytest.fixture()
+def run_env(monkeypatch, tmp_path):
+    """Configured key, empty settings, isolated ledger, no stray env gates."""
+    monkeypatch.setenv("GEMINI_API_KEY", FAKE_KEY)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("DIGEST_BATCH_MODE", raising=False)
+    monkeypatch.delenv("DIGEST_BATCH_FALLBACK_MODE", raising=False)
+    monkeypatch.delenv("DIGEST_FORCE_ADVISORS", raising=False)
+    monkeypatch.delenv("BRIEFING_MODE", raising=False)
+    monkeypatch.setenv("DIGEST_WEEKLY_RUN", "false")
+    monkeypatch.setattr(config, "DEFAULT_SETTINGS", {})
+    memory.reset(path=str(tmp_path / "findings.json"))
+    llm.reset_call_stats()
+    yield
+    memory.reset()
+
+
+@pytest.fixture()
+def calls(monkeypatch):
+    """Record every batched prompt and answer with a section per advisor."""
+    recorded = []
+
+    def fake_generate(system_prompt, user_prompt, **kwargs):
+        recorded.append(user_prompt)
+        parts = []
+        for chunk in user_prompt.split("kimlik: ")[1:]:
+            key = chunk.split(" ", 1)[0].strip()
+            parts.append(f"{SECTION_MARKER} {key}\n{key} toplu gövde.\n")
+        return "\n".join(parts)
+
+    monkeypatch.setattr(llm, "generate_text", fake_generate)
+    return recorded
+
+
+def _run(advisors):
+    return OperationsManager(advisors=advisors, use_manifest_filters=True).run()
+
+
+# --- the trigger gate -------------------------------------------------------
+
+
+def test_always_advisors_run_on_every_run(run_env, calls):
+    always = FakeAdvisor(ALWAYS)
+    other = FakeAdvisor(DATA_A)
+
+    supervision = _run([always, other])
+
+    assert ALWAYS in supervision.executed_advisors
+    assert ALWAYS not in supervision.skipped_advisors
+    assert len(calls) == 1
+
+
+def test_weekly_advisor_stays_out_of_a_daily_run(run_env, calls, monkeypatch):
+    monkeypatch.setenv("DIGEST_WEEKLY_RUN", "false")
+    weekly = FakeAdvisor(WEEKLY)
+    always = FakeAdvisor(ALWAYS)
+
+    supervision = _run([always, weekly])
+
+    assert supervision.skipped_advisors[WEEKLY] == SKIP_NOT_TRIGGERED
+    assert weekly.own_calls == 0
+    assert WEEKLY not in "\n".join(calls)  # never even entered the prompt
+
+
+def test_weekly_advisor_runs_on_the_weekly_slot(run_env, calls, monkeypatch):
+    monkeypatch.setenv("DIGEST_WEEKLY_RUN", "true")
+    weekly = FakeAdvisor(WEEKLY)
+    always = FakeAdvisor(ALWAYS)
+
+    supervision = _run([always, weekly])
+
+    assert WEEKLY in supervision.executed_advisors
+    assert WEEKLY in calls[0]
+
+
+def test_user_requested_advisor_only_runs_when_named(run_env, calls, monkeypatch):
+    always = FakeAdvisor(ALWAYS)
+    on_request = FakeAdvisor(ON_REQUEST)
+
+    quiet = _run([always, FakeAdvisor(ON_REQUEST)])
+    assert quiet.skipped_advisors[ON_REQUEST] == SKIP_NOT_TRIGGERED
+
+    monkeypatch.setenv("DIGEST_FORCE_ADVISORS", f"{ON_REQUEST}, birseyler")
+    asked = _run([always, on_request])
+    assert ON_REQUEST in asked.executed_advisors
+
+
+def test_force_all_runs_the_whole_roster(run_env, monkeypatch):
+    monkeypatch.setenv("DIGEST_FORCE_ADVISORS", "ALL")
+    forced = forced_advisors()
+
+    assert trigger_allows(WEEKLY, forced, weekly=False) is True
+    assert trigger_allows(ON_REQUEST, forced, weekly=False) is True
+
+
+def test_an_advisor_outside_the_manifest_is_never_silenced(run_env):
+    assert trigger_allows("uydurma_danisman", frozenset(), weekly=False) is True
+
+
+def test_weekly_slot_falls_back_to_the_weekday(monkeypatch):
+    from datetime import datetime
+
+    monkeypatch.delenv("DIGEST_WEEKLY_RUN", raising=False)
+    monkeypatch.delenv("DIGEST_WEEKLY_DAY", raising=False)
+
+    assert weekly_due(datetime(2026, 8, 3)) is True  # Monday
+    assert weekly_due(datetime(2026, 8, 4)) is False  # Tuesday
+
+
+# --- the data gate ----------------------------------------------------------
+
+
+def test_unchanged_sources_cost_no_llm_call_at_all(run_env, calls):
+    first = [FakeAdvisor(DATA_A, "haber 1"), FakeAdvisor(DATA_B, "şikayet 1")]
+    supervision = _run(first)
+    assert len(calls) == 1
+    assert supervision.executed_advisors == [DATA_A, DATA_B]
+
+    memory.commit()  # the digest went out: the source hashes are now committed
+
+    second = [FakeAdvisor(DATA_A, "haber 1"), FakeAdvisor(DATA_B, "şikayet 1")]
+    supervision = _run(second)
+
+    assert len(calls) == 1  # STILL one: the second run called nothing
+    assert supervision.skipped_advisors == {
+        DATA_A: SKIP_DATA_UNCHANGED,
+        DATA_B: SKIP_DATA_UNCHANGED,
+    }
+    assert [a.own_calls for a in second] == [0, 0]  # no per-advisor path either
+    assert all(b.status == STATUS_SKIPPED for b in supervision.briefings)
+
+
+def test_a_changed_source_runs_again(run_env, calls):
+    _run([FakeAdvisor(DATA_A, "haber 1"), FakeAdvisor(DATA_B, "şikayet 1")])
+    memory.commit()
+
+    supervision = _run(
+        [FakeAdvisor(DATA_A, "haber 2 — yeni"), FakeAdvisor(DATA_B, "şikayet 1")]
+    )
+
+    assert supervision.executed_advisors == [DATA_A]
+    assert supervision.skipped_advisors == {DATA_B: SKIP_DATA_UNCHANGED}
+
+
+def test_an_undelivered_run_does_not_commit_its_source_hashes(run_env, calls):
+    _run([FakeAdvisor(DATA_A, "haber 1"), FakeAdvisor(DATA_B, "şikayet 1")])
+    # No commit(): the digest never reached the user.
+    supervision = _run(
+        [FakeAdvisor(DATA_A, "haber 1"), FakeAdvisor(DATA_B, "şikayet 1")]
+    )
+
+    assert len(calls) == 2
+    assert supervision.skipped_advisors == {}
+
+
+def test_an_always_advisor_is_never_data_gated(run_env, calls):
+    _run([FakeAdvisor(ALWAYS, "sabah"), FakeAdvisor(DATA_A, "haber 1")])
+    memory.commit()
+
+    supervision = _run([FakeAdvisor(ALWAYS, "sabah"), FakeAdvisor(DATA_A, "haber 1")])
+
+    assert ALWAYS in supervision.executed_advisors
+    assert supervision.skipped_advisors == {DATA_A: SKIP_DATA_UNCHANGED}
+
+
+def test_forcing_an_advisor_bypasses_the_data_gate(run_env, calls, monkeypatch):
+    _run([FakeAdvisor(DATA_A, "haber 1"), FakeAdvisor(DATA_B, "şikayet 1")])
+    memory.commit()
+
+    monkeypatch.setenv("DIGEST_FORCE_ADVISORS", DATA_A)
+    supervision = _run(
+        [FakeAdvisor(DATA_A, "haber 1"), FakeAdvisor(DATA_B, "şikayet 1")]
+    )
+
+    assert DATA_A in supervision.executed_advisors
+    assert supervision.skipped_advisors == {DATA_B: SKIP_DATA_UNCHANGED}
+
+
+def test_an_explicit_roster_is_not_gated_at_all(run_env, calls):
+    """Handing the manager a list IS the request: the gates stay out of it."""
+    _run([FakeAdvisor(DATA_A, "haber 1"), FakeAdvisor(DATA_B, "şikayet 1")])
+    memory.commit()
+
+    supervision = OperationsManager(
+        advisors=[FakeAdvisor(DATA_A, "haber 1"), FakeAdvisor(DATA_B, "şikayet 1")]
+    ).run()
+
+    assert supervision.skipped_advisors == {}
+    assert len(calls) == 2
+
+
+# --- what the ledger itself promises ----------------------------------------
+
+
+def test_source_hash_ignores_cosmetic_changes():
+    assert memory.source_hash("Aynı  veri\n") == memory.source_hash("aynı veri")
+    assert memory.source_hash("bir") != memory.source_hash("iki")
+    assert memory.source_hash("") == ""
+
+
+def test_an_unseen_source_always_counts_as_changed(tmp_path):
+    ledger = memory.FindingsMemory(path=str(tmp_path / "f.json"))
+    assert ledger.source_changed("market_feeds", "haber") is True
+    assert ledger.source_changed("", "haber") is True  # unnamed owner: run it
+    assert ledger.source_changed("market_feeds", "") is True  # nothing gathered
+
+
+def test_source_hashes_survive_a_new_process(tmp_path):
+    path = str(tmp_path / "f.json")
+    first = memory.FindingsMemory(path=path)
+    first.stage_source("market_feeds", "haber")
+    assert first.commit() is True
+
+    second = memory.FindingsMemory(path=path)
+    assert second.source_changed("market_feeds", "haber") is False
+    assert second.source_changed("market_feeds", "başka haber") is True
+
+
+def test_briefings_explain_the_skip_in_turkish(run_env, calls, monkeypatch):
+    monkeypatch.setenv("DIGEST_WEEKLY_RUN", "false")
+    supervision = _run([FakeAdvisor(ALWAYS), FakeAdvisor(WEEKLY)])
+
+    weekly = [b for b in supervision.briefings if b.key == WEEKLY][0]
+    assert weekly.status == STATUS_SKIPPED
+    assert "tetiklenmedi" in weekly.text
+    assert [b.status for b in supervision.briefings if b.key == ALWAYS] == [STATUS_OK]

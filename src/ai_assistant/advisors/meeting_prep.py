@@ -150,8 +150,20 @@ _STOPWORDS = frozenset(
 )
 
 _TR_FOLD = str.maketrans(
-    {"ı": "i", "İ": "i", "ş": "s", "Ş": "s", "ğ": "g", "Ğ": "g",
-     "ç": "c", "Ç": "c", "ö": "o", "Ö": "o", "ü": "u", "Ü": "u"}
+    {
+        "ı": "i",
+        "İ": "i",
+        "ş": "s",
+        "Ş": "s",
+        "ğ": "g",
+        "Ğ": "g",
+        "ç": "c",
+        "Ç": "c",
+        "ö": "o",
+        "Ö": "o",
+        "ü": "u",
+        "Ü": "u",
+    }
 )
 
 _WORD_RE = re.compile(r"[a-z0-9]+")
@@ -360,7 +372,9 @@ def find_notes(
         scored = [
             note
             for note in (
-                _note_from_item(meeting, item) for item in files if isinstance(item, dict)
+                _note_from_item(meeting, item)
+                for item in files
+                if isinstance(item, dict)
             )
             if note is not None
         ]
@@ -419,7 +433,15 @@ class MeetingPrepAdvisor(Advisor):
             return self.skipped(SKIP_NO_LLM)
 
         try:
-            body = llm.generate_text(SYSTEM_PROMPT, self._user_prompt())
+            # Structured inference: every fact in this note is already in the
+            # calendar entry and the meeting notes handed to the model — the
+            # prompt forbids inventing anything else — so a billed "thinking"
+            # pass has nothing to work out. See ``STRUCTURED_THINKING_BUDGET``.
+            body = llm.generate_text(
+                SYSTEM_PROMPT,
+                self._user_prompt(),
+                thinking_budget=llm.STRUCTURED_THINKING_BUDGET,
+            )
         except Exception as exc:
             return self.failed(f"LLM isteği başarısız: {exc}")
 

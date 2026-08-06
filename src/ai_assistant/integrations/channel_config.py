@@ -16,6 +16,8 @@ import logging
 import os
 from typing import Dict, Optional
 
+from ..status_report import live_advisor_keys
+
 logger = logging.getLogger(__name__)
 
 MAIN_CHANNEL_ENV = "SLACK_MAIN_CHANNEL"
@@ -23,27 +25,12 @@ FALLBACK_CHANNEL_ENV = "SLACK_CHANNEL"  # Legacy fallback
 
 #: The advisor roster this project routes to Slack, in report order.
 #:
-#: Kept as a literal list to avoid importing :mod:`ai_assistant.advisors` (which
-#: would make a channel lookup pull in every advisor module). It mirrors
-#: ``ai_assistant.advisors.all_advisors()``; ``tests/test_slack_channels.py``
-#: pins the two together so a roster change cannot silently drift.
-ADVISOR_KEYS = (
-    "morning_operations",
-    "communications_calendar",
-    "career_development",
-    "market_intelligence",
-    "complaint_radar",
-    "linkedin_coach",
-    "social_media_coach",
-    "personal_assistant",
-    "data_analyst",
-    "ai_innovation",
-    "kids_development",
-    "executive_coaching",
-    "work_analyst",
-    "operations_director",
-    "sre_watchdog",
-)
+#: Read from the manifest (:data:`ai_assistant.status_report.ADVISOR_META`)
+#: rather than from :mod:`ai_assistant.advisors`, so a channel lookup does not
+#: pull in every advisor module — the manifest is plain data. It used to be a
+#: hand-copied literal, which is precisely how ``meeting_prep`` ended up with a
+#: Slack route but no place on the roster.
+ADVISOR_KEYS = live_advisor_keys()
 
 
 def advisor_channel_env(advisor_key: str) -> str:
@@ -110,9 +97,7 @@ class ChannelConfig:
         """
         return any(self.dedicated_channel(key) for key in ADVISOR_KEYS)
 
-    def get_channel(
-        self, advisor_key: str, advisor_title: str = ""
-    ) -> Optional[str]:
+    def get_channel(self, advisor_key: str, advisor_title: str = "") -> Optional[str]:
         """Get the channel ID for an advisor.
 
         Falls back to main_channel if no specific channel is configured, then to

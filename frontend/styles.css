@@ -3183,3 +3183,43 @@ button {
 /* ==========================================================================
    ==  end READING VIEW V2 appended block                                  ==
    ========================================================================== */
+
+/* ==========================================================================
+   ==  AKSİYON MERKEZİ (Executive Action Center)                           ==
+   ==  Yeni bileşen yok: mevcut .checklist, .badge, .alert-item ve .tile   ==
+   ==  parçaları yeniden kullanılır. Buradaki kurallar sadece önceliğin    ==
+   ==  rozetini ve bölüm başlığının sağ tarafındaki sayacı biçimlendirir.  ==
+   ========================================================================== */
+
+.section-head__meta {
+  font-size: var(--t-sm);
+  color: var(--text-3);
+}
+
+/* Öncelik rozeti: renk TEK BAŞINA anlam taşımaz — kodun kendisi (P0…P3)
+ * her zaman yazılıdır. */
+.badge--p0 {
+  color: var(--critical);
+  border-color: color-mix(in srgb, var(--critical) 45%, transparent);
+  background: color-mix(in srgb, var(--critical) 14%, transparent);
+}
+
+.badge--p1 {
+  color: var(--warning);
+  border-color: color-mix(in srgb, var(--warning) 45%, transparent);
+  background: color-mix(in srgb, var(--warning) 14%, transparent);
+}
+
+.badge--p2,
+.badge--p3 {
+  color: var(--text-2);
+}
+
+.badge--approval {
+  color: var(--warning);
+  border-color: color-mix(in srgb, var(--warning) 45%, transparent);
+}
+
+.badge--source {
+  color: var(--text-3);
+}

@@ -84,6 +84,7 @@ def no_config(monkeypatch):
 EXPECTED_ADVISOR_KEYS = [
     "morning_operations",
     "communications_calendar",
+    "meeting_prep",
     "career_development",
     "market_intelligence",
     "complaint_radar",
@@ -102,7 +103,7 @@ EXPECTED_ADVISOR_KEYS = [
 
 def test_all_advisors_discovered():
     advisors = all_advisors()
-    assert len(advisors) == 15
+    assert len(advisors) == 16
     assert [a.key for a in advisors] == EXPECTED_ADVISOR_KEYS
 
 
@@ -160,7 +161,11 @@ def test_all_advisors_skipped_offline(no_config):
 
 
 def test_llm_personas_have_turkish_system_prompt():
-    for advisor_cls in (LeadershipCoachAdvisor, KidsDevelopmentAdvisor, CareerHrAdvisor):
+    for advisor_cls in (
+        LeadershipCoachAdvisor,
+        KidsDevelopmentAdvisor,
+        CareerHrAdvisor,
+    ):
         assert advisor_cls.system_prompt.strip()
         assert advisor_cls.user_prompt.strip()
 
@@ -180,8 +185,13 @@ def test_job_scout_skipped_without_llm_key(no_config, monkeypatch):
 
 @pytest.mark.parametrize(
     "advisor_cls",
-    [SectorIntelAdvisor, FreeCertsAdvisor, BankingCcProjectsAdvisor,
-     LanguageCoachAdvisor, InnovationLabAdvisor],
+    [
+        SectorIntelAdvisor,
+        FreeCertsAdvisor,
+        BankingCcProjectsAdvisor,
+        LanguageCoachAdvisor,
+        InnovationLabAdvisor,
+    ],
 )
 def test_llm_new_personas_skipped_without_key(no_config, advisor_cls):
     briefing = advisor_cls().generate_briefing()
@@ -326,9 +336,16 @@ def test_job_scout_uses_defaults_but_still_skips_without_llm_key(defaults_only):
 
 @pytest.mark.parametrize(
     "advisor_cls",
-    [LeadershipCoachAdvisor, KidsDevelopmentAdvisor, CareerHrAdvisor,
-     SectorIntelAdvisor, FreeCertsAdvisor, BankingCcProjectsAdvisor,
-     LanguageCoachAdvisor, InnovationLabAdvisor],
+    [
+        LeadershipCoachAdvisor,
+        KidsDevelopmentAdvisor,
+        CareerHrAdvisor,
+        SectorIntelAdvisor,
+        FreeCertsAdvisor,
+        BankingCcProjectsAdvisor,
+        LanguageCoachAdvisor,
+        InnovationLabAdvisor,
+    ],
 )
 def test_llm_advisors_still_skip_with_defaults_but_no_key(defaults_only, advisor_cls):
     briefing = advisor_cls().generate_briefing()

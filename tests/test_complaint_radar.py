@@ -88,7 +88,9 @@ def two_feeds(monkeypatch, blank_env):
             "https://example.org/sector": [
                 # The same story from the sector desk: merged, not counted twice.
                 FeedItem(title="IVR kuyruğu 20 dakika", link="https://example.org/a"),
-                FeedItem(title="Mobil şubede giriş hatası", link="https://example.org/c"),
+                FeedItem(
+                    title="Mobil şubede giriş hatası", link="https://example.org/c"
+                ),
             ],
         },
     )
@@ -280,7 +282,9 @@ def test_brands_and_competitors_reach_the_prompt(monkeypatch, two_feeds):
     assert "Rakip Bank" in section.user_prompt
 
 
-def test_without_competitors_the_model_is_told_not_to_invent_any(monkeypatch, two_feeds):
+def test_without_competitors_the_model_is_told_not_to_invent_any(
+    monkeypatch, two_feeds
+):
     monkeypatch.setenv("GEMINI_API_KEY", FAKE_KEY)
 
     section = ComplaintRadarAdvisor().batch_section()

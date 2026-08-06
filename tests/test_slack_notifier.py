@@ -59,15 +59,29 @@ def test_main_exit_zero_when_unconfigured(no_slack, capsys):
 
 
 def _digest(*briefings):
-    return Digest(text="brifing gövdesi", supervision=Supervision(briefings=list(briefings)))
+    return Digest(
+        text="brifing gövdesi", supervision=Supervision(briefings=list(briefings))
+    )
 
 
 def test_run_report_lists_every_advisor_status(capsys):
     slack_notifier._print_run_report(
         _digest(
-            Briefing(key="weather", title="Hava Durumu", status=STATUS_OK, text="x" * 120),
-            Briefing(key="coach", title="Koç", status=STATUS_FAILED, text="LLM isteği başarısız"),
-            Briefing(key="anka", title="Anka", status=STATUS_SKIPPED, text="missing env var(s)"),
+            Briefing(
+                key="weather", title="Hava Durumu", status=STATUS_OK, text="x" * 120
+            ),
+            Briefing(
+                key="coach",
+                title="Koç",
+                status=STATUS_FAILED,
+                text="LLM isteği başarısız",
+            ),
+            Briefing(
+                key="anka",
+                title="Anka",
+                status=STATUS_SKIPPED,
+                text="missing env var(s)",
+            ),
         )
     )
     out = capsys.readouterr().out
@@ -199,9 +213,7 @@ def test_the_full_section_body_never_reaches_slack(tmp_path):
 
 
 def test_index_stays_within_slack_block_limits(tmp_path):
-    briefings = [
-        _ok(f"advisor_{index}", f"Danışman {index}") for index in range(40)
-    ]
+    briefings = [_ok(f"advisor_{index}", f"Danışman {index}") for index in range(40)]
     supervision, publication = _publish(tmp_path, *briefings)
     _, blocks = slack_notifier.build_index_message(
         supervision, publication, base_url="https://example.test/", now=NOW

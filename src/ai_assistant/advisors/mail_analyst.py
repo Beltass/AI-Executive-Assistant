@@ -53,28 +53,66 @@ SKIP_DETAIL = (
 
 # Keywords for categorizing emails (Turkish)
 URGENT_KEYWORDS = [
-    "acil", "hemen", "bugün", "deadline", "critical", "kritikal",
-    "emergency", "urgent", "önemli", "asap", "hızlı", "hızlıca",
-    "derhal", "immediately", "zanı", "zanında", "yanında"
+    "acil",
+    "hemen",
+    "bugün",
+    "deadline",
+    "critical",
+    "kritikal",
+    "emergency",
+    "urgent",
+    "önemli",
+    "asap",
+    "hızlı",
+    "hızlıca",
+    "derhal",
+    "immediately",
+    "zanı",
+    "zanında",
+    "yanında",
 ]
 
 ACTION_KEYWORDS = [
-    "lütfen", "please", "ihtiyaç", "need", "request", "istek",
-    "yapacaksınız", "yapcaksınız", "toplantı", "meeting", "görüş",
-    "sonuç", "result", "bilgi", "information", "onay", "approval"
+    "lütfen",
+    "please",
+    "ihtiyaç",
+    "need",
+    "request",
+    "istek",
+    "yapacaksınız",
+    "yapcaksınız",
+    "toplantı",
+    "meeting",
+    "görüş",
+    "sonuç",
+    "result",
+    "bilgi",
+    "information",
+    "onay",
+    "approval",
 ]
 
 # VIP sender patterns
 VIP_PATTERNS = [
-    r"\b[Cc][Ee][Oo]\b", r"\bcto\b", r"\bchief\b",
-    r"\bmanager\b", r"\byönetici\b", r"\bdirector\b", r"\bdirecteur\b",
-    r"\bkurucu\b", r"\bfounders?\b", r"\bexecutive\b", r"\bvp\b", r"\bboss\b"
+    r"\b[Cc][Ee][Oo]\b",
+    r"\bcto\b",
+    r"\bchief\b",
+    r"\bmanager\b",
+    r"\byönetici\b",
+    r"\bdirector\b",
+    r"\bdirecteur\b",
+    r"\bkurucu\b",
+    r"\bfounders?\b",
+    r"\bexecutive\b",
+    r"\bvp\b",
+    r"\bboss\b",
 ]
 
 
 @dataclass
 class EmailMessage:
     """Parsed email metadata and categorization."""
+
     email_id: str
     sender: str
     subject: str
@@ -96,6 +134,7 @@ class EmailMessage:
 @dataclass
 class MailStats:
     """Email analysis statistics."""
+
     total_emails: int = 0
     unread: int = 0
     from_vip: int = 0
@@ -114,6 +153,7 @@ class MailStats:
 @dataclass
 class MailReport:
     """Structured email analysis report."""
+
     generated_at: str
     period: str
     summary: str
@@ -519,7 +559,9 @@ class MailAnalystAdvisor(Advisor):
 
         lines.append("")
         lines.append("**✅ Bugünün görevi:** Acil e-postaları ve aksiyon maddelerini ")
-        lines.append("öncelik sırasıyla gözden geçir; hemen cevap verilecekler işaretle.")
+        lines.append(
+            "öncelik sırasıyla gözden geçir; hemen cevap verilecekler işaretle."
+        )
         lines.append("")
         lines.append(
             "🔒 Not: Bu bölüm Gmail'den yalnızca OKUMA yetkisiyle alınan "

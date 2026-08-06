@@ -169,9 +169,8 @@ class OAuthCallbackHandler:
             "prompt": "consent",
         }
 
-        return (
-            "https://accounts.google.com/o/oauth2/auth?"
-            + urllib.parse.urlencode(params)
+        return "https://accounts.google.com/o/oauth2/auth?" + urllib.parse.urlencode(
+            params
         )
 
     def _build_callback_handler(self):
@@ -534,9 +533,7 @@ class OAuthCallbackHandler:
         # Start the server
         auth_url = self.start_server()
 
-        logger.info(
-            "Waiting for OAuth callback (timeout: %d seconds)...", timeout
-        )
+        logger.info("Waiting for OAuth callback (timeout: %d seconds)...", timeout)
 
         # Wait for callback with timeout
         callback_received = self._callback_event.wait(timeout=timeout)

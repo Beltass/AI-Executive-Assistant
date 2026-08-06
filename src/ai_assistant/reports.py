@@ -52,6 +52,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional
 
+from .action_center import ActionItem, priority_to_rank
 from .config import MODE_FULL, mode_label
 from .integrations import STATUS_OK
 from .status_report import ADVISOR_META, DEFAULT_META, ISTANBUL, sanitize
@@ -72,15 +73,15 @@ DEFAULT_RETENTION_DAYS = 30
 _PRIVATE_ADVISOR_KEYS_CURRENT = frozenset(
     {
         "communications_calendar",  # real names, subjects and meetings
-        "meeting_prep",             # calendar entries and meeting note content
-        "data_analyst",             # the operation's own performance data
-        "ai_innovation",            # reasons about the user's own backlog
-        "executive_coaching",       # personal development + accountability
-        "social_media_coach",       # personal social media profiles and content
-        "personal_assistant",       # personal tasks, goals and schedule
-        "work_analyst",             # consolidates everyone else's private work
-        "operations_director",      # synthesises every private section above
-        "sre_watchdog",             # the system's own technical internals
+        "meeting_prep",  # calendar entries and meeting note content
+        "data_analyst",  # the operation's own performance data
+        "ai_innovation",  # reasons about the user's own backlog
+        "executive_coaching",  # personal development + accountability
+        "social_media_coach",  # personal social media profiles and content
+        "personal_assistant",  # personal tasks, goals and schedule
+        "work_analyst",  # consolidates everyone else's private work
+        "operations_director",  # synthesises every private section above
+        "sre_watchdog",  # the system's own technical internals
     }
 )
 
@@ -334,23 +335,6 @@ class Section:
             payload["table"] = self.table
         if self.chart:
             payload["chart"] = self.chart
-        return payload
-
-
-@dataclass
-class ActionItem:
-    """One line of the "Aksiyonlar" checklist."""
-
-    text: str
-    deadline: str = ""
-    owner: str = ""
-
-    def as_dict(self) -> Dict[str, Any]:
-        payload: Dict[str, Any] = {"text": self.text}
-        if self.deadline:
-            payload["deadline"] = self.deadline
-        if self.owner:
-            payload["owner"] = self.owner
         return payload
 
 
@@ -679,9 +663,7 @@ def split_sections(markdown: str) -> tuple:
     def take_sources() -> bool:
         found = [s for s in (_source_from_line(line) for line in body) if s]
         leftovers = [
-            line
-            for line in body
-            if line.strip() and not _source_from_line(line)
+            line for line in body if line.strip() and not _source_from_line(line)
         ]
         # Convert only a list that really IS a list of links; two stray lines
         # (the "verify the links" nudge) are tolerated, a prose section is not.
@@ -868,6 +850,47 @@ def read_minutes(words: int) -> int:
     return max(1, round(words / WORDS_PER_MINUTE)) if words else 1
 
 
+# --- action center enrichment ------------------------------------------------
+#
+# Bir rapor satırı ("- [ ] Şunu yap (son tarih: bugün)") panonun Aksiyon
+# Merkezi'ne girerken bir önceliğe ve bir onay durumuna ihtiyaç duyar.
+# Danışman bunları ayrıca yazmıyor, bu yüzden İKİSİ DE danışmanın KENDİ
+# kelimelerinden okunur; uydurma bir sıralama yerine metnin söylediği kadarı.
+
+#: "bugün", "acil" — bugün bitmesi gereken iş. P0.
+_URGENT_RE = re.compile(r"(bugün|bugun|acil|derhal|hemen|today|asap)", re.IGNORECASE)
+
+#: Onay/karar bekleyen iş: bir başkasının "olur"u olmadan ilerlemez.
+_APPROVAL_RE = re.compile(
+    r"(onay|onaylat|imza|karar\s+bekl|approval|sign[- ]?off)", re.IGNORECASE
+)
+
+#: Panonun bir rapordan aldığı en fazla aksiyon sayısı.
+MAX_CARD_ACTIONS = 5
+
+
+def _infer_priority(item: ActionItem) -> str:
+    """Aksiyonun P kodu: metin "bugün/acil" diyorsa P0, tarih varsa P1, yoksa P2.
+
+    Danışman ``priority`` yazdıysa ona dokunulmaz.
+    """
+    if item.priority not in (None, "", 3):
+        return item.priority_code
+    haystack = f"{item.title} {item.due_date or ''}"
+    if _URGENT_RE.search(haystack):
+        return "P0"
+    if item.due_date:
+        return "P1"
+    return "P2"
+
+
+def _infer_approval(item: ActionItem) -> str:
+    """Metinde onay/karar geçiyorsa aksiyon onay bekliyor demektir."""
+    if item.approval_status != "not_required":
+        return item.approval_status
+    return "pending" if _APPROVAL_RE.search(item.title or "") else "not_required"
+
+
 # --- the published document -------------------------------------------------
 
 
@@ -904,8 +927,29 @@ class PublishedReport:
         """The dashboard's hash route for this document."""
         return f"#/rapor/{self.date}/{self.id}"
 
+    def action_center_items(self) -> List[Dict[str, Any]]:
+        """Bu raporun aksiyonları, Action Center şemasında.
+
+        ``source_advisor`` raporun kendi id'si — pano hangi ajanın istediğini
+        böyle bilir. Öncelik ve onay durumu danışmanın kendi cümlesinden
+        okunur (:func:`_infer_priority`, :func:`_infer_approval`).
+        """
+        out: List[Dict[str, Any]] = []
+        for item in self.action_items[:MAX_CARD_ACTIONS]:
+            payload = item.to_dict()
+            payload["priority"] = _infer_priority(item)
+            payload["priority_rank"] = priority_to_rank(payload["priority"])
+            payload["approval_status"] = _infer_approval(item)
+            payload["source_advisor"] = item.source_advisor or self.id
+            out.append(payload)
+        return out
+
     def card(self) -> Dict[str, Any]:
-        """The compact entry stored in the day's index (no body)."""
+        """The compact entry stored in the day's index (no body).
+
+        ``actions`` panoyu tek dosyadan besler: Aksiyon Merkezi gününü açmak
+        için 16 rapor belgesini tek tek indirmek zorunda kalmaz.
+        """
         return {
             "id": self.id,
             "name": self.name,
@@ -916,6 +960,7 @@ class PublishedReport:
             "words": self.words,
             "read_minutes": self.read_minutes,
             "action_count": len(self.action_items),
+            "actions": self.action_center_items(),
             "generated_at": self.generated_at,
             "generated_at_istanbul": self.generated_at_istanbul,
             "path": f"{self.id}.json",
@@ -1026,7 +1071,12 @@ def render_markdown_document(report: "PublishedReport") -> str:
 
     stamp = report.generated_at_istanbul or report.generated_at
     if stamp:
-        out += ["", "---", "", f"_Hazırlanma: {stamp} (İstanbul) · AI Executive Assistant_"]
+        out += [
+            "",
+            "---",
+            "",
+            f"_Hazırlanma: {stamp} (İstanbul) · AI Executive Assistant_",
+        ]
 
     # Collapse the runs of blank lines the block assembly leaves behind.
     text = "\n".join(out)
@@ -1041,16 +1091,24 @@ def _spec_table_lines(spec: Dict[str, Any]) -> List[str]:
         return []
     labels = [str(c.get("label") or c.get("key") or "") for c in columns]
     keys = [str(c.get("key") or "") for c in columns]
-    lines = ["| " + " | ".join(labels) + " |", "| " + " | ".join("---" for _ in labels) + " |"]
+    lines = [
+        "| " + " | ".join(labels) + " |",
+        "| " + " | ".join("---" for _ in labels) + " |",
+    ]
     for row in rows[:50]:
         if isinstance(row, dict):
-            cells = [str(row.get(key, "") if row.get(key) is not None else "") for key in keys]
+            cells = [
+                str(row.get(key, "") if row.get(key) is not None else "")
+                for key in keys
+            ]
         elif isinstance(row, (list, tuple)):
             cells = [str(cell) for cell in row][: len(labels)]
             cells += [""] * (len(labels) - len(cells))
         else:
             continue
-        lines.append("| " + " | ".join(cell.replace("|", "\\|") for cell in cells) + " |")
+        lines.append(
+            "| " + " | ".join(cell.replace("|", "\\|") for cell in cells) + " |"
+        )
     return lines
 
 
@@ -1320,7 +1378,9 @@ def publish(
     try:
         costs = estimate_token_costs(briefings)
         publication.reports = [
-            build_report(b, day, moment, tokens=costs.get(str(getattr(b, "key", "")), 0))
+            build_report(
+                b, day, moment, tokens=costs.get(str(getattr(b, "key", "")), 0)
+            )
             for b in briefings
             if is_publishable(b)
         ]
@@ -1333,9 +1393,7 @@ def publish(
             return publication
 
         for report in publication.reports:
-            _write_json(
-                os.path.join(directory, f"{report.id}.json"), report.document()
-            )
+            _write_json(os.path.join(directory, f"{report.id}.json"), report.document())
 
         cards = _merge_cards(existing_index.get("reports"), publication.reports)
         mode = str(getattr(supervision, "mode", MODE_FULL) or MODE_FULL)

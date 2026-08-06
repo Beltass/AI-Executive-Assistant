@@ -191,7 +191,9 @@ class OperationsBriefingReport:
             if "completion_rate" in perf:
                 lines.append(f"- Tamamlanma Oranı: {perf['completion_rate']:.1f}%")
             if "deadline_adherence" in perf:
-                lines.append(f"- Zaman Takvimi Uyumu: {perf['deadline_adherence']:.1f}%")
+                lines.append(
+                    f"- Zaman Takvimi Uyumu: {perf['deadline_adherence']:.1f}%"
+                )
             if "success_rate" in perf:
                 lines.append(f"- Başarı Oranı: {perf['success_rate']:.1f}%")
             if "trends" in perf:
@@ -405,8 +407,7 @@ class MorningOperationsAdvisor(LLMAdvisor):
             "önceliklerini ve kritik yolları açıklayan, hangi alanlara odaklanması gerektiğini "
             "söyleyen, akıllı günlük hedefleri ve Türkçe günlük görevi sunan "
             "derinlikli bir sabah brifingi yaz:\n\n"
-            f"{context}\n\n"
-            + RICH_BRIEFING_GUIDE
+            f"{context}\n\n" + RICH_BRIEFING_GUIDE
         )
 
         return user_prompt
@@ -466,14 +467,26 @@ class MorningOperationsAdvisor(LLMAdvisor):
             lines.append(
                 f"- Tamamlanan Görevler: {self._yesterday_metrics.tasks_completed}/{self._yesterday_metrics.tasks_assigned}"
             )
-            lines.append(f"- Toplantı Saatleri: {self._yesterday_metrics.meeting_hours:.1f}sa")
-            lines.append(f"- Yoğunlaşma Saati: {self._yesterday_metrics.focus_time_hours:.1f}sa")
+            lines.append(
+                f"- Toplantı Saatleri: {self._yesterday_metrics.meeting_hours:.1f}sa"
+            )
+            lines.append(
+                f"- Yoğunlaşma Saati: {self._yesterday_metrics.focus_time_hours:.1f}sa"
+            )
 
             # Calculate trends
             if self._week_avg:
-                completion_trend = self._yesterday_metrics.completion_rate - self._week_avg.completion_rate
-                deadline_trend = self._yesterday_metrics.deadline_adherence - self._week_avg.deadline_adherence
-                success_trend = self._yesterday_metrics.success_rate - self._week_avg.success_rate
+                completion_trend = (
+                    self._yesterday_metrics.completion_rate
+                    - self._week_avg.completion_rate
+                )
+                deadline_trend = (
+                    self._yesterday_metrics.deadline_adherence
+                    - self._week_avg.deadline_adherence
+                )
+                success_trend = (
+                    self._yesterday_metrics.success_rate - self._week_avg.success_rate
+                )
 
                 lines.append("\nTRENDLER (7 gün ortalamasına kıyasla):")
                 lines.append(f"- Tamamlanma: {self._format_trend(completion_trend)}")
@@ -488,7 +501,9 @@ class MorningOperationsAdvisor(LLMAdvisor):
                 if isinstance(priority, str):
                     lines.append(f"- {priority}")
                 else:
-                    lines.append(f"- {priority.get('title', 'Görev')} ({priority.get('priority', 'normal')})")
+                    lines.append(
+                        f"- {priority.get('title', 'Görev')} ({priority.get('priority', 'normal')})"
+                    )
 
         # Critical items
         critical = self._extract_critical_items()
@@ -498,7 +513,9 @@ class MorningOperationsAdvisor(LLMAdvisor):
                 if isinstance(item, str):
                     lines.append(f"- {item}")
                 else:
-                    lines.append(f"- {item.get('item', 'Öğe')} ({item.get('status', 'takip')})")
+                    lines.append(
+                        f"- {item.get('item', 'Öğe')} ({item.get('status', 'takip')})"
+                    )
 
         return "\n".join(lines)
 
@@ -563,7 +580,9 @@ class MorningOperationsAdvisor(LLMAdvisor):
 
     def _build_report(self) -> OperationsBriefingReport:
         """Build the operational briefing report."""
-        yesterday = self._yesterday_metrics or self._state_manager.get_yesterday_metrics()
+        yesterday = (
+            self._yesterday_metrics or self._state_manager.get_yesterday_metrics()
+        )
         week_avg = self._week_avg or self._state_manager.get_week_average()
 
         today_str = date.today().isoformat()

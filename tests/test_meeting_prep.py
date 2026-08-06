@@ -98,11 +98,11 @@ def _calendar(monkeypatch, events):
 # --- registration and privacy ------------------------------------------------
 
 
-def test_the_advisor_is_not_in_the_live_roster():
-    """Meeting prep has been retired from the live roster (PHASE 1C consolidation)."""
+def test_the_advisor_is_on_the_live_roster():
+    """The manifest marks meeting_prep live, so all_advisors() must build it."""
     from ai_assistant.advisors import all_advisors
 
-    assert "meeting_prep" not in [advisor.key for advisor in all_advisors()]
+    assert "meeting_prep" in [advisor.key for advisor in all_advisors()]
 
 
 def test_the_advisor_declares_itself_private():
@@ -128,7 +128,9 @@ def test_parse_event_reads_a_normal_meeting():
 
 def test_parse_event_drops_all_day_blocks():
     """An all-day entry has a ``date``, not a ``dateTime``: nothing to prepare."""
-    assert parse_event({"summary": "Yıllık izin", "start": {"date": "2026-08-05"}}) is None
+    assert (
+        parse_event({"summary": "Yıllık izin", "start": {"date": "2026-08-05"}}) is None
+    )
 
 
 def test_parse_event_drops_attendee_less_focus_blocks():
@@ -173,7 +175,10 @@ def test_score_note_folds_turkish_letters():
 
 def test_score_note_ignores_generic_note_words():
     """Every file is called "toplantı notları" — that is not a match."""
-    assert score_note(_meeting(summary="Bütçe planı", attendees=[]), "toplanti notlari") == 0
+    assert (
+        score_note(_meeting(summary="Bütçe planı", attendees=[]), "toplanti notlari")
+        == 0
+    )
 
 
 def test_score_note_of_an_unrelated_file_is_zero():
@@ -241,7 +246,9 @@ def test_skipped_when_the_calendar_cannot_be_read(monkeypatch, google_ok):
 
 def test_skipped_when_there_is_no_meeting_to_prepare(monkeypatch, google_ok):
     """Only all-day and focus blocks ahead: nothing to prepare for."""
-    _calendar(monkeypatch, [{"summary": "Yıllık izin", "start": {"date": "2026-08-05"}}])
+    _calendar(
+        monkeypatch, [{"summary": "Yıllık izin", "start": {"date": "2026-08-05"}}]
+    )
 
     briefing = MeetingPrepAdvisor().generate_briefing()
     assert briefing.status == STATUS_SKIPPED
@@ -279,6 +286,27 @@ def test_a_failing_llm_is_a_failure_not_a_crash(monkeypatch, google_ok):
     briefing = MeetingPrepAdvisor().generate_briefing()
     assert briefing.status == STATUS_FAILED
     assert "kota doldu" in briefing.text
+
+
+def test_the_prep_note_pays_for_no_thinking_tokens(monkeypatch, google_ok):
+    """Structured inference: every fact is in the calendar entry and the notes.
+
+    The prompt forbids the model from adding anything that is not in the
+    material it was handed, so a billed "thinking" pass has nothing to work
+    out — see ``llm.STRUCTURED_THINKING_BUDGET``.
+    """
+    monkeypatch.setenv("GEMINI_API_KEY", FAKE_KEY)
+    _calendar(monkeypatch, [EVENT])
+    sent = {}
+
+    def fake_generate(system_prompt, user_prompt, **kwargs):
+        sent.update(kwargs)
+        return "Hazırlık notu gövdesi."
+
+    monkeypatch.setattr(prep_module.llm, "generate_text", fake_generate)
+    MeetingPrepAdvisor().generate_briefing()
+
+    assert sent["thinking_budget"] == 0
 
 
 # --- the collected facts -----------------------------------------------------
@@ -371,7 +399,9 @@ def test_a_broken_drive_never_takes_the_section_down(monkeypatch, google_ok):
     assert "Geçmiş not: YOK." in section.user_prompt
 
 
-def test_the_batched_answer_carries_the_caveat_and_the_private_flag(monkeypatch, google_ok):
+def test_the_batched_answer_carries_the_caveat_and_the_private_flag(
+    monkeypatch, google_ok
+):
     briefing = MeetingPrepAdvisor().briefing_from_batch("  Hazırlık notu  ")
     assert briefing.status == STATUS_OK
     assert briefing.text.startswith("Hazırlık notu")

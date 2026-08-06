@@ -42,7 +42,6 @@ from . import Briefing
 from ..config import setting
 from ..integrations import STATUS_OK
 
-
 # --- System and User Prompts -----------------------------------------------
 
 SYSTEM_PROMPT = (
@@ -104,6 +103,7 @@ DEFAULT_STATE_FILE = ".assistant_state/executive_coaching.json"
 @dataclass
 class LeadershipMetrics:
     """Leadership development tracking."""
+
     current_focus: str = ""
     strengths: List[str] = field(default_factory=list)
     development_areas: List[str] = field(default_factory=list)
@@ -114,8 +114,11 @@ class LeadershipMetrics:
 @dataclass
 class AccountabilityMetrics:
     """Commitment and task accountability tracking."""
+
     commitments: List[str] = field(default_factory=list)
-    completion_status: Dict[str, str] = field(default_factory=dict)  # commitment -> status
+    completion_status: Dict[str, str] = field(
+        default_factory=dict
+    )  # commitment -> status
     blockers: List[str] = field(default_factory=list)
     wins: List[str] = field(default_factory=list)
     streak_days: int = 0
@@ -124,6 +127,7 @@ class AccountabilityMetrics:
 @dataclass
 class CoachingInsight:
     """A coaching observation and recommendation."""
+
     observation: str = ""
     recommendation: str = ""
     next_steps: List[str] = field(default_factory=list)
@@ -133,6 +137,7 @@ class CoachingInsight:
 @dataclass
 class ExecutiveCoachingReport:
     """Complete executive coaching report."""
+
     generated_at: str
     summary: str
     leadership: Dict[str, Any] = field(default_factory=dict)
@@ -159,6 +164,7 @@ class ExecutiveCoachingReport:
 @dataclass
 class ExecutiveCoachingState:
     """Persistent state for executive coaching."""
+
     last_generated: str = ""
     leadership_history: List[Dict[str, Any]] = field(default_factory=list)
     accountability_history: List[Dict[str, Any]] = field(default_factory=list)
@@ -172,12 +178,18 @@ class ExecutiveCoachingState:
         """Load from dictionary."""
         return cls(
             last_generated=str(data.get("last_generated") or ""),
-            leadership_history=[dict(h) for h in (data.get("leadership_history") or [])],
-            accountability_history=[dict(h) for h in (data.get("accountability_history") or [])],
+            leadership_history=[
+                dict(h) for h in (data.get("leadership_history") or [])
+            ],
+            accountability_history=[
+                dict(h) for h in (data.get("accountability_history") or [])
+            ],
             coaching_notes=[dict(n) for n in (data.get("coaching_notes") or [])],
             achievements=[str(a) for a in (data.get("achievements") or [])],
             patterns=dict(data.get("patterns") or {}),
-            growth_areas={str(k): int(v) for k, v in (data.get("growth_areas") or {}).items()},
+            growth_areas={
+                str(k): int(v) for k, v in (data.get("growth_areas") or {}).items()
+            },
         )
 
     def to_dict(self) -> dict:
@@ -261,9 +273,7 @@ class ExecutiveCoachingAdvisor(LLMAdvisor):
     def _generate(self) -> Briefing:
         """Generate executive coaching briefing."""
         if not self._is_configured():
-            return self.skipped(
-                "missing env var(s): GEMINI_API_KEY or OPENAI_API_KEY"
-            )
+            return self.skipped("missing env var(s): GEMINI_API_KEY or OPENAI_API_KEY")
 
         try:
             # Load persistent state
@@ -289,11 +299,13 @@ class ExecutiveCoachingAdvisor(LLMAdvisor):
     def _is_configured(self) -> bool:
         """Check if LLM provider is configured."""
         from ..integrations import llm
+
         return llm.is_configured()
 
     def _generate_coaching_content(self) -> str:
         """Generate LLM-based coaching content."""
         from ..integrations import llm
+
         return llm.generate_text(self.system_prompt, self.user_prompt)
 
     def _structure_coaching_report(self, llm_text: str) -> ExecutiveCoachingReport:
@@ -364,6 +376,7 @@ class ExecutiveCoachingAdvisor(LLMAdvisor):
     def _extract_daily_task(self, text: str) -> str:
         """Extract the daily coaching task (✅ Bugünün görevi)."""
         from .accountability_coach import extract_task
+
         task = extract_task(text)
         if task:
             return f"Günü şu görevle bitir: {task}"
@@ -397,7 +410,9 @@ class ExecutiveCoachingAdvisor(LLMAdvisor):
         areas = []
         lines = text.split("\n")
         for line in lines:
-            if any(w in line.lower() for w in ["gelişim", "çalışabilir", "geliştirebilir"]):
+            if any(
+                w in line.lower() for w in ["gelişim", "çalışabilir", "geliştirebilir"]
+            ):
                 area = line.strip()
                 if area and len(area) < 200:
                     areas.append(area)
@@ -444,7 +459,9 @@ class ExecutiveCoachingAdvisor(LLMAdvisor):
         wins = []
         lines = text.split("\n")
         for line in lines:
-            if any(w in line.lower() for w in ["başarı", "kazanım", "tamamladı", "yapıldı"]):
+            if any(
+                w in line.lower() for w in ["başarı", "kazanım", "tamamladı", "yapıldı"]
+            ):
                 win = line.strip()
                 if win and len(win) < 200:
                     wins.append(win)
@@ -488,27 +505,33 @@ class ExecutiveCoachingAdvisor(LLMAdvisor):
     def _update_and_save_state(self, report: ExecutiveCoachingReport) -> None:
         """Update persistent state with new coaching data."""
         # Add to leadership history
-        self._state.leadership_history.append({
-            "generated_at": report.generated_at,
-            "focus": report.leadership.get("current_focus", ""),
-            "strengths": report.leadership.get("strengths", []),
-            "dev_areas": report.leadership.get("development_areas", []),
-        })
+        self._state.leadership_history.append(
+            {
+                "generated_at": report.generated_at,
+                "focus": report.leadership.get("current_focus", ""),
+                "strengths": report.leadership.get("strengths", []),
+                "dev_areas": report.leadership.get("development_areas", []),
+            }
+        )
 
         # Add to accountability history
-        self._state.accountability_history.append({
-            "generated_at": report.generated_at,
-            "commitments": report.accountability.get("commitments", []),
-            "blockers": report.accountability.get("blockers", []),
-            "wins": report.accountability.get("wins", []),
-        })
+        self._state.accountability_history.append(
+            {
+                "generated_at": report.generated_at,
+                "commitments": report.accountability.get("commitments", []),
+                "blockers": report.accountability.get("blockers", []),
+                "wins": report.accountability.get("wins", []),
+            }
+        )
 
         # Add coaching notes
-        self._state.coaching_notes.append({
-            "generated_at": report.generated_at,
-            "observation": report.coaching_insights.get("observation", ""),
-            "recommendation": report.coaching_insights.get("recommendation", ""),
-        })
+        self._state.coaching_notes.append(
+            {
+                "generated_at": report.generated_at,
+                "observation": report.coaching_insights.get("observation", ""),
+                "recommendation": report.coaching_insights.get("recommendation", ""),
+            }
+        )
 
         # Track achievements
         wins = report.accountability.get("wins", [])
@@ -529,7 +552,9 @@ class ExecutiveCoachingAdvisor(LLMAdvisor):
         if len(self._state.leadership_history) > 30:
             self._state.leadership_history = self._state.leadership_history[-30:]
         if len(self._state.accountability_history) > 30:
-            self._state.accountability_history = self._state.accountability_history[-30:]
+            self._state.accountability_history = self._state.accountability_history[
+                -30:
+            ]
         if len(self._state.coaching_notes) > 30:
             self._state.coaching_notes = self._state.coaching_notes[-30:]
         if len(self._state.achievements) > 50:
@@ -558,7 +583,9 @@ class ExecutiveCoachingAdvisor(LLMAdvisor):
             for area in report.leadership["development_areas"][:2]:
                 lines.append(f"  - {area}")
         if report.leadership.get("this_week_challenge"):
-            lines.append(f"• Bu Hafta Meydan: {report.leadership['this_week_challenge']}")
+            lines.append(
+                f"• Bu Hafta Meydan: {report.leadership['this_week_challenge']}"
+            )
         lines.append("")
 
         # Accountability Section

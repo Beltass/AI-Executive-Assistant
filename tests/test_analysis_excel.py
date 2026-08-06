@@ -102,7 +102,15 @@ def test_the_cover_carries_the_facts_and_the_table_of_contents(workbook):
 def test_the_kpi_sheet_lists_findings_with_their_turkish_comment(workbook):
     sheet = workbook[SHEET_KPI]
     headers = [sheet.cell(row=4, column=c).value for c in range(1, 8)]
-    assert headers == ["Gösterge", "Değer", "Karşılaştırma", "Fark", "Yön", "Durum", "Yorum"]
+    assert headers == [
+        "Gösterge",
+        "Değer",
+        "Karşılaştırma",
+        "Fark",
+        "Yön",
+        "Durum",
+        "Yorum",
+    ]
     assert sheet.freeze_panes == "A5"
 
     labels = [sheet.cell(row=r, column=1).value for r in range(5, 20)]
@@ -133,15 +141,17 @@ def test_data_cells_carry_turkish_number_formats(workbook):
     def fmt(name):
         return sheet.cell(row=2, column=headers.index(name) + 1).number_format
 
-    assert fmt("Tarih") == FMT_DATE                 # dd.mm.yyyy
-    assert fmt("Çağrı Adedi") == FMT_INT            # #,##0
-    assert fmt("AHT") == FMT_SEC                    # #,##0" sn"
-    assert fmt("SLA %") == FMT_PCT                  # #,##0.0"%"
+    assert fmt("Tarih") == FMT_DATE  # dd.mm.yyyy
+    assert fmt("Çağrı Adedi") == FMT_INT  # #,##0
+    assert fmt("AHT") == FMT_SEC  # #,##0" sn"
+    assert fmt("SLA %") == FMT_PCT  # #,##0.0"%"
     assert fmt("Doluluk %") == FMT_PCT
 
     # The values are real typed values, not pre-formatted strings — Excel has
     # to be able to sort and chart them.
-    assert sheet.cell(row=2, column=headers.index("Tarih") + 1).value == datetime(2026, 7, 1)
+    assert sheet.cell(row=2, column=headers.index("Tarih") + 1).value == datetime(
+        2026, 7, 1
+    )
     assert sheet.cell(row=2, column=headers.index("Çağrı Adedi") + 1).value == 58
     assert sheet.cell(row=2, column=headers.index("AHT") + 1).value == 240
 
@@ -153,7 +163,11 @@ def test_booleans_are_written_as_turkish_words(tmp_path):
     )
     path = build_workbook(analyze(data), str(tmp_path / "bool.xlsx"), moment=MOMENT)
     sheet = openpyxl.load_workbook(path)[SHEET_DATA]
-    assert [sheet.cell(row=r, column=2).value for r in (2, 3, 4)] == ["Evet", "Hayır", "Evet"]
+    assert [sheet.cell(row=r, column=2).value for r in (2, 3, 4)] == [
+        "Evet",
+        "Hayır",
+        "Evet",
+    ]
 
 
 # --- native charts -----------------------------------------------------------
@@ -180,7 +194,9 @@ def test_breakdown_sheets_carry_native_excel_charts(workbook):
     assert all(chart.type == "col" for chart in others)
 
 
-def test_the_time_series_sheet_draws_a_line_per_series_plus_its_moving_average(workbook):
+def test_the_time_series_sheet_draws_a_line_per_series_plus_its_moving_average(
+    workbook,
+):
     sheet = workbook[SHEET_SERIES]
     charts = sheet._charts
     assert charts, "a dated call-centre file must produce trend charts"
@@ -234,13 +250,21 @@ def test_the_correlation_sheet_scales_r_from_minus_one_to_plus_one(workbook):
 def test_the_outlier_sheet_explains_the_method_and_the_band(workbook):
     sheet = workbook[SHEET_OUTLIERS]
     text = "\n".join(
-        str(cell.value) for row in sheet.iter_rows() for cell in row if cell.value is not None
+        str(cell.value)
+        for row in sheet.iter_rows()
+        for cell in row
+        if cell.value is not None
     )
     assert "IQR" in text
     assert "Q1" in text and "Q3" in text
     assert sheet.freeze_panes == "A5"
     assert [sheet.cell(row=4, column=c).value for c in range(1, 7)] == [
-        "Ölçüt", "Alt sınır", "Üst sınır", "Aykırı adet", "Oran", "Yorum"
+        "Ölçüt",
+        "Alt sınır",
+        "Üst sınır",
+        "Aykırı adet",
+        "Oran",
+        "Yorum",
     ]
     assert sheet.cell(row=5, column=5).number_format == FMT_PCT
 
@@ -248,7 +272,10 @@ def test_the_outlier_sheet_explains_the_method_and_the_band(workbook):
 def test_the_correlation_sheet_warns_that_correlation_is_not_causation(workbook):
     sheet = workbook[SHEET_CORRELATION]
     text = "\n".join(
-        str(cell.value) for row in sheet.iter_rows() for cell in row if cell.value is not None
+        str(cell.value)
+        for row in sheet.iter_rows()
+        for cell in row
+        if cell.value is not None
     )
     assert "İlişki nedensellik" in text
     assert "Pearson" in text
@@ -265,7 +292,10 @@ def test_the_request_is_written_onto_the_cover(tmp_path):
     path = build_workbook(result, str(tmp_path / "istek.xlsx"), moment=MOMENT)
     sheet = openpyxl.load_workbook(path)[SHEET_COVER]
     text = "\n".join(
-        str(cell.value) for row in sheet.iter_rows() for cell in row if cell.value is not None
+        str(cell.value)
+        for row in sheet.iter_rows()
+        for cell in row
+        if cell.value is not None
     )
     assert "Sorulan soru" in text
     assert "Son bir haftada vardiya bazında SLA ne oldu?" in text
@@ -282,7 +312,10 @@ def test_notes_reach_the_cover_so_the_reader_knows_what_was_skipped(tmp_path):
     path = build_workbook(result, str(tmp_path / "not.xlsx"), moment=MOMENT)
     sheet = openpyxl.load_workbook(path)[SHEET_COVER]
     text = "\n".join(
-        str(cell.value) for row in sheet.iter_rows() for cell in row if cell.value is not None
+        str(cell.value)
+        for row in sheet.iter_rows()
+        for cell in row
+        if cell.value is not None
     )
     assert "Notlar" in text
     assert "bulunamayan gösterge" in text
@@ -296,7 +329,7 @@ def test_a_single_column_table_still_produces_a_readable_workbook(tmp_path):
     path = build_workbook(analyze(data), str(tmp_path / "tek.xlsx"), moment=MOMENT)
     book = openpyxl.load_workbook(path)
     assert book.sheetnames[:3] == [SHEET_COVER, SHEET_KPI, SHEET_DATA]
-    assert SHEET_SERIES not in book.sheetnames      # nothing to plot over time
+    assert SHEET_SERIES not in book.sheetnames  # nothing to plot over time
     assert book[SHEET_DATA].max_row == 11
 
 
@@ -308,7 +341,9 @@ def test_an_all_text_table_produces_a_workbook_without_charts(tmp_path):
     book = openpyxl.load_workbook(path)
     assert SHEET_COVER in book.sheetnames
     assert book[SHEET_DATA].cell(row=2, column=1).value == "İstanbul"
-    assert not any(sheet._charts for sheet in book.worksheets if sheet.title == SHEET_DATA)
+    assert not any(
+        sheet._charts for sheet in book.worksheets if sheet.title == SHEET_DATA
+    )
 
 
 def test_a_dimension_name_with_illegal_sheet_characters_is_cleaned(tmp_path):

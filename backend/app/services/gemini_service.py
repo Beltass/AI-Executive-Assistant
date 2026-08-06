@@ -2,8 +2,7 @@
 
 import json
 import logging
-from typing import List, Dict, Optional
-from datetime import datetime
+from typing import Dict, Optional
 
 from app.config import settings
 
@@ -17,6 +16,7 @@ class GeminiService:
         """Initialize Gemini service."""
         try:
             import google.generativeai as genai
+
             genai.configure(api_key=settings.GEMINI_API_KEY)
             self.model = genai.GenerativeModel("gemini-1.5-flash")
             self.genai = genai
@@ -204,12 +204,12 @@ Return as JSON:
                 "success": False,
             }
 
-    def _mock_generate_variations(
-        self, topic: str, platform: str
-    ) -> Dict[str, any]:
+    def _mock_generate_variations(self, topic: str, platform: str) -> Dict[str, any]:
         """Generate mock content variations for testing."""
         return {
-            "main_content": f"High-quality content about {topic} optimized for {platform}",
+            "main_content": (
+                f"High-quality content about {topic} optimized for {platform}"
+            ),
             "variations": [
                 {
                     "variation_1": {
@@ -246,7 +246,11 @@ Return as JSON:
         """Generate mock fit analysis."""
         return {
             "fit_score": 0.87,
-            "strengths": ["Clear value proposition", "Relevant to audience", "Actionable"],
+            "strengths": [
+                "Clear value proposition",
+                "Relevant to audience",
+                "Actionable",
+            ],
             "weaknesses": ["Could be more concise"],
             "recommendations": [
                 "Add specific examples",

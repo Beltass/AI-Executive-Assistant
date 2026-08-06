@@ -82,7 +82,9 @@ class DailyMetrics:
             token_efficiency=float(data.get("token_efficiency") or 0.0),
             meeting_hours=float(data.get("meeting_hours") or 0.0),
             focus_time_hours=float(data.get("focus_time_hours") or 0.0),
-            email_response_time_hours=float(data.get("email_response_time_hours") or 0.0),
+            email_response_time_hours=float(
+                data.get("email_response_time_hours") or 0.0
+            ),
             tasks_completed=int(data.get("tasks_completed") or 0),
             tasks_assigned=int(data.get("tasks_assigned") or 0),
             errors_count=int(data.get("errors_count") or 0),
@@ -201,7 +203,9 @@ class MorningBriefingMetrics:
     def _get_history_days(self) -> int:
         """Load history retention period from config."""
         try:
-            days = int(os.getenv("MORNING_BRIEFING_HISTORY_DAYS") or DEFAULT_HISTORY_DAYS)
+            days = int(
+                os.getenv("MORNING_BRIEFING_HISTORY_DAYS") or DEFAULT_HISTORY_DAYS
+            )
             return max(2, min(days, 365))
         except ValueError:
             return DEFAULT_HISTORY_DAYS
@@ -378,7 +382,11 @@ class MorningBriefingAdvisor(Advisor):
             return metrics
 
         # Return None if truly no data
-        return None if metrics.tasks_assigned == 0 and metrics.operations_count == 0 else metrics
+        return (
+            None
+            if metrics.tasks_assigned == 0 and metrics.operations_count == 0
+            else metrics
+        )
 
     def _load_status_file(self) -> Optional[Dict[str, Any]]:
         """Try to load status data from status.json."""

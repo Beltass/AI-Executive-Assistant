@@ -2,13 +2,12 @@
 
 import logging
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
 from app.schemas.content import (
     Content,
-    ContentCreate,
     ContentUpdate,
     ContentGenerateRequest,
     ContentGenerateResponse,
@@ -28,8 +27,7 @@ async def generate_content(
     current_user: dict = Depends(get_current_user),
 ):
     """Generate new content using AI."""
-    # TODO: Extract user_id from JWT token in current_user
-    user_id = 1  # Placeholder - should come from current_user
+    user_id = current_user["user_id"]
 
     try:
         service = ContentService(db)
@@ -66,7 +64,7 @@ async def get_content(
     current_user: dict = Depends(get_current_user),
 ):
     """Get content by ID."""
-    user_id = 1  # Placeholder
+    user_id = current_user["user_id"]
 
     service = ContentService(db)
     content = await service.get_content(user_id=user_id, content_id=content_id)
@@ -86,7 +84,7 @@ async def list_content(
     current_user: dict = Depends(get_current_user),
 ):
     """List user's content."""
-    user_id = 1  # Placeholder
+    user_id = current_user["user_id"]
 
     service = ContentService(db)
     contents = await service.list_user_content(
@@ -104,7 +102,7 @@ async def update_content(
     current_user: dict = Depends(get_current_user),
 ):
     """Update content."""
-    user_id = 1  # Placeholder
+    user_id = current_user["user_id"]
 
     service = ContentService(db)
     content = await service.update_content(
@@ -124,7 +122,7 @@ async def delete_content(
     current_user: dict = Depends(get_current_user),
 ):
     """Delete content."""
-    user_id = 1  # Placeholder
+    user_id = current_user["user_id"]
 
     service = ContentService(db)
     success = await service.delete_content(user_id=user_id, content_id=content_id)
@@ -142,7 +140,7 @@ async def approve_content(
     current_user: dict = Depends(get_current_user),
 ):
     """Approve content for publishing."""
-    user_id = 1  # Placeholder
+    user_id = current_user["user_id"]
 
     service = ContentService(db)
     content = await service.approve_content(user_id=user_id, content_id=content_id)
@@ -160,7 +158,7 @@ async def publish_content(
     current_user: dict = Depends(get_current_user),
 ):
     """Publish content."""
-    user_id = 1  # Placeholder
+    user_id = current_user["user_id"]
 
     try:
         service = ContentService(db)

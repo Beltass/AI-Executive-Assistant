@@ -151,7 +151,8 @@ class LinkedInService:
             List of article dictionaries
         """
         try:
-            # This is a placeholder - actual implementation would use LinkedIn Search API
+            # Placeholder - real implementation would use the
+            # LinkedIn Search API
             logger.info(f"Searching for industry news: {keywords}")
             return []
 

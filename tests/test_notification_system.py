@@ -49,9 +49,19 @@ class TestAlertLevel:
 
     def test_alert_level_ordering(self):
         """Test alert level ordering."""
-        levels = [AlertLevel.CRITICAL, AlertLevel.LOW, AlertLevel.HIGH, AlertLevel.MEDIUM]
+        levels = [
+            AlertLevel.CRITICAL,
+            AlertLevel.LOW,
+            AlertLevel.HIGH,
+            AlertLevel.MEDIUM,
+        ]
         sorted_levels = sorted(levels, key=lambda x: x.value)
-        assert sorted_levels == [AlertLevel.LOW, AlertLevel.MEDIUM, AlertLevel.HIGH, AlertLevel.CRITICAL]
+        assert sorted_levels == [
+            AlertLevel.LOW,
+            AlertLevel.MEDIUM,
+            AlertLevel.HIGH,
+            AlertLevel.CRITICAL,
+        ]
 
 
 class TestAlertMessage:
@@ -159,7 +169,7 @@ class TestNotificationManager:
 
     def test_send_sms_alert_high_level(self, manager):
         """Test sending SMS for HIGH alert level."""
-        with patch.dict('os.environ', {'PHONE_JOHN': '+1234567890'}):
+        with patch.dict("os.environ", {"PHONE_JOHN": "+1234567890"}):
             manager.twilio_client = Mock()
             manager.twilio_client.messages.create = Mock(
                 return_value=Mock(sid="SM1234567890")
@@ -230,7 +240,9 @@ class TestDeadlineTracker:
             priority=4,
         )
 
-        tracker.notification_manager.send_alert = AsyncMock(return_value={"slack": True})
+        tracker.notification_manager.send_alert = AsyncMock(
+            return_value={"slack": True}
+        )
 
         counts = await tracker.check_deadlines([task])
 
@@ -250,7 +262,9 @@ class TestDeadlineTracker:
             priority=3,
         )
 
-        tracker.notification_manager.send_alert = AsyncMock(return_value={"slack": True})
+        tracker.notification_manager.send_alert = AsyncMock(
+            return_value={"slack": True}
+        )
 
         counts = await tracker.check_deadlines([task])
 
@@ -270,7 +284,9 @@ class TestDeadlineTracker:
             priority=3,
         )
 
-        tracker.notification_manager.send_alert = AsyncMock(return_value={"slack": True})
+        tracker.notification_manager.send_alert = AsyncMock(
+            return_value={"slack": True}
+        )
 
         counts = await tracker.check_deadlines([task])
 
@@ -358,7 +374,9 @@ class TestDeadlineTracker:
             priority=3,
         )
 
-        tracker.notification_manager.send_alert = AsyncMock(return_value={"slack": True})
+        tracker.notification_manager.send_alert = AsyncMock(
+            return_value={"slack": True}
+        )
 
         # Should work with different timezone
         counts = await tracker.check_deadlines([task])
@@ -369,9 +387,11 @@ class TestTaskCommandParser:
     """Test Slack task commands."""
 
     @pytest.fixture
-    def parser(self):
+    def parser(self, tmp_path):
         """Create a TaskCommandParser instance."""
-        task_tracker = TaskTracker(state_dir="/tmp/test_tasks")
+        # tmp_path, not a fixed /tmp/test_tasks: that directory survived between
+        # runs, so tasks written by one run were still on disk for the next.
+        task_tracker = TaskTracker(state_dir=str(tmp_path / "tasks"))
         manager = NotificationManager()
         return TaskCommandParser(task_tracker, manager)
 
@@ -438,7 +458,9 @@ class TestTaskCommandParser:
 
     def test_create_command_invalid_date(self, parser):
         """Test /task create with invalid date format."""
-        result = parser.parse_command('create "Test" "@john" "invalid-date" "3"', "user123")
+        result = parser.parse_command(
+            'create "Test" "@john" "invalid-date" "3"', "user123"
+        )
 
         assert result.success is False
         assert "date format" in result.message.lower()
@@ -449,7 +471,11 @@ class TestTaskCommandParser:
 
         assert result.success is True
         # Tasks should be present from previous tests
-        assert isinstance(result.blocks, list) or "Found" in result.message or "No tasks" in result.message
+        assert (
+            isinstance(result.blocks, list)
+            or "Found" in result.message
+            or "No tasks" in result.message
+        )
 
     def test_list_command_all(self, parser):
         """Test /task list all."""
@@ -566,7 +592,9 @@ class TestTaskCommandParser:
         task_id = create_result.task_id
 
         # Add a note
-        result = parser.parse_command(f'notes {task_id} "Important note here"', "user123")
+        result = parser.parse_command(
+            f'notes {task_id} "Important note here"', "user123"
+        )
 
         assert result.success is True
         assert "note" in result.message.lower()
@@ -594,9 +622,7 @@ class TestConcurrentAlerts:
         """Test sending multiple alerts concurrently."""
         manager = NotificationManager(slack_token="test_token")
         manager.slack_client = AsyncMock()
-        manager.slack_client.chat_postMessage = AsyncMock(
-            return_value={"ok": True}
-        )
+        manager.slack_client.chat_postMessage = AsyncMock(return_value={"ok": True})
 
         alerts = []
         now = datetime.now(timezone.utc)
@@ -624,10 +650,10 @@ class TestIntegration:
     """Integration tests combining multiple components."""
 
     @pytest.mark.asyncio
-    async def test_full_workflow(self):
+    async def test_full_workflow(self, tmp_path):
         """Test complete workflow: create task, check deadline, send alert."""
         # Initialize components
-        task_tracker = TaskTracker(state_dir="/tmp/test_workflow")
+        task_tracker = TaskTracker(state_dir=str(tmp_path / "workflow"))
         notification_manager = NotificationManager(slack_token="test")
         command_parser = TaskCommandParser(task_tracker, notification_manager)
         deadline_tracker = DeadlineTracker(notification_manager, "UTC")

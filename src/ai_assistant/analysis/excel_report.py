@@ -65,11 +65,11 @@ logger = logging.getLogger(__name__)
 
 # --- kurumsal palet (tek yerde, her sayfada aynı) ----------------------------
 
-INK = "0F2537"          # başlık zemini — koyu lacivert
-INK_SOFT = "1F4B63"     # ara başlık
-ACCENT = "1F7A8C"       # vurgu
-BAND = "F2F6F9"         # şerit dolgu
-RULE = "D5DFE6"         # ince çizgi
+INK = "0F2537"  # başlık zemini — koyu lacivert
+INK_SOFT = "1F4B63"  # ara başlık
+ACCENT = "1F7A8C"  # vurgu
+BAND = "F2F6F9"  # şerit dolgu
+RULE = "D5DFE6"  # ince çizgi
 GOOD_FILL = "DFF3E8"
 GOOD_INK = "14624A"
 WARN_FILL = "FDF0DA"
@@ -205,16 +205,22 @@ def _autosize(worksheet, minimum: int = 10, maximum: int = 46) -> None:
         )
 
 
-def _title_block(worksheet, title: str, subtitle: str = "", row: int = 1, span: int = 6) -> int:
+def _title_block(
+    worksheet, title: str, subtitle: str = "", row: int = 1, span: int = 6
+) -> int:
     """Sayfanın üstündeki başlık bloğu; sonraki boş satırın numarasını verir."""
     style = _styles()
-    worksheet.merge_cells(start_row=row, start_column=1, end_row=row, end_column=max(2, span))
+    worksheet.merge_cells(
+        start_row=row, start_column=1, end_row=row, end_column=max(2, span)
+    )
     cell = worksheet.cell(row=row, column=1, value=title)
     cell.font = style["Font"](size=16, bold=True, color=INK)
     cell.alignment = style["Alignment"](vertical="center")
     worksheet.row_dimensions[row].height = 28
     if subtitle:
-        worksheet.merge_cells(start_row=row + 1, start_column=1, end_row=row + 1, end_column=max(2, span))
+        worksheet.merge_cells(
+            start_row=row + 1, start_column=1, end_row=row + 1, end_column=max(2, span)
+        )
         sub = worksheet.cell(row=row + 1, column=1, value=subtitle)
         sub.font = style["Font"](size=10, color=INK_SOFT)
         return row + 3
@@ -224,7 +230,9 @@ def _title_block(worksheet, title: str, subtitle: str = "", row: int = 1, span: 
 # --- sayfalar ----------------------------------------------------------------
 
 
-def _cover_sheet(worksheet, result: AnalysisResult, contents: Sequence[str], moment: datetime) -> None:
+def _cover_sheet(
+    worksheet, result: AnalysisResult, contents: Sequence[str], moment: datetime
+) -> None:
     style = _styles()
     worksheet.sheet_view.showGridLines = False
 
@@ -254,7 +262,16 @@ def _cover_sheet(worksheet, result: AnalysisResult, contents: Sequence[str], mom
                 f"({date_columns[0].granularity} bazında)",
             )
         )
-    facts.append(("Veri tipi", "Çağrı merkezi operasyon verisi" if result.is_call_center else "Genel tablo verisi"))
+    facts.append(
+        (
+            "Veri tipi",
+            (
+                "Çağrı merkezi operasyon verisi"
+                if result.is_call_center
+                else "Genel tablo verisi"
+            ),
+        )
+    )
     request = result.request
     if request is not None:
         if request.question:
@@ -267,7 +284,9 @@ def _cover_sheet(worksheet, result: AnalysisResult, contents: Sequence[str], mom
     row += 1
     first = row
     for label, value in facts:
-        worksheet.cell(row=row, column=1, value=label).font = style["Font"](bold=True, color=INK_SOFT)
+        worksheet.cell(row=row, column=1, value=label).font = style["Font"](
+            bold=True, color=INK_SOFT
+        )
         worksheet.cell(row=row, column=2, value=value)
         row += 1
     _band_rows(worksheet, first, row - 1, 2)
@@ -289,7 +308,9 @@ def _cover_sheet(worksheet, result: AnalysisResult, contents: Sequence[str], mom
         for note in result.notes[:10]:
             cell = worksheet.cell(row=row, column=1, value=f"– {note}")
             cell.font = style["Font"](size=9, color=INK_SOFT)
-            worksheet.merge_cells(start_row=row, start_column=1, end_row=row, end_column=6)
+            worksheet.merge_cells(
+                start_row=row, start_column=1, end_row=row, end_column=6
+            )
             row += 1
 
     worksheet.column_dimensions["A"].width = 26
@@ -301,7 +322,12 @@ def _kpi_sheet(workbook, result: AnalysisResult) -> None:
     style = _styles()
     worksheet = workbook.create_sheet(SHEET_KPI)
     worksheet.sheet_view.showGridLines = False
-    row = _title_block(worksheet, "Öne Çıkan Göstergeler", "Her satır bir KPI: değeri, karşılaştırma tabanı ve yorumu", span=6)
+    row = _title_block(
+        worksheet,
+        "Öne Çıkan Göstergeler",
+        "Her satır bir KPI: değeri, karşılaştırma tabanı ve yorumu",
+        span=6,
+    )
 
     headers = ["Gösterge", "Değer", "Karşılaştırma", "Fark", "Yön", "Durum", "Yorum"]
     _write_header(worksheet, row, headers)
@@ -311,7 +337,9 @@ def _kpi_sheet(workbook, result: AnalysisResult) -> None:
 
     for finding in result.findings:
         fill, ink, label = TONE_STYLE.get(finding.tone, (None, INK_SOFT, "Bilgi"))
-        worksheet.cell(row=row, column=1, value=finding.metric).font = style["Font"](bold=True, color=INK)
+        worksheet.cell(row=row, column=1, value=finding.metric).font = style["Font"](
+            bold=True, color=INK
+        )
         value_cell = worksheet.cell(row=row, column=2, value=finding.display)
         value_cell.font = style["Font"](bold=True, size=12, color=ink)
         value_cell.alignment = style["Alignment"](horizontal="right")
@@ -327,11 +355,15 @@ def _kpi_sheet(workbook, result: AnalysisResult) -> None:
         worksheet.cell(
             row=row,
             column=4,
-            value=format_value(finding.delta, finding.unit) if finding.delta is not None else "—",
+            value=(
+                format_value(finding.delta, finding.unit)
+                if finding.delta is not None
+                else "—"
+            ),
         ).alignment = style["Alignment"](horizontal="right")
-        worksheet.cell(row=row, column=5, value=TREND_GLYPH.get(finding.direction, "→")).alignment = style[
-            "Alignment"
-        ](horizontal="center")
+        worksheet.cell(
+            row=row, column=5, value=TREND_GLYPH.get(finding.direction, "→")
+        ).alignment = style["Alignment"](horizontal="center")
         status = worksheet.cell(row=row, column=6, value=label)
         status.alignment = style["Alignment"](horizontal="center")
         if fill:
@@ -358,9 +390,18 @@ def _data_sheet(workbook, dataset: Dataset) -> None:
     formats: List[str] = []
     for column in dataset.columns:
         if column.kind == KIND_DATE:
-            formats.append(FMT_DATETIME if (column.granularity or "").endswith(("dakika", "saat")) else FMT_DATE)
+            formats.append(
+                FMT_DATETIME
+                if (column.granularity or "").endswith(("dakika", "saat"))
+                else FMT_DATE
+            )
         elif column.kind == KIND_NUMERIC:
-            digits = 0 if column.median is not None and abs(column.median - round(column.median)) < 1e-9 else 1
+            digits = (
+                0
+                if column.median is not None
+                and abs(column.median - round(column.median)) < 1e-9
+                else 1
+            )
             formats.append(_number_format(column.unit, digits))
         else:
             formats.append("")
@@ -377,7 +418,9 @@ def _data_sheet(workbook, dataset: Dataset) -> None:
 
     last_row = len(rows) + 1
     if last_row >= 2:
-        worksheet.auto_filter.ref = f"A1:{get_column_letter(max(1, dataset.column_count))}{last_row}"
+        worksheet.auto_filter.ref = (
+            f"A1:{get_column_letter(max(1, dataset.column_count))}{last_row}"
+        )
     _autosize(worksheet, maximum=32)
     if len(dataset.rows) > MAX_DATA_ROWS:
         worksheet.cell(
@@ -388,7 +431,9 @@ def _data_sheet(workbook, dataset: Dataset) -> None:
         )
 
 
-def _pivot_sheet(workbook, pivot: PivotTable, used: Sequence[str], chart: str = "bar") -> str:
+def _pivot_sheet(
+    workbook, pivot: PivotTable, used: Sequence[str], chart: str = "bar"
+) -> str:
     """Bir kırılım tablosu + yerel Excel grafiği."""
     from openpyxl.chart import BarChart, PieChart, Reference
     from openpyxl.formatting.rule import ColorScaleRule
@@ -400,7 +445,9 @@ def _pivot_sheet(workbook, pivot: PivotTable, used: Sequence[str], chart: str = 
     worksheet = workbook.create_sheet(name)
     worksheet.sheet_view.showGridLines = False
 
-    row = _title_block(worksheet, pivot.title, pivot.note, span=len(pivot.column_keys) or 3)
+    row = _title_block(
+        worksheet, pivot.title, pivot.note, span=len(pivot.column_keys) or 3
+    )
     headers = list(pivot.dimensions) + [m.title() for m in pivot.measures]
     _write_header(worksheet, row, headers)
     header_row = row
@@ -424,13 +471,21 @@ def _pivot_sheet(workbook, pivot: PivotTable, used: Sequence[str], chart: str = 
     if pivot.totals:
         thin = style["Side"](style="medium", color=INK)
         for index, dimension in enumerate(pivot.dimensions, start=1):
-            cell = worksheet.cell(row=row, column=index, value=pivot.totals.get(dimension, "" if index > 1 else "TOPLAM"))
+            cell = worksheet.cell(
+                row=row,
+                column=index,
+                value=pivot.totals.get(dimension, "" if index > 1 else "TOPLAM"),
+            )
             cell.font = style["Font"](bold=True, color=INK)
             cell.border = style["Border"](top=thin)
         for offset, measure in enumerate(pivot.measures):
             column = len(pivot.dimensions) + offset + 1
-            cell = worksheet.cell(row=row, column=column, value=pivot.totals.get(measure.key))
-            cell.number_format = _number_format(measure.unit, 1 if measure.unit == "%" else 0)
+            cell = worksheet.cell(
+                row=row, column=column, value=pivot.totals.get(measure.key)
+            )
+            cell.number_format = _number_format(
+                measure.unit, 1 if measure.unit == "%" else 0
+            )
             cell.font = style["Font"](bold=True, color=INK)
             cell.border = style["Border"](top=thin)
         total_row = row
@@ -493,34 +548,55 @@ def _series_sheet(workbook, series_list: Sequence[TimeSeries]) -> None:
     style = _styles()
     worksheet = workbook.create_sheet(SHEET_SERIES)
     worksheet.sheet_view.showGridLines = False
-    row = _title_block(worksheet, "Zaman Serisi", "Dönemsel değer, bir önceki döneme fark ve hareketli ortalama", span=5)
+    row = _title_block(
+        worksheet,
+        "Zaman Serisi",
+        "Dönemsel değer, bir önceki döneme fark ve hareketli ortalama",
+        span=5,
+    )
 
     for series in series_list:
         block = worksheet.cell(row=row, column=1, value=series.title)
         block.font = style["Font"](size=12, bold=True, color=INK)
         row += 1
-        trend_word = {"up": "yükseliş", "down": "düşüş", "flat": "yatay seyir"}.get(series.trend, "")
+        trend_word = {"up": "yükseliş", "down": "düşüş", "flat": "yatay seyir"}.get(
+            series.trend, ""
+        )
         change = (
             f"{series.period} bazında {len(series.points)} dönem · "
             f"eğilim: {trend_word}"
-            + (f" (%{format_number(abs(series.change_pct), 1)})" if series.change_pct is not None else "")
+            + (
+                f" (%{format_number(abs(series.change_pct), 1)})"
+                if series.change_pct is not None
+                else ""
+            )
         )
         note = worksheet.cell(row=row, column=1, value=change)
         note.font = style["Font"](size=9, color=INK_SOFT)
         row += 1
 
-        _write_header(worksheet, row, ["Dönem", series.title, "Fark", "Değişim %", "Hareketli ort."])
+        _write_header(
+            worksheet,
+            row,
+            ["Dönem", series.title, "Fark", "Değişim %", "Hareketli ort."],
+        )
         header_row = row
         row += 1
         first = row
         digits = 1 if series.unit == "%" else 0
         for point in series.points:
             worksheet.cell(row=row, column=1, value=point.label)
-            worksheet.cell(row=row, column=2, value=point.value).number_format = _number_format(series.unit, digits)
-            worksheet.cell(row=row, column=3, value=point.delta).number_format = _number_format(series.unit, digits)
+            worksheet.cell(row=row, column=2, value=point.value).number_format = (
+                _number_format(series.unit, digits)
+            )
+            worksheet.cell(row=row, column=3, value=point.delta).number_format = (
+                _number_format(series.unit, digits)
+            )
             pct = worksheet.cell(row=row, column=4, value=point.delta_pct)
             pct.number_format = FMT_PCT
-            worksheet.cell(row=row, column=5, value=point.moving).number_format = _number_format(series.unit, 1)
+            worksheet.cell(row=row, column=5, value=point.moving).number_format = (
+                _number_format(series.unit, 1)
+            )
             row += 1
         last = row - 1
         _band_rows(worksheet, first, last, 5)
@@ -537,7 +613,9 @@ def _series_sheet(workbook, series_list: Sequence[TimeSeries]) -> None:
             moving = Reference(worksheet, min_col=5, min_row=header_row, max_row=last)
             figure.add_data(values, titles_from_data=True)
             figure.add_data(moving, titles_from_data=True)
-            figure.set_categories(Reference(worksheet, min_col=1, min_row=first, max_row=last))
+            figure.set_categories(
+                Reference(worksheet, min_col=1, min_row=first, max_row=last)
+            )
             for line in figure.series:
                 line.smooth = False
             worksheet.add_chart(figure, f"G{header_row}")
@@ -557,16 +635,28 @@ def _outlier_sheet(workbook, reports: Sequence[Any]) -> None:
         span=6,
     )
 
-    _write_header(worksheet, row, ["Ölçüt", "Alt sınır", "Üst sınır", "Aykırı adet", "Oran", "Yorum"])
+    _write_header(
+        worksheet,
+        row,
+        ["Ölçüt", "Alt sınır", "Üst sınır", "Aykırı adet", "Oran", "Yorum"],
+    )
     worksheet.freeze_panes = worksheet.cell(row=row + 1, column=1)
     row += 1
     first = row
     for report in reports:
-        worksheet.cell(row=row, column=1, value=report.column).font = style["Font"](bold=True, color=INK)
-        worksheet.cell(row=row, column=2, value=report.lower).number_format = _number_format(report.unit, 1)
-        worksheet.cell(row=row, column=3, value=report.upper).number_format = _number_format(report.unit, 1)
+        worksheet.cell(row=row, column=1, value=report.column).font = style["Font"](
+            bold=True, color=INK
+        )
+        worksheet.cell(row=row, column=2, value=report.lower).number_format = (
+            _number_format(report.unit, 1)
+        )
+        worksheet.cell(row=row, column=3, value=report.upper).number_format = (
+            _number_format(report.unit, 1)
+        )
         worksheet.cell(row=row, column=4, value=report.count).number_format = FMT_INT
-        worksheet.cell(row=row, column=5, value=report.rate * 100).number_format = FMT_PCT
+        worksheet.cell(row=row, column=5, value=report.rate * 100).number_format = (
+            FMT_PCT
+        )
         comment = worksheet.cell(row=row, column=6, value=report.interpretation)
         comment.alignment = style["Alignment"](wrap_text=True, vertical="top")
         worksheet.row_dimensions[row].height = 30
@@ -584,10 +674,14 @@ def _outlier_sheet(workbook, reports: Sequence[Any]) -> None:
         start = row
         for report, outlier in examples[:40]:
             worksheet.cell(row=row, column=1, value=report.column)
-            worksheet.cell(row=row, column=2, value=outlier.value).number_format = _number_format(report.unit, 1)
+            worksheet.cell(row=row, column=2, value=outlier.value).number_format = (
+                _number_format(report.unit, 1)
+            )
             worksheet.cell(row=row, column=3, value=outlier.context or "—")
             worksheet.cell(row=row, column=4, value=f"{outlier.side} sınır")
-            worksheet.cell(row=row, column=5, value=outlier.row_index + 2).number_format = FMT_INT
+            worksheet.cell(
+                row=row, column=5, value=outlier.row_index + 2
+            ).number_format = FMT_INT
             row += 1
         _band_rows(worksheet, start, row - 1, 5)
     _autosize(worksheet)
@@ -625,9 +719,15 @@ def _correlation_sheet(workbook, correlations: Sequence[Any]) -> None:
         worksheet.conditional_formatting.add(
             f"C{first}:C{row - 1}",
             ColorScaleRule(
-                start_type="num", start_value=-1, start_color="FFF6D6D2",
-                mid_type="num", mid_value=0, mid_color="FFFFFFFF",
-                end_type="num", end_value=1, end_color="FFD8EFE4",
+                start_type="num",
+                start_value=-1,
+                start_color="FFF6D6D2",
+                mid_type="num",
+                mid_value=0,
+                mid_color="FFFFFFFF",
+                end_type="num",
+                end_value=1,
+                end_color="FFD8EFE4",
             ),
         )
     _autosize(worksheet)
@@ -666,7 +766,11 @@ def build_workbook(
         if not pivot.rows:
             continue
         # İlk kırılım pasta olarak da anlamlıysa (az sayıda dilim) pasta çizilir.
-        chart = "pie" if len(pivot.rows) <= 6 and len(pivot.dimensions) == 1 and index == 0 else "bar"
+        chart = (
+            "pie"
+            if len(pivot.rows) <= 6 and len(pivot.dimensions) == 1 and index == 0
+            else "bar"
+        )
         name = _pivot_sheet(workbook, pivot, used, chart=chart)
         used.append(name)
         contents.append(name)

@@ -32,7 +32,11 @@ BOT_TOKEN_ENV = "SLACK_BOT_TOKEN"
 #: yayını değil: kullanıcının BOTLA konuştuğu tek oda.
 ANALYST_CHANNEL_ENV = "SLACK_ANALYST_CHANNEL"
 #: Ayrı bir sohbet kanalı tanımlanmadıysa iş analisti kanalına düşülür.
-FALLBACK_CHANNEL_ENVS = ("SLACK_CHANNEL_WORK_ANALYST", "SLACK_MAIN_CHANNEL", "SLACK_CHANNEL")
+FALLBACK_CHANNEL_ENVS = (
+    "SLACK_CHANNEL_WORK_ANALYST",
+    "SLACK_MAIN_CHANNEL",
+    "SLACK_CHANNEL",
+)
 
 API_BASE = "https://slack.com/api/"
 
@@ -117,7 +121,9 @@ def http_transport(method: str, payload: Dict[str, Any], token: str) -> Dict[str
             )
         else:
             headers["Content-Type"] = "application/json; charset=utf-8"
-            response = httpx.post(url, headers=headers, json=payload, timeout=REQUEST_TIMEOUT)
+            response = httpx.post(
+                url, headers=headers, json=payload, timeout=REQUEST_TIMEOUT
+            )
     except Exception as exc:
         raise SlackError(f"Slack isteği gönderilemedi ({method}): {exc}") from exc
     try:
@@ -156,8 +162,7 @@ ERROR_HELP = {
         "`files:write` kapsamlarını ekleyip yeniden yükleyin."
     ),
     "not_allowed_token_type": (
-        "Bu işlem bot token'ı ister. `SLACK_BOT_TOKEN` değeri `xoxb-` ile "
-        "başlamalı."
+        "Bu işlem bot token'ı ister. `SLACK_BOT_TOKEN` değeri `xoxb-` ile " "başlamalı."
     ),
     "invalid_auth": "Slack token'ı geçersiz. `SLACK_BOT_TOKEN` değerini yenileyin.",
     "account_inactive": "Slack uygulaması devre dışı bırakılmış; yeniden etkinleştirin.",
@@ -178,7 +183,9 @@ class SlackClient:
     def __init__(
         self,
         token: str = "",
-        transport: Optional[Callable[[str, Dict[str, Any], str], Dict[str, Any]]] = None,
+        transport: Optional[
+            Callable[[str, Dict[str, Any], str], Dict[str, Any]]
+        ] = None,
         uploader: Optional[Callable[[str, str, bytes], None]] = None,
     ):
         self.token = token or bot_token()
@@ -191,7 +198,9 @@ class SlackClient:
 
     # --- düşük seviye -------------------------------------------------------
 
-    def call(self, method: str, payload: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def call(
+        self, method: str, payload: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
         """Bir Slack yöntemini çağırır; ``ok`` değilse :class:`SlackError` atar."""
         if not self.token:
             raise SlackError(f"Slack kimliği yok ({BOT_TOKEN_ENV}).")

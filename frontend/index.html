@@ -75,12 +75,27 @@
       <div class="tabbar__inner" id="tablist" role="tablist" aria-label="Pano bölümleri">
         <button
           class="tab"
+          id="tab-aksiyon"
+          role="tab"
+          type="button"
+          data-tab="aksiyon"
+          aria-controls="panel-aksiyon"
+          aria-selected="true"
+          title="Aksiyon Merkezi"
+          aria-label="Aksiyon Merkezi"
+        >
+          <span class="tab__icon" aria-hidden="true">🎯</span> Aksiyon
+          <span class="tab__badge" id="badge-aksiyon" hidden></span>
+        </button>
+        <button
+          class="tab"
           id="tab-sistem"
           role="tab"
           type="button"
           data-tab="sistem"
           aria-controls="panel-sistem"
-          aria-selected="true"
+          aria-selected="false"
+          tabindex="-1"
           title="Sistem &amp; Ajanlar"
           aria-label="Sistem &amp; Ajanlar"
         >
@@ -192,9 +207,87 @@
 
     <main id="main" class="wrap">
       <!-- =================================================================
+           TAB 0 — 🎯 AKSİYON MERKEZİ
+           Her bölüm gerçek veriden dolar: günün rapor index'i (aksiyonlar),
+           status.json (takvim, KPI, alarmlar) ve metrics.json (token, çağrı,
+           maliyet). Sabit örnek veri yok; veri yoksa bölüm boş durumunu söyler.
+           ================================================================= -->
+      <section
+        id="panel-aksiyon"
+        role="tabpanel"
+        aria-labelledby="tab-aksiyon"
+        tabindex="0"
+        class="stack"
+      >
+        <div id="aksiyon-empty" class="state" hidden>
+          <div class="state__icon" aria-hidden="true">🎯</div>
+          <h2>Aksiyon merkezi henüz boş</h2>
+          <p>
+            Brifing bir kez çalışıp gün raporlarını yazdığında bugünün
+            öncelikleri, onay bekleyenler, takvim riskleri ve sistem sağlığı
+            burada toplanacak.
+          </p>
+        </div>
+
+        <div id="aksiyon-body" class="stack">
+          <p class="section-note" id="aksiyon-note"></p>
+
+          <section aria-labelledby="ac-priorities-title">
+            <div class="section-head">
+              <h2 id="ac-priorities-title">1 · Bugünün öncelikleri</h2>
+              <span class="section-head__meta" id="ac-priorities-meta"></span>
+            </div>
+            <p class="section-note">
+              P0/P1 aksiyonlardan en fazla üçü. Öncelik, danışmanın kendi
+              cümlesinden okunur (“bugün”, “acil”, verilmiş son tarih).
+            </p>
+            <div class="checklist" id="ac-priorities"></div>
+          </section>
+
+          <section aria-labelledby="ac-approvals-title">
+            <div class="section-head">
+              <h2 id="ac-approvals-title">2 · Karar / onay bekleyenler</h2>
+              <span class="section-head__meta" id="ac-approvals-meta"></span>
+            </div>
+            <div class="checklist" id="ac-approvals"></div>
+          </section>
+
+          <section aria-labelledby="ac-risks-title">
+            <div class="section-head">
+              <h2 id="ac-risks-title">3 · Takvim &amp; operasyon riskleri</h2>
+            </div>
+            <div class="alerts-list" id="ac-risks"></div>
+          </section>
+
+          <section aria-labelledby="ac-kpi-title">
+            <div class="section-head">
+              <h2 id="ac-kpi-title">4 · KPI sapmaları ve alarmlar</h2>
+            </div>
+            <div class="tiles tiles--4" id="ac-kpi"></div>
+            <div class="alerts-list" id="ac-kpi-alerts" style="margin-top: var(--s3)"></div>
+          </section>
+
+          <section aria-labelledby="ac-growth-title">
+            <div class="section-head">
+              <h2 id="ac-growth-title">5 · Kariyer &amp; öğrenme gelişimi</h2>
+            </div>
+            <div class="checklist" id="ac-growth"></div>
+          </section>
+
+          <section aria-labelledby="ac-system-title">
+            <div class="section-head">
+              <h2 id="ac-system-title">6 · Token, çağrı, maliyet ve sistem sağlığı</h2>
+              <span class="section-head__meta" id="ac-system-meta"></span>
+            </div>
+            <div class="tiles tiles--4" id="ac-system"></div>
+          </section>
+        </div>
+      </section>
+
+      <!-- =================================================================
            TAB 1 — 🖥️ SİSTEM & AJANLAR
            ================================================================= -->
-      <section id="panel-sistem" role="tabpanel" aria-labelledby="tab-sistem" tabindex="0" class="stack">
+      <section id="panel-sistem" role="tabpanel" aria-labelledby="tab-sistem" tabindex="0" class="stack" hidden>
         <!-- Loading / error takes over the whole tab until there is something
              true to show. -->
         <div id="sistem-state" class="skeletons" aria-hidden="true">
@@ -609,6 +702,15 @@
             </ul>
             <div class="chart" id="chart-split"></div>
           </div>
+
+          <!-- metrics.json roster'dan BAĞIMSIZ yaşar. Emekliye ayrılan bir ajan
+               (ör. `weather`) geçmiş koşularda durmaya devam eder ve yeni
+               eklenen bir danışmanın henüz hiç ölçümü yoktur. Aşağıdaki üç
+               grafik ölçüm dosyasını olduğu gibi gösterir; bu satır da farkı
+               açıkça yazar. Geçmişi silmek alternatifi değerlendirildi ve
+               reddedildi: o koşular gerçekten yapıldı, silmek ölçümü yok
+               etmek olurdu. Metni renderMetrics() dolduruyor. -->
+          <p class="chart-card__sub" id="agents-roster-note"></p>
 
           <div class="charts charts--2">
             <!-- Part-to-whole: the ring answers "who eats the budget", and the

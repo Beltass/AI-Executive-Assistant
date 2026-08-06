@@ -104,11 +104,14 @@ class TestSlackSignatureVerification:
         timestamp = str(int(time.time()))
         body = "test_body"
         basestring = f"v0:{timestamp}:{body}"
-        signature = "v0=" + hmac.new(
-            slack_service.signing_secret.encode(),
-            basestring.encode(),
-            hashlib.sha256,
-        ).hexdigest()
+        signature = (
+            "v0="
+            + hmac.new(
+                slack_service.signing_secret.encode(),
+                basestring.encode(),
+                hashlib.sha256,
+            ).hexdigest()
+        )
 
         result = slack_service.verify_request(timestamp, signature, body)
         assert result is True
@@ -126,11 +129,14 @@ class TestSlackSignatureVerification:
         old_timestamp = "1000000000"
         body = "test_body"
         basestring = f"v0:{old_timestamp}:{body}"
-        signature = "v0=" + hmac.new(
-            slack_service.signing_secret.encode(),
-            basestring.encode(),
-            hashlib.sha256,
-        ).hexdigest()
+        signature = (
+            "v0="
+            + hmac.new(
+                slack_service.signing_secret.encode(),
+                basestring.encode(),
+                hashlib.sha256,
+            ).hexdigest()
+        )
 
         result = slack_service.verify_request(old_timestamp, signature, body)
         assert result is False

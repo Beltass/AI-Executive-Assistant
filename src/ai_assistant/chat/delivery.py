@@ -197,7 +197,9 @@ def run(
     header = f"*{title}*\n{spec.one_line()}"
     delivery.messages.insert(0, f"{header}\n\n{summary}")
     if delivery.report_route:
-        delivery.messages.append(f"<{dashboard_link(delivery.report_route)}|📄 Tam rapor>")
+        delivery.messages.append(
+            f"<{dashboard_link(delivery.report_route)}|📄 Tam rapor>"
+        )
 
     # 6 — teslim
     if client is not None and client.configured:

@@ -6,6 +6,7 @@ If neither is configured the check is skipped.
 
 from __future__ import annotations
 
+import base64
 import logging
 import os
 import re
@@ -45,9 +46,33 @@ GEMINI_MAX_OUTPUT_TOKENS = int(
     os.getenv("GEMINI_MAX_OUTPUT_TOKENS") or DEFAULT_GEMINI_MAX_OUTPUT_TOKENS
 )
 
+# Thinking budget for STRUCTURED INFERENCE — a call whose answer is already
+# present in the material handed to the model: summarising a meeting note,
+# lifting decisions and open actions out of a transcript, restating a calendar
+# entry as a prep note. Across 25 measured runs the invisible-but-billed
+# "thinking" tokens were 44% of everything consumed, and on these calls they
+# buy nothing: there is nothing to reason ABOUT, only text to select and
+# arrange. Free-form advice (the coaching personas, the batched briefing) does
+# genuinely reason, so it keeps the provider default — hence a constant used at
+# specific call sites rather than a global setting.
+STRUCTURED_THINKING_BUDGET = 0
+
 # Per-request timeout (seconds) for a Gemini generation call, so a hung request
 # can never stall the daily job indefinitely.
 DEFAULT_GEMINI_TIMEOUT_SECONDS = 120.0
+
+# Largest payload that may ride along INSIDE a generateContent request as
+# ``inlineData``. Google raised this from 20 MB to 100 MB in January 2026,
+# which covers essentially every meeting recording — so there is deliberately
+# no Files API upload path here (it would be a second auth flow, a second
+# failure mode and a resumable-upload protocol, all to serve a case we have
+# not seen). Anything bigger is refused with a message that says so, before a
+# single byte goes over the wire.
+#
+# The audio itself is sent RAW: Gemini downsamples to 16 kHz mono on its own,
+# so an ffmpeg pre-processing step would add a system dependency (and a whole
+# class of "ffmpeg not on PATH" failures in CI) for no gain.
+MAX_INLINE_AUDIO_BYTES = 100 * 1024 * 1024  # 100 MB
 
 # Transient conditions worth retrying the SAME model for: rate limiting (429)
 # and server-side hiccups (500/502/503/504 — "model overloaded", "service
@@ -83,9 +108,15 @@ _budget_started_at: Optional[float] = None
 
 
 def start_time_budget() -> None:
-    """Start (or restart) the shared LLM time budget for this run."""
+    """Start (or restart) the shared LLM time budget for this run.
+
+    Also zeroes the generation counter (:func:`call_count`): a run's budget and
+    its call count begin at the same moment, and the metrics layer reports the
+    count for THIS run.
+    """
     global _budget_started_at
     _budget_started_at = time.monotonic()
+    reset_call_count()
 
 
 def clear_time_budget() -> None:
@@ -183,9 +214,29 @@ class CallStats:
 _last_call: Optional[CallStats] = None
 
 
+# How many generations this run has made. ``last_call_stats`` only describes
+# the LAST one, so it cannot tell "one batched call served the whole team" from
+# "the batch failed and fifteen advisors each called on their own" — which is
+# the single most expensive thing that can happen on a free tier, and therefore
+# the number the metrics file has to carry.
+_call_count: int = 0
+
+
 def _record_call(stats: CallStats) -> None:
-    global _last_call
+    global _last_call, _call_count
     _last_call = stats
+    _call_count += 1
+
+
+def call_count() -> int:
+    """How many generations were made since the run's budget started."""
+    return _call_count
+
+
+def reset_call_count() -> None:
+    """Zero the generation counter (start of a run, and in tests)."""
+    global _call_count
+    _call_count = 0
 
 
 def last_call_stats() -> Optional[CallStats]:
@@ -198,9 +249,14 @@ def last_call_stats() -> Optional[CallStats]:
 
 
 def reset_call_stats() -> None:
-    """Forget the recorded call — used by tests and by long-lived processes."""
+    """Forget the recorded call — used by tests and by long-lived processes.
+
+    Resets the generation counter too, so a test that clears the stats does not
+    inherit the previous test's call count.
+    """
     global _last_call
     _last_call = None
+    reset_call_count()
 
 
 def _int(value: Any) -> int:
@@ -241,9 +297,7 @@ def _openai_usage(data: dict) -> Dict[str, int]:
     if not isinstance(usage, dict):
         usage = {}
     details = usage.get("completion_tokens_details")
-    thoughts = (
-        _int(details.get("reasoning_tokens")) if isinstance(details, dict) else 0
-    )
+    thoughts = _int(details.get("reasoning_tokens")) if isinstance(details, dict) else 0
     prompt = _int(usage.get("prompt_tokens"))
     output = _int(usage.get("completion_tokens"))
     total = _int(usage.get("total_tokens")) or (prompt + output)
@@ -335,6 +389,40 @@ def _gemini_max_output_tokens() -> int:
     except ValueError:
         tokens = DEFAULT_GEMINI_MAX_OUTPUT_TOKENS
     return tokens if tokens > 0 else DEFAULT_GEMINI_MAX_OUTPUT_TOKENS
+
+
+def _gemini_thinking_budget(override: Optional[int] = None) -> Optional[int]:
+    """Thinking-token budget for a Gemini call, or ``None`` to leave it alone.
+
+    Gemini 2.5 models spend "thinking" tokens that are billed but never shown;
+    across 25 measured runs they were 44% of all tokens consumed. Structured
+    extraction does not need that budget, free-form advice does — hence a knob
+    rather than a constant.
+
+    ``None`` means DO NOT SEND ``thinkingConfig`` at all, so the API keeps its
+    own default and existing behaviour is bit-for-bit unchanged. That is the
+    default: the budget is opt-in via ``GEMINI_THINKING_BUDGET`` or the
+    per-call ``override``, which wins over the env var.
+
+    ``0`` is a meaningful value (thinking off) and is NOT treated as "unset",
+    so every check here is ``is None`` rather than truthiness. A negative or
+    unparsable value is ignored rather than sent — a malformed env var should
+    not turn every call into a 400.
+    """
+    if override is not None:
+        return override if override >= 0 else None
+    raw = (os.getenv("GEMINI_THINKING_BUDGET") or "").strip()
+    if not raw:
+        return None
+    try:
+        budget = int(raw)
+    except ValueError:
+        logger.warning("GEMINI_THINKING_BUDGET sayı değil, yok sayılıyor: %r", raw)
+        return None
+    if budget < 0:
+        logger.warning("GEMINI_THINKING_BUDGET negatif, yok sayılıyor: %d", budget)
+        return None
+    return budget
 
 
 def _gemini_model_chain() -> List[str]:
@@ -441,7 +529,9 @@ def check_connection() -> CheckResult:
                 headers={"X-goog-api-key": gemini_key},
             )
         except Exception as exc:
-            return failed(SPEC.name, _redact_key(f"request error (gemini): {exc}", gemini_key))
+            return failed(
+                SPEC.name, _redact_key(f"request error (gemini): {exc}", gemini_key)
+            )
         result = classify_response(SPEC.name, resp)
         result.detail = f"gemini — {result.detail}"
         return result
@@ -481,6 +571,7 @@ def generate_text(
     system_prompt: str,
     user_prompt: str,
     max_output_tokens: Optional[int] = None,
+    thinking_budget: Optional[int] = None,
 ) -> str:
     """Generate a completion from the configured LLM provider.
 
@@ -491,14 +582,106 @@ def generate_text(
     ``RuntimeError`` if no provider is configured, and lets transport/HTTP
     errors propagate (key-redacted) so callers can convert them into a
     graceful ``failed`` result.
+
+    ``thinking_budget`` caps Gemini's invisible-but-billed reasoning tokens and
+    overrides ``GEMINI_THINKING_BUDGET``; pass a low value (or ``0``) from
+    structured-extraction callers and leave it unset for free-form advice.
+    ``None`` on both sides sends no ``thinkingConfig`` at all, which is the
+    default and preserves today's behaviour. OpenAI has no equivalent knob, so
+    the argument is ignored on that path.
     """
     provider = configured_provider()
     if provider is None:
-        raise RuntimeError("no LLM provider configured (GEMINI_API_KEY or OPENAI_API_KEY)")
+        raise RuntimeError(
+            "no LLM provider configured (GEMINI_API_KEY or OPENAI_API_KEY)"
+        )
 
     if provider == "gemini":
-        return _generate_gemini(system_prompt, user_prompt, max_output_tokens)
+        return _generate_gemini(
+            system_prompt, user_prompt, max_output_tokens, thinking_budget
+        )
     return _generate_openai(system_prompt, user_prompt, max_output_tokens)
+
+
+def generate_from_audio(
+    audio_bytes: bytes,
+    mime_type: str,
+    system_prompt: str,
+    user_prompt: str,
+    max_output_tokens: Optional[int] = None,
+    thinking_budget: Optional[int] = None,
+) -> str:
+    """Send an audio recording to Gemini and return what it answers.
+
+    The audio rides inline in the request (``inlineData``: MIME type plus
+    base64), which Gemini accepts up to :data:`MAX_INLINE_AUDIO_BYTES`. Bytes
+    are sent exactly as downloaded — no transcoding, no resampling, no ffmpeg:
+    Gemini downsamples to 16 kHz mono itself.
+
+    The request travels the same path as every other generation
+    (:func:`_generate_gemini_parts`), so retries, ``Retry-After``, model
+    fallback, the run's time budget, key redaction and :class:`CallStats` all
+    apply unchanged.
+
+    Args:
+        audio_bytes: Raw audio file contents.
+        mime_type: Concrete audio MIME type, e.g. ``audio/mpeg``.
+        system_prompt: Instructions for the model (what to do with the audio).
+        user_prompt: The turn's text, sent alongside the audio.
+        max_output_tokens: Output budget; transcripts are long, so callers
+            usually raise this well above the default.
+        thinking_budget: Caps Gemini's invisible-but-billed reasoning tokens,
+            exactly as in :func:`generate_text`.
+
+    Returns:
+        The model's answer text.
+
+    Raises:
+        ValueError: empty audio, missing MIME type, or audio over the inline
+            limit — in every case BEFORE any request is sent.
+        RuntimeError: no provider configured, the configured provider is
+            OpenAI (this path is Gemini-only), or every model failed.
+    """
+    if not audio_bytes:
+        raise ValueError("no audio to send (empty audio_bytes)")
+
+    size = len(audio_bytes)
+    if size > MAX_INLINE_AUDIO_BYTES:
+        raise ValueError(
+            f"audio is {size} bytes, over Gemini's inline limit of "
+            f"{MAX_INLINE_AUDIO_BYTES} bytes ({MAX_INLINE_AUDIO_BYTES // (1024 * 1024)} MB); "
+            "split the recording into shorter parts"
+        )
+
+    mime = (mime_type or "").strip()
+    if not mime:
+        raise ValueError("mime_type is required for audio input (e.g. audio/mpeg)")
+
+    provider = configured_provider()
+    if provider is None:
+        raise RuntimeError(
+            "no LLM provider configured (GEMINI_API_KEY or OPENAI_API_KEY)"
+        )
+    if provider != "gemini":
+        # The OpenAI path here is chat-completions, which takes no audio part.
+        raise RuntimeError(
+            "audio input needs Gemini; set GEMINI_API_KEY "
+            f"(configured provider is {provider})"
+        )
+
+    parts: List[Dict[str, Any]] = [
+        {"text": user_prompt},
+        {
+            "inlineData": {
+                "mimeType": mime,
+                "data": base64.b64encode(audio_bytes).decode("ascii"),
+            }
+        },
+    ]
+    logger.info("gemini'ye %d baytlık %s ses gönderiliyor", size, mime)
+    return _generate_gemini_parts(
+        _gemini_payload(system_prompt, parts, max_output_tokens, thinking_budget)
+    )
 
 
 def _extract_gemini_text(data: dict) -> str:
@@ -510,31 +693,71 @@ def _extract_gemini_text(data: dict) -> str:
     return "".join(part.get("text", "") for part in parts).strip()
 
 
+def _gemini_payload(
+    system_prompt: str,
+    parts: List[Dict[str, Any]],
+    max_output_tokens: Optional[int] = None,
+    thinking_budget: Optional[int] = None,
+) -> Dict[str, Any]:
+    """Build a generateContent body from ready-made user ``parts``.
+
+    ``parts`` is whatever the caller wants in the single user turn: one
+    ``{"text": ...}`` for a plain completion, or text plus an ``inlineData``
+    blob for audio. Everything else about the body is identical either way,
+    which is the point — one shape, one retry loop, one set of stats.
+    """
+    generation_config: Dict[str, Any] = {
+        "temperature": 0.7,
+        "maxOutputTokens": max_output_tokens or _gemini_max_output_tokens(),
+    }
+    # Only present when explicitly configured. An absent ``thinkingConfig``
+    # leaves the model on its own default, so unconfigured deployments keep
+    # sending exactly the body they sent before this knob existed.
+    budget = _gemini_thinking_budget(thinking_budget)
+    if budget is not None:
+        generation_config["thinkingConfig"] = {"thinkingBudget": budget}
+    return {
+        "system_instruction": {"parts": [{"text": system_prompt}]},
+        "contents": [{"role": "user", "parts": parts}],
+        "generationConfig": generation_config,
+    }
+
+
 def _generate_gemini(
     system_prompt: str,
     user_prompt: str,
     max_output_tokens: Optional[int] = None,
+    thinking_budget: Optional[int] = None,
 ) -> str:
-    """Generate with Gemini, retrying transients and falling back per model.
+    """Generate text with Gemini from a plain text prompt."""
+    return _generate_gemini_parts(
+        _gemini_payload(
+            system_prompt,
+            [{"text": user_prompt}],
+            max_output_tokens,
+            thinking_budget,
+        )
+    )
+
+
+def _generate_gemini_parts(payload: Dict[str, Any]) -> str:
+    """Send one generateContent body, retrying transients and falling back.
 
     Walks :func:`_gemini_model_chain`. Each model gets the full retry budget;
     if it still returns a transient/unavailable status (or an empty answer, or
     a transport error such as a timeout) the next model in the chain is tried
     transparently. Hard errors (400/401/403 — bad request or bad key) fail fast.
     Every surfaced message is passed through :func:`_redact_key` first.
+
+    This is the ONLY place an LLM request is sent, whatever the request holds:
+    text, audio or anything added later all inherit the same retries, the same
+    ``Retry-After`` handling, the same time budget and the same
+    :class:`CallStats` accounting.
     """
     key = os.getenv("GEMINI_API_KEY", "")
     # Send the key via header (Google's recommended method) so it never lands
     # in the URL and therefore never leaks into httpx error strings/logs.
     headers = {"X-goog-api-key": key}
-    payload = {
-        "system_instruction": {"parts": [{"text": system_prompt}]},
-        "contents": [{"role": "user", "parts": [{"text": user_prompt}]}],
-        "generationConfig": {
-            "temperature": 0.7,
-            "maxOutputTokens": max_output_tokens or _gemini_max_output_tokens(),
-        },
-    }
 
     models = _gemini_model_chain()
     last_error = "bilinmeyen hata"

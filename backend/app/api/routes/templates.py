@@ -7,7 +7,11 @@ from sqlalchemy.orm import Session
 
 from app.db.database import get_db
 from app.db.models import Template
-from app.schemas.template import Template as TemplateSchema, TemplateCreate, TemplateUpdate
+from app.schemas.template import (
+    Template as TemplateSchema,
+    TemplateCreate,
+    TemplateUpdate,
+)
 from app.dependencies import get_current_user
 
 logger = logging.getLogger(__name__)
@@ -23,7 +27,7 @@ async def list_templates(
     current_user: dict = Depends(get_current_user),
 ):
     """List available templates."""
-    query = db.query(Template).filter(Template.is_active == True)
+    query = db.query(Template).filter(Template.is_active.is_(True))
 
     if language:
         query = query.filter(Template.language == language)

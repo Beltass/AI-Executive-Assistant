@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Optional
 from urllib.parse import urlencode
 
+
 # ANSI color codes for terminal output
 class Colors:
     """Terminal color codes."""
@@ -97,8 +98,7 @@ def check_existing_credentials() -> tuple[bool, bool, bool]:
     env_vars = load_env_vars()
     # Support both naming conventions
     has_client_id = bool(
-        env_vars.get("GOOGLE_CLIENT_ID")
-        or env_vars.get("GOOGLE_OAUTH_CLIENT_ID")
+        env_vars.get("GOOGLE_CLIENT_ID") or env_vars.get("GOOGLE_OAUTH_CLIENT_ID")
     )
     has_client_secret = bool(
         env_vars.get("GOOGLE_CLIENT_SECRET")
@@ -178,9 +178,7 @@ def print_google_cloud_setup_instructions() -> None:
 {bold}Adım 4: Kimlik Bilgilerini Kaydet{reset}
 
 Aşağıda gösterilen istemlerden Client ID ve Secret'ı kopyalayıp yapıştırın.
-""".format(
-        bold=Colors.BOLD, reset=Colors.RESET
-    )
+""".format(bold=Colors.BOLD, reset=Colors.RESET)
 
     print(instructions)
 
@@ -199,8 +197,7 @@ def get_client_id_secret() -> tuple[str, str]:
             continue
         if not validate_client_id(client_id):
             print_error(
-                "Geçersiz Client ID formatı. Google Cloud Console'dan "
-                "kopyalayın."
+                "Geçersiz Client ID formatı. Google Cloud Console'dan " "kopyalayın."
             )
             continue
 
@@ -331,7 +328,9 @@ def start_oauth_flow(client_id: str, client_secret: str) -> Optional[str]:
         return None
 
 
-def validate_credentials(client_id: str, client_secret: str, refresh_token: str) -> bool:
+def validate_credentials(
+    client_id: str, client_secret: str, refresh_token: str
+) -> bool:
     """Validate if the credentials work by testing them with Google APIs.
 
     This function performs a simple Gmail query to verify that the credentials
@@ -424,7 +423,9 @@ def test_credentials(client_id: str, client_secret: str, refresh_token: str) -> 
                 result = service.users().labels().list(userId="me").execute()
                 labels = result.get("labels", [])
 
-                print_success(f"Gmail bağlantısı başarılı! {len(labels)} etiket bulundu.")
+                print_success(
+                    f"Gmail bağlantısı başarılı! {len(labels)} etiket bulundu."
+                )
             except ImportError:
                 print_warning(
                     "Google auth kütüphaneleri yüklenmemiş. "
@@ -521,9 +522,7 @@ def print_agent_list() -> None:
   - Dosya Yöneticisi etkinleşti
 
 Diğer aracıları etkinleştirmek için ilgili hizmetlerin kimlik bilgilerini .env'ye ekleyin.
-""".format(
-        bold=Colors.BOLD, reset=Colors.RESET
-    )
+""".format(bold=Colors.BOLD, reset=Colors.RESET)
     print(agents_text)
 
 

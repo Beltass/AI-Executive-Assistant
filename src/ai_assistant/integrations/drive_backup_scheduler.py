@@ -20,15 +20,10 @@ import sys
 from typing import Optional
 
 from .google_drive_manager import GoogleDriveManager
-from .drive_folder_manager import (
-    DriveFolderManager,
-    DriveBackupManager,
-    AdvisorType
-)
+from .drive_folder_manager import DriveFolderManager, DriveBackupManager, AdvisorType
 
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -40,12 +35,14 @@ class BackupScheduler:
         """Initialize the scheduler."""
         self.drive_manager = GoogleDriveManager()
 
-        root_folder_id = os.getenv('GOOGLE_DRIVE_ROOT_FOLDER_ID')
+        root_folder_id = os.getenv("GOOGLE_DRIVE_ROOT_FOLDER_ID")
         if not root_folder_id:
             raise ValueError("GOOGLE_DRIVE_ROOT_FOLDER_ID environment variable not set")
 
         self.folder_manager = DriveFolderManager(self.drive_manager, root_folder_id)
-        self.backup_manager = DriveBackupManager(self.drive_manager, self.folder_manager)
+        self.backup_manager = DriveBackupManager(
+            self.drive_manager, self.folder_manager
+        )
 
     async def create_daily_backups(self) -> None:
         """Create daily backups for all advisor types."""
@@ -79,13 +76,14 @@ class BackupScheduler:
         Args:
             older_than_days: Archive files older than this many days
         """
-        logger.info(f"Starting archive process for files older than {older_than_days} days...")
+        logger.info(
+            f"Starting archive process for files older than {older_than_days} days..."
+        )
 
         for advisor_type in AdvisorType:
             try:
                 count = await self.backup_manager.archive_old_files(
-                    advisor_type,
-                    older_than_days=older_than_days
+                    advisor_type, older_than_days=older_than_days
                 )
                 logger.info(f"Archived {count} folders for {advisor_type.value}")
             except Exception as e:
@@ -99,13 +97,14 @@ class BackupScheduler:
         Args:
             keep_days: Keep backups from the last N days
         """
-        logger.info(f"Starting cleanup process for backups older than {keep_days} days...")
+        logger.info(
+            f"Starting cleanup process for backups older than {keep_days} days..."
+        )
 
         for advisor_type in AdvisorType:
             try:
                 count = await self.backup_manager.cleanup_old_backups(
-                    advisor_type,
-                    keep_days=keep_days
+                    advisor_type, keep_days=keep_days
                 )
                 logger.info(f"Deleted {count} backup folders for {advisor_type.value}")
             except Exception as e:
@@ -117,7 +116,9 @@ class BackupScheduler:
 async def main():
     """Main entry point for CLI."""
     if len(sys.argv) < 2:
-        print("Usage: python -m ai_assistant.integrations.drive_backup_scheduler <command> [options]")
+        print(
+            "Usage: python -m ai_assistant.integrations.drive_backup_scheduler <command> [options]"
+        )
         print("Commands:")
         print("  daily                    - Create daily backups for all advisors")
         print("  monthly                  - Create monthly archives for all advisors")

@@ -59,9 +59,7 @@ class SectorIntelAdvisor(Advisor):
 
     def _generate(self) -> Briefing:
         if not llm.is_configured():
-            return self.skipped(
-                "missing env var(s): GEMINI_API_KEY or OPENAI_API_KEY"
-            )
+            return self.skipped("missing env var(s): GEMINI_API_KEY or OPENAI_API_KEY")
 
         try:
             body = llm.generate_text(SYSTEM_PROMPT, self._user_prompt())
@@ -100,8 +98,7 @@ class SectorIntelAdvisor(Advisor):
             "yapısına, süreçlere ve KPI'lara (örn. AHT, FCR, NPS, kayıp çağrı "
             "oranı) olası yansımaları; (4) 'ne yapmalı' — bu hafta gündeme "
             "alınabilecek 2-3 stratejik hamle ve her birinin riski. Analitik, "
-            "stratejik ve somut ol.\n\n"
-            + RICH_BRIEFING_GUIDE
+            "stratejik ve somut ol.\n\n" + RICH_BRIEFING_GUIDE
         )
         if headlines:
             joined = "\n".join(f"- {h}" for h in headlines)

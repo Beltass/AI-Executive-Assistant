@@ -130,9 +130,7 @@ class TestLinkedInIndustryNews:
     @pytest.mark.asyncio
     async def test_search_industry_news(self, linkedin_service):
         """Test searching industry news."""
-        result = await linkedin_service.search_industry_news(
-            ["AI", "machine learning"]
-        )
+        result = await linkedin_service.search_industry_news(["AI", "machine learning"])
         assert isinstance(result, list)
 
     @pytest.mark.asyncio

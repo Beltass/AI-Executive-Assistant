@@ -145,9 +145,13 @@ class AsanaClient:
                 # Rate limit: respect 429 with exponential backoff.
                 if resp.status_code == 429:
                     if attempt < MAX_RETRIES - 1:
-                        retry_after = int(resp.headers.get("Retry-After", RETRY_BASE_DELAY))
-                        delay = retry_after * (2 ** attempt)
-                        logger.info(f"Rate limited; retrying after {delay}s (attempt {attempt + 1})")
+                        retry_after = int(
+                            resp.headers.get("Retry-After", RETRY_BASE_DELAY)
+                        )
+                        delay = retry_after * (2**attempt)
+                        logger.info(
+                            f"Rate limited; retrying after {delay}s (attempt {attempt + 1})"
+                        )
                         time.sleep(delay)
                         continue
                     else:
@@ -157,8 +161,10 @@ class AsanaClient:
             except httpx.RequestError as exc:
                 if attempt == MAX_RETRIES - 1:
                     raise
-                delay = RETRY_BASE_DELAY * (2 ** attempt)
-                logger.warning(f"Request error on attempt {attempt + 1}, retrying in {delay}s: {exc}")
+                delay = RETRY_BASE_DELAY * (2**attempt)
+                logger.warning(
+                    f"Request error on attempt {attempt + 1}, retrying in {delay}s: {exc}"
+                )
                 time.sleep(delay)
 
         raise httpx.HTTPError("Max retries exceeded")
@@ -303,7 +309,9 @@ class AsanaClient:
             TaskResult with success status and task ID on success.
         """
         if not project_id or not task_name:
-            return TaskResult(success=False, error="project_id and task_name are required")
+            return TaskResult(
+                success=False, error="project_id and task_name are required"
+            )
 
         payload = {
             "data": {
@@ -370,7 +378,9 @@ class AsanaClient:
             TaskResult with success status and subtask ID on success.
         """
         if not task_id or not subtask_name:
-            return TaskResult(success=False, error="task_id and subtask_name are required")
+            return TaskResult(
+                success=False, error="task_id and subtask_name are required"
+            )
 
         payload = {
             "data": {
@@ -542,7 +552,9 @@ class ReportToAsanaConverter:
         """
         self.client = asana_client or AsanaClient()
 
-    def _extract_tasks_from_report(self, report: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def _extract_tasks_from_report(
+        self, report: Dict[str, Any]
+    ) -> List[Dict[str, Any]]:
         """Extract actionable items from an advisor report.
 
         Looks for common task-like structures in the report including:
@@ -563,18 +575,25 @@ class ReportToAsanaConverter:
             if key in report and isinstance(report[key], list):
                 for item in report[key]:
                     if isinstance(item, dict):
-                        tasks.append({
-                            "name": item.get("name") or item.get("title") or item.get("text", ""),
-                            "description": item.get("description") or item.get("notes", ""),
-                            "priority": item.get("priority", "normal"),
-                            "due_date": item.get("due_date"),
-                        })
+                        tasks.append(
+                            {
+                                "name": item.get("name")
+                                or item.get("title")
+                                or item.get("text", ""),
+                                "description": item.get("description")
+                                or item.get("notes", ""),
+                                "priority": item.get("priority", "normal"),
+                                "due_date": item.get("due_date"),
+                            }
+                        )
                     elif isinstance(item, str):
-                        tasks.append({
-                            "name": item,
-                            "description": "",
-                            "priority": "normal",
-                        })
+                        tasks.append(
+                            {
+                                "name": item,
+                                "description": "",
+                                "priority": "normal",
+                            }
+                        )
 
         return tasks
 
@@ -605,7 +624,9 @@ class ReportToAsanaConverter:
         project_result = self.client.get_or_create_project(project_name)
         if not project_result.success:
             result.success = False
-            result.errors.append(f"Failed to create/find project: {project_result.error}")
+            result.errors.append(
+                f"Failed to create/find project: {project_result.error}"
+            )
             return result
 
         project_id = project_result.project_id
@@ -626,7 +647,11 @@ class ReportToAsanaConverter:
             # Build task description with advisor context.
             description = task_data.get("description", "").strip()
             if advisor_name and advisor_name != "Advisor":
-                description = f"[{advisor_name}]\n{description}" if description else f"[{advisor_name}]"
+                description = (
+                    f"[{advisor_name}]\n{description}"
+                    if description
+                    else f"[{advisor_name}]"
+                )
 
             task_result = self.client.add_task(
                 project_id=project_id,

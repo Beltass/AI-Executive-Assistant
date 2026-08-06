@@ -8,7 +8,6 @@ from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.services.slack_service import SlackService
 from app.services.content_service import ContentService
-from app.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -100,6 +99,7 @@ async def handle_slack_command(request: Request, db: Session = Depends(get_db)):
 
     # Parse form data
     from urllib.parse import parse_qs
+
     data = parse_qs(body.decode())
 
     command = data.get("command", [""])[0]
@@ -182,7 +182,9 @@ async def _handle_reject(action: dict, db: Session):
         logger.error(f"Error rejecting content: {e}")
 
 
-async def _handle_generate_command(topic: str, user_id: str, channel_id: str, db: Session):
+async def _handle_generate_command(
+    topic: str, user_id: str, channel_id: str, db: Session
+):
     """Handle /content-generate command."""
     if not topic:
         # TODO: Send modal for content generation
@@ -201,6 +203,4 @@ async def _handle_speaking_command(user_id: str, channel_id: str, db: Session):
 async def _process_content_generation_from_slack(channel: str, db: Session):
     """Process content generation triggered from Slack."""
     service = SlackService()
-    await service.send_message(
-        channel, "Processing your content generation request..."
-    )
+    await service.send_message(channel, "Processing your content generation request...")

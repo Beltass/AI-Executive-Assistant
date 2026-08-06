@@ -127,9 +127,18 @@ class TestLinkedInCoachAdvisor:
         with tempfile.TemporaryDirectory() as tmpdir:
             original_dir = Path(".assistant_state")
             with patch("ai_assistant.advisors.linkedin_coach.STATE_DIR", Path(tmpdir)):
-                with patch("ai_assistant.advisors.linkedin_coach.DRAFTS_FILE", Path(tmpdir) / "linkedin_drafts.json"):
-                    with patch("ai_assistant.advisors.linkedin_coach.METRICS_FILE", Path(tmpdir) / "linkedin_metrics.json"):
-                        with patch("ai_assistant.advisors.linkedin_coach.PROFILE_FILE", Path(tmpdir) / "linkedin_profile.json"):
+                with patch(
+                    "ai_assistant.advisors.linkedin_coach.DRAFTS_FILE",
+                    Path(tmpdir) / "linkedin_drafts.json",
+                ):
+                    with patch(
+                        "ai_assistant.advisors.linkedin_coach.METRICS_FILE",
+                        Path(tmpdir) / "linkedin_metrics.json",
+                    ):
+                        with patch(
+                            "ai_assistant.advisors.linkedin_coach.PROFILE_FILE",
+                            Path(tmpdir) / "linkedin_profile.json",
+                        ):
                             yield Path(tmpdir)
 
     @pytest.fixture
@@ -232,9 +241,7 @@ class TestLinkedInCoachAdvisor:
         )
         assert result is True
 
-        edited_post = next(
-            (p for p in coach._load_drafts() if p.id == post_id), None
-        )
+        edited_post = next((p for p in coach._load_drafts() if p.id == post_id), None)
         assert edited_post.headline == new_headline
         assert edited_post.body == new_body
         assert edited_post.hashtags == new_hashtags

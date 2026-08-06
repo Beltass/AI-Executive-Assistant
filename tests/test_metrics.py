@@ -23,7 +23,6 @@ from ai_assistant.integrations import STATUS_FAILED, STATUS_OK, STATUS_SKIPPED
 from ai_assistant.integrations.llm import CallStats
 from ai_assistant.operations_manager import Supervision
 
-
 # --- helpers ----------------------------------------------------------------
 
 
@@ -265,9 +264,12 @@ def test_record_run_never_raises_on_an_unwritable_path(tmp_path):
     """Fail-safe: a metrics failure must cost a measurement, never the run."""
     blocked = tmp_path / "file.txt"
     blocked.write_text("occupied", encoding="utf-8")
-    assert metrics.record_run(
-        _supervision({"a": 10}), path=str(blocked / "nested" / "metrics.json")
-    ) is None
+    assert (
+        metrics.record_run(
+            _supervision({"a": 10}), path=str(blocked / "nested" / "metrics.json")
+        )
+        is None
+    )
 
 
 def test_metrics_file_path_honours_the_env_var(monkeypatch, tmp_path):
@@ -318,8 +320,18 @@ def test_a_balanced_agent_is_not_called_out():
     history = [
         _run(
             agents=[
-                {"id": "a", "name": "A", "est_total_tokens": 5000, "output_chars": 5000},
-                {"id": "b", "name": "B", "est_total_tokens": 5000, "output_chars": 5000},
+                {
+                    "id": "a",
+                    "name": "A",
+                    "est_total_tokens": 5000,
+                    "output_chars": 5000,
+                },
+                {
+                    "id": "b",
+                    "name": "B",
+                    "est_total_tokens": 5000,
+                    "output_chars": 5000,
+                },
             ]
         )
         for _ in range(5)
@@ -355,7 +367,9 @@ def test_a_genuinely_cheap_incremental_run_is_praised_not_flagged():
     history = [_run(mode=MODE_FULL, prompt_tokens=10000, sections=12)] + [
         _run(mode=MODE_INCREMENTAL, prompt_tokens=1500, sections=3) for _ in range(3)
     ]
-    incremental = [t for t in metrics.recommendations(history) if "Artımlı" in t["title"]]
+    incremental = [
+        t for t in metrics.recommendations(history) if "Artımlı" in t["title"]
+    ]
     assert incremental and incremental[0]["severity"] == metrics.SEVERITY_GOOD
 
 
@@ -384,8 +398,18 @@ def test_every_recommendation_carries_a_severity_and_a_metric():
             retries=2,
             guide_saved_chars=26000,
             agents=[
-                {"id": "x", "name": "X", "est_total_tokens": 9000, "output_chars": 1000},
-                {"id": "y", "name": "Y", "est_total_tokens": 1000, "output_chars": 9000},
+                {
+                    "id": "x",
+                    "name": "X",
+                    "est_total_tokens": 9000,
+                    "output_chars": 1000,
+                },
+                {
+                    "id": "y",
+                    "name": "Y",
+                    "est_total_tokens": 1000,
+                    "output_chars": 9000,
+                },
             ],
         )
         for _ in range(6)
@@ -439,3 +463,84 @@ def test_no_secret_can_reach_the_metrics_file(monkeypatch, tmp_path):
     assert "hooks.slack.com" not in raw
     # And no free text from a briefing body either — only counts.
     assert "HTTP 400" not in raw
+
+
+# --- what the run SPENT and WHO spent it ------------------------------------
+#
+# Tokens alone cannot explain a run: a tenth of yesterday's cost is a triumph
+# when nine advisors had no new data and an outage when the batch died. These
+# three fields are what tell the two apart.
+
+
+def test_llm_call_count_is_read_from_the_llm_layer(monkeypatch):
+    """ONE batched call or fifteen per-advisor ones — the number says which."""
+    from ai_assistant.integrations import llm as llm_module
+
+    llm_module.reset_call_count()
+    monkeypatch.setattr(llm_module, "call_count", lambda: 15)
+
+    record = metrics.build_run_metrics(
+        _supervision({"alpha": 100}), call_stats=_stats()
+    )
+
+    assert record["llm_call_count"] == 15
+
+
+def test_llm_call_count_is_zero_when_nothing_was_called():
+    from ai_assistant.integrations import llm as llm_module
+
+    llm_module.reset_call_count()
+    record = metrics.build_run_metrics(_supervision({}), call_stats=None)
+
+    assert record["llm_call_count"] == 0
+
+
+def test_an_explicit_call_count_wins_over_the_counter():
+    record = metrics.build_run_metrics(
+        _supervision({"alpha": 100}), call_stats=_stats(), llm_call_count=1
+    )
+    assert record["llm_call_count"] == 1
+
+
+def test_skipped_advisors_are_recorded_with_their_reasons():
+    supervision = _supervision({"alpha": 400})
+    supervision.executed_advisors = ["alpha"]
+    supervision.skipped_advisors = {
+        "market_intelligence": "veri_degismedi",
+        "executive_coaching": "tetiklenmedi",
+        "career_development": "batch_failed",
+    }
+
+    record = metrics.build_run_metrics(supervision, call_stats=_stats())
+
+    assert record["executed_advisors"] == ["alpha"]
+    assert record["skipped_advisors"] == {
+        "market_intelligence": "veri_degismedi",
+        "executive_coaching": "tetiklenmedi",
+        "career_development": "batch_failed",
+    }
+
+
+def test_the_reasons_reach_the_history_file(tmp_path):
+    supervision = _supervision({"alpha": 400})
+    supervision.skipped_advisors = {"market_intelligence": "veri_degismedi"}
+    target = tmp_path / "metrics.json"
+
+    metrics.record_run(supervision, call_stats=_stats(), path=str(target))
+
+    run = json.loads(target.read_text(encoding="utf-8"))["runs"][0]
+    assert run["skipped_advisors"] == {"market_intelligence": "veri_degismedi"}
+    assert "llm_call_count" in run
+
+
+def test_a_supervision_without_the_new_fields_still_records():
+    """Anything shaped like a supervision keeps working — never raises."""
+
+    class Bare:
+        briefings = []
+        counts = {STATUS_OK: 0, STATUS_FAILED: 0, STATUS_SKIPPED: 0}
+
+    record = metrics.build_run_metrics(Bare(), call_stats=None)
+
+    assert record["executed_advisors"] == []
+    assert record["skipped_advisors"] == {}

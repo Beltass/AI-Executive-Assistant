@@ -308,9 +308,7 @@ class MarketIntelligenceAdvisor(Advisor):
             if items:
                 # Real headlines beat an empty section.
                 return self.ok(f"{self._headline_list()}\n\n{CAVEAT}")
-            return self.skipped(
-                "missing env var(s): GEMINI_API_KEY or OPENAI_API_KEY"
-            )
+            return self.skipped("missing env var(s): GEMINI_API_KEY or OPENAI_API_KEY")
 
         try:
             body = llm.generate_text(SYSTEM_PROMPT, self._user_prompt())
@@ -398,9 +396,7 @@ class MarketIntelligenceAdvisor(Advisor):
 
     def _headline_list(self) -> str:
         """The no-LLM fallback: today's new headlines, grouped by source."""
-        blocks = [
-            f"*{label}*\n{self._format(group)}" for label, group in self._groups
-        ]
+        blocks = [f"*{label}*\n{self._format(group)}" for label, group in self._groups]
         return "Bugünün yeni başlıkları:\n\n" + "\n\n".join(blocks)
 
     def _feed_block(self) -> str:

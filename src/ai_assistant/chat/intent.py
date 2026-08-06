@@ -53,7 +53,10 @@ _PERIOD_RULES: Tuple[Tuple[str, Dict[str, Any]], ...] = (
     (r"son\s+(\d{1,2})\s*(ay)\b", {"unit": 30}),
     (r"son\s+(\d{1,2})\s*(yıl|yil)", {"unit": 365}),
     (r"son\s+çeyrek|son\s+ceyrek|bu\s+çeyrek|bu\s+ceyrek", {"period": PERIOD_QUARTER}),
-    (r"geçen\s+ay|gecen\s+ay|bu\s+ay\b|aylık\s+bazda|bu\s+ayın|bu\s+ayin", {"period": PERIOD_MONTH}),
+    (
+        r"geçen\s+ay|gecen\s+ay|bu\s+ay\b|aylık\s+bazda|bu\s+ayın|bu\s+ayin",
+        {"period": PERIOD_MONTH},
+    ),
     (r"geçen\s+hafta|gecen\s+hafta|bu\s+hafta", {"period": PERIOD_WEEK}),
     (r"\bbugün\b|\bbugun\b|\bdün\b|\bdun\b|son\s+24\s*saat", {"period": PERIOD_TODAY}),
 )
@@ -69,7 +72,10 @@ _BUCKET_RULES: Tuple[Tuple[str, str], ...] = (
 #: Görselleştirme.
 _CHART_RULES: Tuple[Tuple[str, str], ...] = (
     (r"yoğunluk|yogunluk|ısı\s*harita|isi\s*harita|heatmap", CHART_HEATMAP),
-    (r"halka|donut|pasta|pie|dağılım\s*(grafi|halka)|dagilim\s*(grafi|halka)", CHART_DONUT),
+    (
+        r"halka|donut|pasta|pie|dağılım\s*(grafi|halka)|dagilim\s*(grafi|halka)",
+        CHART_DONUT,
+    ),
     (r"çubuk|cubuk|karşılaştırma|karsilastirma|bar\s*grafi", CHART_BAR),
     (r"trend|çizgi|cizgi|line|seyri|seyir", CHART_LINE),
     (r"sadece\s+tablo|grafiksiz|tablo\s+olarak|yalnızca\s+tablo", CHART_TABLE),
@@ -77,7 +83,9 @@ _CHART_RULES: Tuple[Tuple[str, str], ...] = (
 
 #: Çıktı biçimi.
 _XLSX_RE = re.compile(r"excel|xlsx|çalışma\s*kitab|calisma\s*kitab|tablo\s*dosya")
-_WEB_RE = re.compile(r"tarayıcı|tarayici|web|link|bağlantı|baglanti|pano|sayfa\s*olarak|online")
+_WEB_RE = re.compile(
+    r"tarayıcı|tarayici|web|link|bağlantı|baglanti|pano|sayfa\s*olarak|online"
+)
 _BOTH_RE = re.compile(r"ikisi(ni)?\s*(de|birden)?|her\s*ikisi|hem\s*excel|hem\s*de")
 
 #: "X bazında", "X kırılımında", "X başına", "X'e göre" — kırılım adayları.
@@ -226,7 +234,11 @@ def _read_formats(text: str, intent: Intent) -> None:
     wants_web = bool(_WEB_RE.search(text))
     if _BOTH_RE.search(text):
         wants_xlsx = wants_web = True
-    formats = [f for f, wanted in ((FORMAT_XLSX, wants_xlsx), (FORMAT_WEB, wants_web)) if wanted]
+    formats = [
+        f
+        for f, wanted in ((FORMAT_XLSX, wants_xlsx), (FORMAT_WEB, wants_web))
+        if wanted
+    ]
     if formats:
         intent.spec.formats = formats
         intent.understood.append(f"Format: {intent.spec.format_label()}")

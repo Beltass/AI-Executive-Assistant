@@ -147,7 +147,11 @@ class WeatherAdvisor(Advisor):
             )
 
         if precip is not None and precip > 0:
-            prob_txt = f" (yağış olasılığı %{precip_prob:.0f})" if precip_prob is not None else ""
+            prob_txt = (
+                f" (yağış olasılığı %{precip_prob:.0f})"
+                if precip_prob is not None
+                else ""
+            )
             lines.append(f"Beklenen yağış miktarı {precip:.1f} mm{prob_txt}.")
         elif precip_prob is not None and precip_prob > 0:
             lines.append(f"Yağış olasılığı %{precip_prob:.0f}.")
@@ -159,7 +163,9 @@ class WeatherAdvisor(Advisor):
         notes = []
         if code in (71, 73, 75, 77, 85, 86):
             notes.append("kar yağışına karşı hazırlıklı olun")
-        elif code in (61, 63, 65, 80, 81, 82, 95, 96, 99) or (precip is not None and precip >= 5):
+        elif code in (61, 63, 65, 80, 81, 82, 95, 96, 99) or (
+            precip is not None and precip >= 5
+        ):
             notes.append("yanınıza şemsiye almayı unutmayın")
         if wind_max is not None and wind_max >= 40:
             notes.append("kuvvetli rüzgara dikkat edin")
@@ -171,6 +177,8 @@ class WeatherAdvisor(Advisor):
         if notes:
             lines.append("Uyarı: " + ", ".join(notes) + ".")
         else:
-            lines.append("Bugün için dikkat gerektiren olağandışı bir hava olayı görünmüyor.")
+            lines.append(
+                "Bugün için dikkat gerektiren olağandışı bir hava olayı görünmüyor."
+            )
 
         return " ".join(lines)

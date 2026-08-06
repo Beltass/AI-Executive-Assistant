@@ -158,7 +158,9 @@ def test_cursors_are_per_channel(path):
 
 def test_a_session_survives_a_fresh_process(path):
     first = ChatStore(path)
-    first.put_session(CHANNEL, USER, {"step": "donem", "updated_at": "2026-08-04T10:00:00"})
+    first.put_session(
+        CHANNEL, USER, {"step": "donem", "updated_at": "2026-08-04T10:00:00"}
+    )
     first.save()
 
     second = ChatStore(path)

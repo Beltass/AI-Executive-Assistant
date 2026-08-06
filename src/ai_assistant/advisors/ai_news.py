@@ -151,6 +151,5 @@ class AiNewsAdvisor(Advisor):
             "çıkarım ver. Canlı bir haber akışı yok; '📚 Kaynaklar' bölümünde "
             "yalnızca bilinen ve kalıcı kök alan adlarını kullan (örn. "
             "https://ai.googleblog.com, https://openai.com/blog) ve doğrulama "
-            "notunu ekle.\n\n"
-            + RICH_BRIEFING_GUIDE
+            "notunu ekle.\n\n" + RICH_BRIEFING_GUIDE
         )

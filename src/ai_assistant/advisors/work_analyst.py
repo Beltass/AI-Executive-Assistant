@@ -71,6 +71,7 @@ DEFAULT_ALERT_MODE = "normal"
 @dataclass
 class AlertEntry:
     """A single alert from the work analyst."""
+
     level: str  # critical, warning, info, positive
     category: str  # performance, efficiency, health, workflow, time_management
     message: str  # Turkish message
@@ -86,6 +87,7 @@ class AlertEntry:
 @dataclass
 class DailyAnalysis:
     """Comprehensive daily analysis report."""
+
     generated_at: str
     summary: str
     alerts: List[Dict[str, Any]] = field(default_factory=list)
@@ -112,9 +114,12 @@ class DailyAnalysis:
 @dataclass
 class WorkAnalystState:
     """Persistent state for work analyst tracking."""
+
     last_analysis_date: str = ""
     performance_history: List[Dict[str, Any]] = field(default_factory=list)
-    issue_streak: Dict[str, int] = field(default_factory=dict)  # issue_type -> consecutive_days
+    issue_streak: Dict[str, int] = field(
+        default_factory=dict
+    )  # issue_type -> consecutive_days
     patterns: Dict[str, Any] = field(default_factory=dict)
     achievements: List[str] = field(default_factory=list)
 
@@ -122,8 +127,12 @@ class WorkAnalystState:
     def from_dict(cls, data: dict) -> "WorkAnalystState":
         return cls(
             last_analysis_date=str(data.get("last_analysis_date") or ""),
-            performance_history=[dict(h) for h in (data.get("performance_history") or [])],
-            issue_streak={str(k): int(v) for k, v in (data.get("issue_streak") or {}).items()},
+            performance_history=[
+                dict(h) for h in (data.get("performance_history") or [])
+            ],
+            issue_streak={
+                str(k): int(v) for k, v in (data.get("issue_streak") or {}).items()
+            },
             patterns=dict(data.get("patterns") or {}),
             achievements=[str(a) for a in (data.get("achievements") or [])],
         )
@@ -200,8 +209,12 @@ class WorkAnalystAdvisor(Advisor):
         self._metrics["ok_advisors"] = ok_count
         self._metrics["failed_advisors"] = failed_count
         self._metrics["skipped_advisors"] = skipped_count
-        self._metrics["success_rate"] = (ok_count / total_count * 100) if total_count > 0 else 0
-        self._metrics["failure_rate"] = (failed_count / total_count * 100) if total_count > 0 else 0
+        self._metrics["success_rate"] = (
+            (ok_count / total_count * 100) if total_count > 0 else 0
+        )
+        self._metrics["failure_rate"] = (
+            (failed_count / total_count * 100) if total_count > 0 else 0
+        )
 
         # Extract failed advisor info
         failed_advisors = [b.title for b in self._observed if b.failed]
@@ -216,18 +229,22 @@ class WorkAnalystAdvisor(Advisor):
 
         # Check for sudden drop
         if self._state.performance_history:
-            prev_rates = [h.get("success_rate", 100) for h in self._state.performance_history[-3:]]
+            prev_rates = [
+                h.get("success_rate", 100) for h in self._state.performance_history[-3:]
+            ]
             if prev_rates:
                 avg_prev = sum(prev_rates) / len(prev_rates)
                 if current_rate < avg_prev - 20:  # More than 20% drop
-                    self._alerts.append(AlertEntry(
-                        level="warning",
-                        category="performance",
-                        message=f"Danışman başarı oranında keskin düşüş: {avg_prev:.0f}% → {current_rate:.0f}%",
-                        impact="Medium",
-                        action="Başarısız danışmanları incele ve gerekli API/config kontrolleri yap",
-                        timestamp=datetime.now().isoformat()
-                    ))
+                    self._alerts.append(
+                        AlertEntry(
+                            level="warning",
+                            category="performance",
+                            message=f"Danışman başarı oranında keskin düşüş: {avg_prev:.0f}% → {current_rate:.0f}%",
+                            impact="Medium",
+                            action="Başarısız danışmanları incele ve gerekli API/config kontrolleri yap",
+                            timestamp=datetime.now().isoformat(),
+                        )
+                    )
 
     def _detect_critical_issues(self) -> None:
         """Detect critical issues like multiple advisor failures."""
@@ -235,23 +252,27 @@ class WorkAnalystAdvisor(Advisor):
         failed_advisors = self._metrics.get("failed_advisors", [])
 
         if len(failed_advisors) >= 3:
-            self._alerts.append(AlertEntry(
-                level="critical",
-                category="health",
-                message=f"Sistem hatası: {len(failed_advisors)} danışman başarısız oldu",
-                impact="High",
-                action=f"Acil: {', '.join(failed_advisors[:3])} kontrol et. API keyleri ve bağlantı durumunu doğrula.",
-                timestamp=datetime.now().isoformat()
-            ))
+            self._alerts.append(
+                AlertEntry(
+                    level="critical",
+                    category="health",
+                    message=f"Sistem hatası: {len(failed_advisors)} danışman başarısız oldu",
+                    impact="High",
+                    action=f"Acil: {', '.join(failed_advisors[:3])} kontrol et. API keyleri ve bağlantı durumunu doğrula.",
+                    timestamp=datetime.now().isoformat(),
+                )
+            )
         elif len(failed_advisors) >= 1:
-            self._alerts.append(AlertEntry(
-                level="warning",
-                category="health",
-                message=f"Danışman başarısız: {', '.join(failed_advisors)}",
-                impact="Medium",
-                action="Başarısız danışmanlar için günlükleri kontrol et ve konfigürasyonu doğrula",
-                timestamp=datetime.now().isoformat()
-            ))
+            self._alerts.append(
+                AlertEntry(
+                    level="warning",
+                    category="health",
+                    message=f"Danışman başarısız: {', '.join(failed_advisors)}",
+                    impact="Medium",
+                    action="Başarısız danışmanlar için günlükleri kontrol et ve konfigürasyonu doğrula",
+                    timestamp=datetime.now().isoformat(),
+                )
+            )
 
     def _detect_bottlenecks(self) -> None:
         """Detect workflow bottlenecks from briefing content."""
@@ -261,24 +282,28 @@ class WorkAnalystAdvisor(Advisor):
         connection_count = sum(1 for b in self._observed if "bağlant" in b.text.lower())
 
         if timeout_count >= 2:
-            self._alerts.append(AlertEntry(
-                level="warning",
-                category="workflow",
-                message=f"{timeout_count} danışman zaman aşımı bildirdi",
-                impact="Medium",
-                action="Ağ bağlantısını ve API yanıt sürelerini kontrol et",
-                timestamp=datetime.now().isoformat()
-            ))
+            self._alerts.append(
+                AlertEntry(
+                    level="warning",
+                    category="workflow",
+                    message=f"{timeout_count} danışman zaman aşımı bildirdi",
+                    impact="Medium",
+                    action="Ağ bağlantısını ve API yanıt sürelerini kontrol et",
+                    timestamp=datetime.now().isoformat(),
+                )
+            )
 
         if token_count >= 2:
-            self._alerts.append(AlertEntry(
-                level="warning",
-                category="efficiency",
-                message="Birden fazla danışman token sorunları rapor ediyor",
-                impact="Medium",
-                action="Token kullanımını azalt, prompt'ları daha kısa yap veya API limitlerini kontrol et",
-                timestamp=datetime.now().isoformat()
-            ))
+            self._alerts.append(
+                AlertEntry(
+                    level="warning",
+                    category="efficiency",
+                    message="Birden fazla danışman token sorunları rapor ediyor",
+                    impact="Medium",
+                    action="Token kullanımını azalt, prompt'ları daha kısa yap veya API limitlerini kontrol et",
+                    timestamp=datetime.now().isoformat(),
+                )
+            )
 
     def _detect_time_management_issues(self) -> None:
         """Detect time management issues."""
@@ -288,14 +313,16 @@ class WorkAnalystAdvisor(Advisor):
         if mail_briefings and mail_briefings[0].ok:
             # Check email volume in the briefing text
             if "acil" in mail_briefings[0].text.lower():
-                self._alerts.append(AlertEntry(
-                    level="info",
-                    category="time_management",
-                    message="Yüksek acil e-posta hacmi tespit edildi",
-                    impact="Medium",
-                    action="Odaklanma zamanını korumak için e-posta bildirimleri geçici olarak kapat",
-                    timestamp=datetime.now().isoformat()
-                ))
+                self._alerts.append(
+                    AlertEntry(
+                        level="info",
+                        category="time_management",
+                        message="Yüksek acil e-posta hacmi tespit edildi",
+                        impact="Medium",
+                        action="Odaklanma zamanını korumak için e-posta bildirimleri geçici olarak kapat",
+                        timestamp=datetime.now().isoformat(),
+                    )
+                )
 
     # -- state management ------------------------------------------------
     def _load_state(self) -> WorkAnalystState:
@@ -320,12 +347,14 @@ class WorkAnalystAdvisor(Advisor):
         if not self._state.performance_history:
             self._state.performance_history = []
 
-        self._state.performance_history.append({
-            "date": date.today().isoformat(),
-            "success_rate": self._metrics.get("success_rate", 0),
-            "failed_advisors": self._metrics.get("failed_advisors", []),
-            "alert_count": len(self._alerts),
-        })
+        self._state.performance_history.append(
+            {
+                "date": date.today().isoformat(),
+                "success_rate": self._metrics.get("success_rate", 0),
+                "failed_advisors": self._metrics.get("failed_advisors", []),
+                "alert_count": len(self._alerts),
+            }
+        )
 
         # Keep only last 30 days
         if len(self._state.performance_history) > 30:
@@ -437,7 +466,9 @@ class WorkAnalystAdvisor(Advisor):
             if "başarı" in text_lower or "tamamlandı" in text_lower:
                 achievements.append(f"✅ {b.title}: Görevler başarıyla tamamlandı")
             elif "iyileştirme" in text_lower or "gelişme" in text_lower:
-                achievements.append(f"📈 {b.title}: Gelişim ve iyileştirme tespit edildi")
+                achievements.append(
+                    f"📈 {b.title}: Gelişim ve iyileştirme tespit edildi"
+                )
             elif "hedefe ulaş" in text_lower or "kota" in text_lower:
                 achievements.append(f"🎯 {b.title}: Hedeflere yaklaşılıyor")
 
@@ -476,7 +507,9 @@ class WorkAnalystAdvisor(Advisor):
             recent = self._state.performance_history[-7:]  # Last 7 days
             if len(recent) >= 3:
                 failure_trend = [h.get("alert_count", 0) for h in recent]
-                if failure_trend[-1] > sum(failure_trend[:-1]) / (len(failure_trend) - 1):
+                if failure_trend[-1] > sum(failure_trend[:-1]) / (
+                    len(failure_trend) - 1
+                ):
                     patterns.append("📊 Artan uyarı trendi — eğilim kontrol edilmeli")
 
         patterns.append("🔄 Günlük rutin başarıyla yürütülüyor")
@@ -522,7 +555,9 @@ class WorkAnalystAdvisor(Advisor):
         if self._metrics.get("success_rate", 0) >= 95:
             return "Bugün sistem mükemmel çalıştı — tüm entegrasyonlar stabil kaldı."
         elif any("timeout" in b.text.lower() for b in self._observed if b.failed):
-            return "Bugün zaman aşımı sorunları yaşandı — API yanıt süreleri kontrol et."
+            return (
+                "Bugün zaman aşımı sorunları yaşandı — API yanıt süreleri kontrol et."
+            )
         else:
             return "Bugün sistem normale yakın çalıştı — sabah/akşam saatlerini izle."
 
@@ -555,7 +590,9 @@ class WorkAnalystAdvisor(Advisor):
 
         # Alerts by level
         if analysis.alerts:
-            critical_alerts = [a for a in analysis.alerts if a.get("level") == "critical"]
+            critical_alerts = [
+                a for a in analysis.alerts if a.get("level") == "critical"
+            ]
             warning_alerts = [a for a in analysis.alerts if a.get("level") == "warning"]
             info_alerts = [a for a in analysis.alerts if a.get("level") == "info"]
 

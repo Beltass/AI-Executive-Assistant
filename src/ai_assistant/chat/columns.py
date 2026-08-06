@@ -83,7 +83,9 @@ def metric_options(dataset: Dataset, limit: int = MAX_OPTIONS) -> List[Option]:
         options.append(
             Option(
                 value=column.name,
-                label=f"{column.name} — {label}" if label != column.name else column.name,
+                label=(
+                    f"{column.name} — {label}" if label != column.name else column.name
+                ),
                 hint=_metric_hint(column),
             )
         )
@@ -91,7 +93,9 @@ def metric_options(dataset: Dataset, limit: int = MAX_OPTIONS) -> List[Option]:
         if column.name in seen:
             continue
         seen.add(column.name)
-        options.append(Option(value=column.name, label=column.name, hint=_metric_hint(column)))
+        options.append(
+            Option(value=column.name, label=column.name, hint=_metric_hint(column))
+        )
     return options[:limit]
 
 

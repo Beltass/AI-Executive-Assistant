@@ -63,7 +63,11 @@ class FakeSlack:
                 f"{payload.get('channel')}/p{str(payload.get('message_ts', '')).replace('.', '')}",
             }
         if self.ok:
-            return {"ok": True, "ts": "1722400000.000100", "channel": payload.get("channel")}
+            return {
+                "ok": True,
+                "ts": "1722400000.000100",
+                "channel": payload.get("channel"),
+            }
         return {"ok": False, "error": self.error}
 
     @property
@@ -114,7 +118,10 @@ def test_channel_config_roster_matches_the_live_advisor_team():
 
 
 def test_env_var_names_follow_the_documented_pattern():
-    assert channel_config.advisor_channel_env("meeting_prep") == "SLACK_CHANNEL_MEETING_PREP"
+    assert (
+        channel_config.advisor_channel_env("meeting_prep")
+        == "SLACK_CHANNEL_MEETING_PREP"
+    )
     assert (
         channel_config.advisor_channel_env("market_intelligence")
         == "SLACK_CHANNEL_MARKET_INTELLIGENCE"
@@ -183,7 +190,9 @@ def test_fanout_stays_off_when_no_advisor_has_its_own_channel(monkeypatch, tmp_p
     fake = FakeSlack()
     monkeypatch.setattr(slack_channels, "http_post", fake)
 
-    supervision = _supervision(_briefing("morning_operations", "Sabah İşletme Brifingi"))
+    supervision = _supervision(
+        _briefing("morning_operations", "Sabah İşletme Brifingi")
+    )
     dist = slack_channels.distribute(supervision, _publish(supervision, tmp_path))
 
     assert fake.calls == []
@@ -201,7 +210,9 @@ def test_webhook_alone_cannot_fan_out_and_says_so(monkeypatch, tmp_path):
     fake = FakeSlack()
     monkeypatch.setattr(slack_channels, "http_post", fake)
 
-    supervision = _supervision(_briefing("morning_operations", "Sabah İşletme Brifingi"))
+    supervision = _supervision(
+        _briefing("morning_operations", "Sabah İşletme Brifingi")
+    )
     dist = slack_channels.distribute(supervision, _publish(supervision, tmp_path))
 
     assert fake.calls == [], "no webhook call may pretend to be per-channel routing"
@@ -251,7 +262,12 @@ def test_quiet_and_failed_advisors_are_not_posted(monkeypatch, tmp_path):
 
     supervision = _supervision(
         _briefing("morning_operations", "Sabah İşletme Brifingi"),
-        Briefing(key="career_development", title="Kariyer", status=STATUS_FAILED, text="patladı"),
+        Briefing(
+            key="career_development",
+            title="Kariyer",
+            status=STATUS_FAILED,
+            text="patladı",
+        ),
         Briefing(
             key="kids_development",
             title="Çocuk",
@@ -302,7 +318,9 @@ def test_transport_error_is_caught_not_raised(monkeypatch, tmp_path):
 
     monkeypatch.setattr(slack_channels, "http_post", boom)
 
-    supervision = _supervision(_briefing("morning_operations", "Sabah İşletme Brifingi"))
+    supervision = _supervision(
+        _briefing("morning_operations", "Sabah İşletme Brifingi")
+    )
     dist = slack_channels.distribute(supervision, _publish(supervision, tmp_path))
 
     assert dist.delivered == 0
@@ -321,7 +339,9 @@ def test_summary_links_to_the_report_and_to_the_advisor_channel(monkeypatch, tmp
     fake = FakeSlack()
     monkeypatch.setattr(slack_channels, "http_post", fake)
 
-    supervision = _supervision(_briefing("morning_operations", "Sabah İşletme Brifingi"))
+    supervision = _supervision(
+        _briefing("morning_operations", "Sabah İşletme Brifingi")
+    )
     publication = _publish(supervision, tmp_path)
     dist = slack_channels.distribute(supervision, publication, base_url="https://pano/")
 
@@ -454,12 +474,17 @@ def test_full_delivery_puts_sections_in_sub_channels_and_summary_in_main(
 
     assert fake.channels == ["CMORNING", "CCAREER", "CMAIN"]
     assert result["main_channel"].status == STATUS_OK
-    assert set(result["advisor_channels"]) == {"morning_operations", "career_development"}
+    assert set(result["advisor_channels"]) == {
+        "morning_operations",
+        "career_development",
+    }
     assert all(r.status == STATUS_OK for r in result["advisor_channels"].values())
 
 
 def test_distribution_is_skipped_cleanly_with_no_slack_configured(tmp_path):
-    supervision = _supervision(_briefing("morning_operations", "Sabah İşletme Brifingi"))
+    supervision = _supervision(
+        _briefing("morning_operations", "Sabah İşletme Brifingi")
+    )
     publication = _publish(supervision, tmp_path)
 
     from ai_assistant.daily_digest import distribute_digest_by_channel
@@ -486,7 +511,10 @@ def test_operations_manager_records_where_each_advisor_is_routed(monkeypatch):
     manager = OperationsManager(advisors=[])
     briefing = _briefing("morning_operations", "Sabah İşletme Brifingi")
 
-    assert manager._distribute_to_slack("morning_operations", "Sabah", briefing) == "routed: CMORNING"
+    assert (
+        manager._distribute_to_slack("morning_operations", "Sabah", briefing)
+        == "routed: CMORNING"
+    )
     assert (
         manager._distribute_to_slack("career_development", "Kariyer", briefing)
         == "routed (fallback): CMAIN"

@@ -21,6 +21,7 @@ from app.db.database import Base
 
 class ContentTypeEnum(str, Enum):
     """Content type enumeration."""
+
     POST = "post"
     ARTICLE = "article"
     THREAD = "thread"
@@ -28,6 +29,7 @@ class ContentTypeEnum(str, Enum):
 
 class ContentStatusEnum(str, Enum):
     """Content status enumeration."""
+
     DRAFT = "draft"
     APPROVED = "approved"
     PUBLISHED = "published"
@@ -36,6 +38,7 @@ class ContentStatusEnum(str, Enum):
 
 class VariationTypeEnum(str, Enum):
     """Content variation type enumeration."""
+
     LINKEDIN = "linkedin"
     TWITTER = "twitter"
     INSTAGRAM = "instagram"
@@ -44,6 +47,7 @@ class VariationTypeEnum(str, Enum):
 
 class PostStatusEnum(str, Enum):
     """Scheduled post status enumeration."""
+
     PENDING = "pending"
     POSTED = "posted"
     FAILED = "failed"
@@ -51,6 +55,7 @@ class PostStatusEnum(str, Enum):
 
 class OpportunityStatusEnum(str, Enum):
     """Speaking opportunity status enumeration."""
+
     DISCOVERED = "discovered"
     INTERESTED = "interested"
     PITCHED = "pitched"
@@ -59,6 +64,7 @@ class OpportunityStatusEnum(str, Enum):
 
 class User(Base):
     """User model."""
+
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -74,9 +80,15 @@ class User(Base):
     settings = Column(JSON, default={})
 
     # Relationships
-    contents = relationship("Content", back_populates="user", cascade="all, delete-orphan")
-    networks = relationship("LinkedInNetwork", back_populates="user", cascade="all, delete-orphan")
-    opportunities = relationship("SpeakingOpportunity", back_populates="user", cascade="all, delete-orphan")
+    contents = relationship(
+        "Content", back_populates="user", cascade="all, delete-orphan"
+    )
+    networks = relationship(
+        "LinkedInNetwork", back_populates="user", cascade="all, delete-orphan"
+    )
+    opportunities = relationship(
+        "SpeakingOpportunity", back_populates="user", cascade="all, delete-orphan"
+    )
 
     __table_args__ = (
         Index("idx_user_email", "email"),
@@ -86,6 +98,7 @@ class User(Base):
 
 class Content(Base):
     """Content model."""
+
     __tablename__ = "contents"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -99,13 +112,23 @@ class Content(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     published_at = Column(DateTime)
     platforms = Column(JSON, default=[])
-    metadata = Column(JSON, default={})
+    # ``metadata`` is reserved on SQLAlchemy's Declarative Base (it holds the
+    # MetaData registry), so a mapped attribute of that name makes the whole
+    # module fail to import and takes the entire test suite down with it.
+    # The Python attribute is renamed; the DB column keeps its old name.
+    extra_metadata = Column("metadata", JSON, default={})
 
     # Relationships
     user = relationship("User", back_populates="contents")
-    variations = relationship("ContentVariation", back_populates="content", cascade="all, delete-orphan")
-    scheduled_posts = relationship("ScheduledPost", back_populates="content", cascade="all, delete-orphan")
-    metrics = relationship("EngagementMetric", back_populates="content", cascade="all, delete-orphan")
+    variations = relationship(
+        "ContentVariation", back_populates="content", cascade="all, delete-orphan"
+    )
+    scheduled_posts = relationship(
+        "ScheduledPost", back_populates="content", cascade="all, delete-orphan"
+    )
+    metrics = relationship(
+        "EngagementMetric", back_populates="content", cascade="all, delete-orphan"
+    )
 
     __table_args__ = (
         Index("idx_content_user_id", "user_id"),
@@ -116,6 +139,7 @@ class Content(Base):
 
 class ContentVariation(Base):
     """Content variation model for multi-platform content."""
+
     __tablename__ = "content_variations"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -125,7 +149,11 @@ class ContentVariation(Base):
     tone = Column(String(100))
     language = Column(String(5), default="en")
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    metadata = Column(JSON, default={})
+    # ``metadata`` is reserved on SQLAlchemy's Declarative Base (it holds the
+    # MetaData registry), so a mapped attribute of that name makes the whole
+    # module fail to import and takes the entire test suite down with it.
+    # The Python attribute is renamed; the DB column keeps its old name.
+    extra_metadata = Column("metadata", JSON, default={})
 
     # Relationships
     content = relationship("Content", back_populates="variations")
@@ -138,6 +166,7 @@ class ContentVariation(Base):
 
 class ScheduledPost(Base):
     """Scheduled post model."""
+
     __tablename__ = "scheduled_posts"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -162,6 +191,7 @@ class ScheduledPost(Base):
 
 class LinkedInNetwork(Base):
     """LinkedIn network contacts model."""
+
     __tablename__ = "linkedin_networks"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -174,7 +204,11 @@ class LinkedInNetwork(Base):
     last_contacted = Column(DateTime)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    metadata = Column(JSON, default={})
+    # ``metadata`` is reserved on SQLAlchemy's Declarative Base (it holds the
+    # MetaData registry), so a mapped attribute of that name makes the whole
+    # module fail to import and takes the entire test suite down with it.
+    # The Python attribute is renamed; the DB column keeps its old name.
+    extra_metadata = Column("metadata", JSON, default={})
 
     # Relationships
     user = relationship("User", back_populates="networks")
@@ -187,6 +221,7 @@ class LinkedInNetwork(Base):
 
 class SpeakingOpportunity(Base):
     """Speaking opportunity model."""
+
     __tablename__ = "speaking_opportunities"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -196,11 +231,17 @@ class SpeakingOpportunity(Base):
     event_date = Column(DateTime, nullable=False)
     deadline = Column(DateTime)
     fit_score = Column(Float, default=0.0)
-    status = Column(SQLEnum(OpportunityStatusEnum), default=OpportunityStatusEnum.DISCOVERED)
+    status = Column(
+        SQLEnum(OpportunityStatusEnum), default=OpportunityStatusEnum.DISCOVERED
+    )
     url = Column(String(500))
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    metadata = Column(JSON, default={})
+    # ``metadata`` is reserved on SQLAlchemy's Declarative Base (it holds the
+    # MetaData registry), so a mapped attribute of that name makes the whole
+    # module fail to import and takes the entire test suite down with it.
+    # The Python attribute is renamed; the DB column keeps its old name.
+    extra_metadata = Column("metadata", JSON, default={})
 
     # Relationships
     user = relationship("User", back_populates="opportunities")
@@ -214,6 +255,7 @@ class SpeakingOpportunity(Base):
 
 class IndustryReport(Base):
     """Industry report model."""
+
     __tablename__ = "industry_reports"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -225,7 +267,11 @@ class IndustryReport(Base):
     summary = Column(Text)
     relevance_score = Column(Float, default=0.0)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    metadata = Column(JSON, default={})
+    # ``metadata`` is reserved on SQLAlchemy's Declarative Base (it holds the
+    # MetaData registry), so a mapped attribute of that name makes the whole
+    # module fail to import and takes the entire test suite down with it.
+    # The Python attribute is renamed; the DB column keeps its old name.
+    extra_metadata = Column("metadata", JSON, default={})
 
     __table_args__ = (
         Index("idx_report_topic", "topic"),
@@ -235,6 +281,7 @@ class IndustryReport(Base):
 
 class EngagementMetric(Base):
     """Engagement metrics model."""
+
     __tablename__ = "engagement_metrics"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -260,6 +307,7 @@ class EngagementMetric(Base):
 
 class Template(Base):
     """Content template model."""
+
     __tablename__ = "templates"
 
     id = Column(Integer, primary_key=True, index=True)

@@ -14,6 +14,7 @@ and degrade to a ``failed`` (something configured broke) or ``skipped``
 from __future__ import annotations
 
 from dataclasses import dataclass
+from importlib import import_module
 from typing import List, Optional, Sequence
 
 from ..config import is_incremental
@@ -236,142 +237,40 @@ def is_quiet(advisor: Advisor) -> bool:
 
 
 def all_advisors() -> List[Advisor]:
-    """Auto-discover and instantiate every advisor, in report order.
+    """Build the live advisor team from the MANIFEST, in report order.
 
-    Imports are local so that importing this package never pulls in a
-    provider SDK eagerly and so a broken module cannot break discovery.
+    The roster used to be a hand-written list of imports here, kept in step by
+    hand with the metadata table in :mod:`ai_assistant.status_report` and with
+    the Slack channel tuple. It did not stay in step: ``meeting_prep`` had a
+    module, metadata, a Slack route and a dashboard entry, plus a comment in
+    this function announcing it — but no import and no instantiation, so it had
+    never produced a single briefing. Two comments both claimed "Position 9".
 
-    PHASE 1A CONSOLIDATION:
-    - New consolidated advisors: MorningOperationsAdvisor, CommunicationsCalendarAdvisor,
-      ExecutiveCoachingAdvisor
-    - Old advisors kept but commented for rollback capability
-    - Transition period: both old and new imports available
+    So the list is gone. There is now ONE place that decides who is on the
+    team, in what order, and how often they run:
+    :data:`ai_assistant.status_report.ADVISOR_META`. This function reads the
+    ``live`` records in ``dashboard_order`` and instantiates each one's declared
+    class. Adding an advisor is a manifest entry; retiring one is a status
+    change; neither can leave an orphan behind.
 
-    PHASE 1B CONSOLIDATION:
-    - New consolidated advisors: CareerDevelopmentAdvisor, MarketIntelligenceAdvisor,
-      AiInnovationAdvisor
-    - Nine more old advisors commented out (career_hr, job_scout, language_coach,
-      free_certs, sector_intel, ai_news, cx_research, banking_cc_projects,
-      ai_mastery, innovation_lab) plus daily_ops_briefing, superseded by
-      MorningOperationsAdvisor
-    - Their .py files stay on disk so a rollback is a comment change, not a revert
-    - Result: the team is down to the TEN advisors of the restructuring plan
+    ORDERING (encoded in the manifest, restated here because it is a design
+    decision rather than an accident): the two "before the day starts" sections
+    and meeting prep open the report; the intelligence block follows; the work
+    analyst consolidates the SYSTEM's health so it must see the others first;
+    the operations director synthesises everything including the analyst; the
+    SRE watchdog reports on the MACHINE and therefore closes the run.
 
-    PHASE 1C CONSOLIDATION:
-    - Two advisors retired from the live roster: weather (a phone already tells
-      the user the forecast) and anka_bridge (the bridge is no longer fed)
-    - Three advisors added: MeetingPrepAdvisor (toplantı hazırlık & takip),
-      ComplaintRadarAdvisor (müşteri şikâyet & itibar radarı), and
-      LinkedInCoach (professional image & content management)
-    - The retired modules stay on disk, so a rollback is a comment change
+    Modules are imported lazily, one at a time, so importing this package never
+    pulls in a provider SDK eagerly.
     """
-    # PHASE 1C: Retired from the live roster (module kept for rollback)
-    # from .weather import WeatherAdvisor
-    # PHASE 1A: Replaced by consolidated MorningOperationsAdvisor
-    # from .morning_briefing import MorningBriefingAdvisor
-    # from .mail_analyst import MailAnalystAdvisor
-    # from .day_planner import DayPlannerAdvisor
+    from ..status_report import ADVISOR_META, live_advisor_keys
 
-    # NEW CONSOLIDATED ADVISORS (PHASE 1A)
-    from .communications_calendar import CommunicationsCalendarAdvisor
-    from .morning_operations import MorningOperationsAdvisor
-    from .executive_coaching import ExecutiveCoachingAdvisor
-
-    # NEW ADVISORS (PHASE 1C): morning meeting prep, sector complaint radar
-    from .complaint_radar import ComplaintRadarAdvisor
-
-    # LinkedIn İmaj Koçu (LinkedIn profile & content management)
-    from .linkedin_coach import LinkedInCoach
-
-    # PHASE 1A: Consolidated into ExecutiveCoachingAdvisor
-    # from .leadership_coach import LeadershipCoachAdvisor
-
-    # NEW CONSOLIDATED ADVISORS (PHASE 1B)
-    from .career_development import CareerDevelopmentAdvisor
-    from .market_intelligence import MarketIntelligenceAdvisor
-    from .ai_innovation import AiInnovationAdvisor
-
-    from .kids_development import KidsDevelopmentAdvisor
-    # PHASE 1B: Consolidated into CareerDevelopmentAdvisor
-    # from .career_hr import CareerHrAdvisor
-    # from .job_scout import JobScoutAdvisor
-    # from .language_coach import LanguageCoachAdvisor
-    # from .free_certs import FreeCertsAdvisor
-
-    # PHASE 1B: Consolidated into MarketIntelligenceAdvisor
-    # from .sector_intel import SectorIntelAdvisor
-    # from .ai_news import AiNewsAdvisor
-    # from .cx_research import CxResearchAdvisor
-    # from .banking_cc_projects import BankingCcProjectsAdvisor
-
-    # PHASE 1B: Consolidated into AiInnovationAdvisor
-    # from .ai_mastery import AiMasteryAdvisor
-    # from .innovation_lab import InnovationLabAdvisor
-
-    # PHASE 1B: Superseded by MorningOperationsAdvisor (PHASE 1A)
-    # from .daily_ops_briefing import DailyOpsBriefingAdvisor
-
-    # ANALYSIS ENGINE PERSONAS: the data analyst reads the operation's own
-    # numbers (see :mod:`ai_assistant.analysis`), the operations director turns
-    # the whole run into a decision list.
-    from .data_analyst import DataAnalystAdvisor
-    from .operations_director import OperationsDirectorAdvisor
-
-    # PHASE 1C: Retired from the live roster (module kept for rollback)
-    # from .anka_bridge import AnkaBridgeAdvisor
-    # PHASE 1A: Consolidated into ExecutiveCoachingAdvisor
-    # from .accountability_coach import AccountabilityCoachAdvisor
-    from .work_analyst import WorkAnalystAdvisor
-
-    # 7/24 teknik nöbetçi (ai_assistant.watchdog) — brifinge bağlayan sarmalayıcı.
-    from .sre_watchdog import SreWatchdogAdvisor
-
-    # NEW PERSONAL ADVISORS (PHASE 1D): personal life management & DM routing
-    from .social_media_coach import SocialMediaCoachAdvisor
-    from .personal_assistant import PersonalAssistantAdvisor
-
-    return [
-        # Position 1: Morning operations (PHASE 1A consolidation)
-        MorningOperationsAdvisor(),
-        # Position 2: Communications and calendar (PHASE 1A consolidation)
-        CommunicationsCalendarAdvisor(),
-        # Position 3: Meeting prep — morning preparation, so it sits with the
-        # other two "before the day starts" sections rather than in the middle
-        # of the intelligence block.
-        # Position 4: Career development (PHASE 1B consolidation)
-        CareerDevelopmentAdvisor(),
-        # Position 5: Market intelligence (PHASE 1B consolidation)
-        MarketIntelligenceAdvisor(),
-        # Position 6: Complaint & reputation radar — the same outside-in view
-        # as the market intelligence above it, read from the customer's side.
-        ComplaintRadarAdvisor(),
-        # Position 7: LinkedIn coach
-        LinkedInCoach(),
-        # Position 8: Social media coach (Instagram, Twitter, personal branding)
-        SocialMediaCoachAdvisor(),
-        # Position 9: Personal assistant (calendar, tasks, goals, networking)
-        PersonalAssistantAdvisor(),
-        # Position 10: The operation's OWN numbers, read by the analysis engine.
-        # Registered right after the market view: outside-in first, then
-        # inside-out, which is the order a director reads a morning pack in.
-        DataAnalystAdvisor(),
-        # Position 9: AI mastery + innovation ideas (PHASE 1B consolidation)
-        AiInnovationAdvisor(),
-        # Other advisors (unchanged)
-        KidsDevelopmentAdvisor(),
-        # Executive coaching (PHASE 1A consolidation of Leadership + Accountability)
-        ExecutiveCoachingAdvisor(),
-        # Work Analyst: consolidates the SYSTEM's health after everyone ran.
-        WorkAnalystAdvisor(),
-        # Operations Director LAST of the content advisors: it synthesises
-        # every section above — including the work analyst's — into the day's
-        # decision list, so it must be the only one with the complete picture.
-        OperationsDirectorAdvisor(),
-        # SRE watchdog closes the run: it reports on the MACHINE (cron
-        # freshness, quota, delivery, feeds, state commit) rather than on this
-        # run's content, so it is registered after every content advisor.
-        SreWatchdogAdvisor(),
-    ]
+    team: List[Advisor] = []
+    for key in live_advisor_keys():
+        record = ADVISOR_META[key]
+        module = import_module(f".{record['module']}", __package__)
+        team.append(getattr(module, record["advisor_class"])())
+    return team
 
 
 __all__ = [

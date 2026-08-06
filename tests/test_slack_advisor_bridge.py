@@ -37,7 +37,6 @@ from src.ai_assistant.integrations.advisor_daily_scheduler import (
     AdvisorUpdateTask,
 )
 
-
 # ============================================================================
 # Fixtures
 # ============================================================================
@@ -51,6 +50,7 @@ def temp_state_dir(tmp_path):
     yield str(state_dir)
     # Cleanup
     import shutil
+
     shutil.rmtree(state_dir, ignore_errors=True)
 
 
@@ -58,7 +58,9 @@ def temp_state_dir(tmp_path):
 def mock_slack_client():
     """Mock Slack AsyncWebClient."""
     client = AsyncMock()
-    client.chat_postMessage = AsyncMock(return_value={"ok": True, "ts": "1234567890.123456"})
+    client.chat_postMessage = AsyncMock(
+        return_value={"ok": True, "ts": "1234567890.123456"}
+    )
     client.chat_getThreadReplies = AsyncMock(return_value={"ok": True, "messages": []})
     return client
 
@@ -82,7 +84,9 @@ def mock_notification_manager():
 
 
 @pytest.fixture
-def slack_bridge(mock_slack_client, mock_drive_manager, mock_notification_manager, temp_state_dir):
+def slack_bridge(
+    mock_slack_client, mock_drive_manager, mock_notification_manager, temp_state_dir
+):
     """Initialize SlackAdvisorBridge with mocks."""
     with patch.dict(os.environ, {"STATE_DIR": temp_state_dir}):
         bridge = SlackAdvisorBridge(
@@ -91,8 +95,12 @@ def slack_bridge(mock_slack_client, mock_drive_manager, mock_notification_manage
             drive_manager=mock_drive_manager,
             notification_manager=mock_notification_manager,
         )
-        bridge.thread_manager.state_file = os.path.join(temp_state_dir, "advisor_threads.json")
-        bridge.request_manager.state_file = os.path.join(temp_state_dir, "advisor_requests.json")
+        bridge.thread_manager.state_file = os.path.join(
+            temp_state_dir, "advisor_threads.json"
+        )
+        bridge.request_manager.state_file = os.path.join(
+            temp_state_dir, "advisor_requests.json"
+        )
         yield bridge
 
 
@@ -146,7 +154,9 @@ class TestDailyUpdateFormatting:
         blocks = slack_bridge._build_update_blocks("data_analyst", report_data)
 
         # Find fields section
-        fields_section = next((b for b in blocks if b.get("type") == "section" and "fields" in b), None)
+        fields_section = next(
+            (b for b in blocks if b.get("type") == "section" and "fields" in b), None
+        )
         assert fields_section is not None
         assert len(fields_section["fields"]) >= 3
 
@@ -158,11 +168,18 @@ class TestDailyUpdateFormatting:
             "timestamp": datetime.now(),
         }
 
-        for advisor_key in ["data_analyst", "linkedin_coach", "social_media_coach", "personal_assistant"]:
+        for advisor_key in [
+            "data_analyst",
+            "linkedin_coach",
+            "social_media_coach",
+            "personal_assistant",
+        ]:
             blocks = slack_bridge._build_update_blocks(advisor_key, report_data)
             advisor_name = ADVISOR_NAMES[advisor_key]
 
-            assert any(advisor_name in str(block) for block in blocks), f"Advisor name not found for {advisor_key}"
+            assert any(
+                advisor_name in str(block) for block in blocks
+            ), f"Advisor name not found for {advisor_key}"
 
     def test_build_result_blocks_basic(self, slack_bridge):
         """Test building result blocks for completed task."""
@@ -240,7 +257,9 @@ class TestAdvisorRequestHandling:
             "data": "https://docs.google.com/spreadsheets/d/data_456",
         }
 
-        success = await slack_bridge.complete_advisor_request(request_id, result, drive_links)
+        success = await slack_bridge.complete_advisor_request(
+            request_id, result, drive_links
+        )
 
         assert success is True
         # Verify result was posted
@@ -324,6 +343,7 @@ class TestThreadManagement:
         """Test that different advisors get different threads."""
         # Setup mock to return different values for different calls
         call_count = 0
+
         async def get_different_ts(*args, **kwargs):
             nonlocal call_count
             call_count += 1
@@ -491,6 +511,7 @@ class TestDailyScheduler:
     @pytest.mark.asyncio
     async def test_register_report_generator(self, daily_scheduler):
         """Test registering report generator."""
+
         async def mock_generator():
             return {
                 "summary": "Daily report",
@@ -505,6 +526,7 @@ class TestDailyScheduler:
     @pytest.mark.asyncio
     async def test_update_advisor_with_generator(self, daily_scheduler):
         """Test updating single advisor with registered generator."""
+
         async def mock_generator():
             return {
                 "summary": "Test report",
@@ -522,6 +544,7 @@ class TestDailyScheduler:
     @pytest.mark.asyncio
     async def test_schedule_multiple_advisors(self, daily_scheduler):
         """Test scheduling updates for multiple advisors."""
+
         async def mock_generator():
             return {
                 "summary": "Report",
@@ -539,7 +562,9 @@ class TestDailyScheduler:
 
     def test_configured_advisors_from_env(self):
         """Test reading advisors from environment."""
-        with patch.dict(os.environ, {"SLACK_ADVISOR_INCLUDE": "data_analyst,social_media_coach"}):
+        with patch.dict(
+            os.environ, {"SLACK_ADVISOR_INCLUDE": "data_analyst,social_media_coach"}
+        ):
             advisors = AdvisorDailyScheduler._get_configured_advisors()
             assert advisors == ["data_analyst", "social_media_coach"]
 
@@ -629,7 +654,9 @@ class TestErrorHandling:
     @pytest.mark.asyncio
     async def test_handle_slack_error_gracefully(self, slack_bridge):
         """Test graceful handling of Slack API errors."""
-        slack_bridge.slack_client.chat_postMessage.side_effect = Exception("Slack API error")
+        slack_bridge.slack_client.chat_postMessage.side_effect = Exception(
+            "Slack API error"
+        )
 
         request_id = await slack_bridge.handle_advisor_request(
             user_id="U123456",
@@ -721,7 +748,9 @@ class TestConcurrentOperations:
         results = await asyncio.gather(*tasks)
 
         assert all(results)
-        assert slack_bridge.slack_client.chat_postMessage.call_count >= 6  # 3 requests + 3 completions
+        assert (
+            slack_bridge.slack_client.chat_postMessage.call_count >= 6
+        )  # 3 requests + 3 completions
 
 
 # ============================================================================
@@ -781,7 +810,9 @@ class TestMultiTurnConversations:
             message="Show trends",
         )
 
-        thread_ts_1 = (await slack_bridge.request_manager.get_request(req_id_1)).thread_ts
+        thread_ts_1 = (
+            await slack_bridge.request_manager.get_request(req_id_1)
+        ).thread_ts
 
         # Complete first request
         await slack_bridge.complete_advisor_request(
@@ -797,7 +828,9 @@ class TestMultiTurnConversations:
             message="Analyze anomalies",
         )
 
-        thread_ts_2 = (await slack_bridge.request_manager.get_request(req_id_2)).thread_ts
+        thread_ts_2 = (
+            await slack_bridge.request_manager.get_request(req_id_2)
+        ).thread_ts
 
         # Should be in same thread
         assert thread_ts_1 == thread_ts_2
