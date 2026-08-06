@@ -284,7 +284,7 @@ _LIVE_ROSTER = (
     ),
     _live(
         "data_analyst",
-        "Veri Analisti (Çağrı Merkezi Operasyonu)",
+        "Raporlama & Veri Analisti (Excel · Sunum Taslağı · Yazılı Rapor)",
         "🔬",
         CATEGORY_OPS,
         advisor_class="DataAnalystAdvisor",

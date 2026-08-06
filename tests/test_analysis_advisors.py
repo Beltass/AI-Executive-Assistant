@@ -372,7 +372,7 @@ def test_operations_director_ignores_the_work_analysts_system_health(blank_env):
 def _analyst_briefing():
     briefing = Briefing(
         key="data_analyst",
-        title="Veri Analisti (Çağrı Merkezi Operasyonu)",
+        title="Raporlama & Veri Analisti (Excel · Sunum Taslağı · Yazılı Rapor)",
         status=STATUS_OK,
         text="**Öne çıkan:** AHT 4 dk 55 sn; ilk yarıya göre 48 sn uzadı.",
         private=True,
@@ -469,7 +469,7 @@ def test_operations_director_source_table_excludes_the_work_analyst(blank_env):
     _, briefing = _run_director()
     table = briefing.report["sections"][1]["table"]
     advisors = [row["advisor"] for row in table["rows"]]
-    assert "Veri Analisti (Çağrı Merkezi Operasyonu)" in advisors
+    assert "Raporlama & Veri Analisti (Excel · Sunum Taslağı · Yazılı Rapor)" in advisors
     assert "İş Analisti Danışmanı" not in advisors
 
 
