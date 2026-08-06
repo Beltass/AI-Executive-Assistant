@@ -195,6 +195,37 @@ def weekly_due(now: Optional[datetime] = None) -> bool:
     return (now or datetime.now()).weekday() == day
 
 
+def weekly_env_override() -> Optional[bool]:
+    """What ``DIGEST_WEEKLY_RUN`` says, or ``None`` when it says nothing.
+
+    An explicit value is a HAND on the switch — the scheduled weekly workflow
+    or a manual dispatch — and is obeyed as-is, cadence ledger or not.
+    """
+    raw = (os.getenv(WEEKLY_RUN_ENV) or "").strip().lower()
+    if raw in _TRUTHY:
+        return True
+    if raw in _FALSY:
+        return False
+    return None
+
+
+def weekly_advisor_due(key: str, now: Optional[datetime] = None) -> bool:
+    """Whether THIS weekly advisor may run, i.e. at most once every 7 days.
+
+    The weekday check behind :func:`weekly_due` is a DAY gate: it opens on
+    every run made that Monday, so four runs a day ran the "weekly" advisors
+    four times a week (``ai_innovation``: 10 runs in 9 days). The ledger in
+    :mod:`ai_assistant.memory` remembers when each weekly advisor last ran and
+    keeps the gate shut until the week is actually over.
+    """
+    override = weekly_env_override()
+    if override is not None:
+        return override
+    if not weekly_due(now):
+        return False
+    return memory.weekly_run_due(key, (now or datetime.now()).date())
+
+
 def trigger_allows(key: str, forced: frozenset, weekly: bool) -> bool:
     """Whether ``key``'s trigger lets it run on this run.
 
@@ -208,7 +239,9 @@ def trigger_allows(key: str, forced: frozenset, weekly: bool) -> bool:
         return True  # unknown advisor: never silenced by a rule about others
     trigger = advisor_trigger(key)
     if trigger == TRIGGER_WEEKLY:
-        return weekly
+        # ``weekly`` is the caller's day answer; the ledger then makes sure a
+        # second run on that same day does not get a second weekly briefing.
+        return weekly and weekly_advisor_due(key)
     if trigger == TRIGGER_USER_REQUESTED:
         return False
     return True  # always, data_triggered, or an unrecognised value: run it
@@ -488,6 +521,12 @@ class OperationsManager:
             key = getattr(advisor, "key", "")
             if trigger_allows(key, forced, weekly):
                 due.append(advisor)
+                if key in ADVISOR_META and advisor_trigger(key) == TRIGGER_WEEKLY:
+                    # Stamp the cadence ledger NOW, before the work: the very
+                    # thing being prevented is the next run of the same day
+                    # asking for this section again.
+                    if not _is_forced(key, forced):
+                        memory.mark_weekly_run(key)
             else:
                 # Only weekly / user_requested can fail this gate, and the two
                 # mean very different things to whoever reads the metrics.
