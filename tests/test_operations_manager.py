@@ -80,6 +80,7 @@ def test_manager_runs_all_advisors_offline(no_config):
         "ai_innovation",
         "kids_development",
         "executive_coaching",
+        "productivity_coach",
         "work_analyst",
         "operations_director",
         "sre_watchdog",

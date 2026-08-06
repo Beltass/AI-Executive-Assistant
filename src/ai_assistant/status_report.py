@@ -325,6 +325,18 @@ _LIVE_ROSTER = (
         data_owner="",
     ),
     _live(
+        "productivity_coach",
+        "Verimlilik Koçu (Odak Blokları · Enerji Yönetimi)",
+        "⏱️",
+        CATEGORY_GROWTH,
+        advisor_class="ProductivityCoachAdvisor",
+        # Gün mimarisi günden güne değişmez: haftada bir kurulur, hafta boyunca
+        # uygulanır. Her sabah tekrarlamak kotayı da dikkati de boşa harcardı.
+        trigger=TRIGGER_WEEKLY,
+        token_ceiling=900,
+        data_owner="",
+    ),
+    _live(
         "work_analyst",
         "İş Analisti Danışmanı",
         "📈",

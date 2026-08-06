@@ -279,6 +279,18 @@ ADVISOR_CHANNELS: Tuple[ChannelSpec, ...] = (
         advisor_key="executive_coaching",
     ),
     ChannelSpec(
+        env_key=advisor_channel_env("productivity_coach"),
+        name="ai-verimlilik-kocu",
+        label="Verimlilik Koçu",
+        purpose=(
+            "Verimlilik Koçu ajanının kanalı. Haftanın odak blok mimarisi, "
+            "enerji eşleşmesi ve gün iskeleti. Takvim OKUNMAZ; yalnızca zaman "
+            "yapısı önerilir."
+        ),
+        topic="⏱️ Odak blokları · enerji eşleşmesi · haftanın iskeleti",
+        advisor_key="productivity_coach",
+    ),
+    ChannelSpec(
         env_key=advisor_channel_env("work_analyst"),
         name="ai-is-analisti",
         label="İş Analisti Danışmanı",
