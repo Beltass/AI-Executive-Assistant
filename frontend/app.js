@@ -3967,11 +3967,13 @@
   /* TAB 9 — 💼 LinkedIn & Etkileşim                                        */
   /* ====================================================================== */
   /*
-   * DATA CONTRACT — ./linkedin.json, written by the LinkedIn integration.
-   * The file does NOT exist yet (no access token), and that is exactly why
-   * every function below treats "absent" as a first-class state instead of
-   * substituting a sample. A demo follower curve would be a claim about an
-   * audience nobody has measured.
+   * DATA CONTRACT — ./linkedin.json.
+   * The LinkedIn API integration was REMOVED: nothing writes this file and
+   * the advisor never publishes. Every function below therefore treats
+   * "absent" as a first-class state instead of substituting a sample. A demo
+   * follower curve would be a claim about an audience nobody has measured.
+   * `published_posts` is kept in the contract but its section is hidden —
+   * the agent cannot publish, so that list can never grow.
    *
    *   {
    *     "schema_version": 1,
@@ -3995,7 +3997,7 @@
    */
 
   var LINKEDIN_EMPTY =
-    "LinkedIn bağlantısı kurulmadı — token bekleniyor.";
+    "LinkedIn API entegrasyonu kaldırıldı — ajan yalnızca öneri üretir.";
 
   function linkedinData() {
     return state.linkedin && typeof state.linkedin === "object"
@@ -4101,7 +4103,7 @@
       }),
       data
         ? "Onay bekleyen paylaşım yok."
-        : LINKEDIN_EMPTY + " Taslaklar bağlantı kurulunca burada listelenecek."
+        : LINKEDIN_EMPTY + " Taslaklar ajan çalıştığında burada listelenecek."
     );
     text($("li-pending-meta"), count ? count + " taslak" : "");
     return rows.filter(function (post) {
@@ -4337,12 +4339,7 @@
 
     show($("li-connection"), !connected);
     if (!connected) {
-      text(
-        $("li-connection-title"),
-        data && data.connection_note
-          ? "LinkedIn bağlantısı bekleniyor"
-          : "LinkedIn bağlantısı kurulmadı"
-      );
+      text($("li-connection-title"), "Otomatik paylaşım devre dışı");
       text(
         $("li-connection-hint"),
         data && data.connection_note ? data.connection_note : ""
@@ -4354,8 +4351,8 @@
       connected && data.generated_at
         ? "Son güncelleme " + relativeTime(data.generated_at) +
             " · veriler LinkedIn API'sinden okundu."
-        : "Aşağıdaki bölümler gerçek veriyle dolar; örnek/sahte gönderi " +
-            "gösterilmez."
+        : "Ajan LinkedIn'e bağlanmaz ve sizin adınıza paylaşım yapmaz; " +
+            "yalnızca öneri üretir. Örnek/sahte gönderi gösterilmez."
     );
 
     var pending = renderLinkedInPending(data);

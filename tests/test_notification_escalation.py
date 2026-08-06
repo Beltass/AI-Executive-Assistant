@@ -1,12 +1,11 @@
-"""Escalation chain tests — Slack DM first, then e-mail, then (paid) SMS.
+"""Escalation chain tests — Slack DM first, then e-mail. That is the whole chain.
 
 What these lock down:
 - Only P0/P1 alerts climb; P2/P3 get the DM and stop.
 - Nothing escalates before ESCALATION_DELAY_MINUTES has passed.
 - An acknowledged alert stops the chain dead.
 - The same alert is never re-sent while its chain is open (state file).
-- SMS is off unless TWILIO_ENABLED is on AND Twilio is configured — and a
-  skipped SMS is reported as a failure, never as a fake success.
+- E-mail is the last rung: once it goes out the chain is exhausted.
 """
 
 from __future__ import annotations
@@ -155,7 +154,7 @@ class TestEscalationTiming:
         assert results[0]["sent"] is True
         assert manager.notification_manager._send_email_alert.called
 
-    def test_sms_is_the_third_rung_and_closes_the_chain(self, tmp_path):
+    def test_email_is_the_last_rung_and_closes_the_chain(self, tmp_path):
         clock = FrozenClock()
         manager = build_manager(tmp_path, clock=clock)
         asyncio.run(
@@ -164,22 +163,19 @@ class TestEscalationTiming:
                 "Kritik",
                 priority="P0",
                 email_to="user@example.com",
-                sms_to="+900000000",
             )
         )
 
         clock.advance(30)
-        asyncio.run(manager.run_escalations())
-        clock.advance(30)
         results = asyncio.run(manager.run_escalations())
 
-        assert [r["channel"] for r in results] == ["sms"]
+        assert [r["channel"] for r in results] == ["email"]
         record = manager.get("alert-4")
         assert record.closed is True
         assert record.closed_reason == "chain_exhausted"
 
-    def test_chain_order_is_slack_email_sms(self):
-        assert ESCALATION_CHAIN == ("slack", "email", "sms")
+    def test_chain_order_is_slack_then_email(self):
+        assert ESCALATION_CHAIN == ("slack", "email")
 
     def test_delay_comes_from_env(self, tmp_path):
         with patch.dict("os.environ", {"ESCALATION_DELAY_MINUTES": "5"}):
@@ -277,129 +273,7 @@ class TestStatePersistence:
         record.stage = 0
         assert record.next_channel == "email"
         record.stage = 1
-        assert record.next_channel == "sms"
-        record.stage = 2
         assert record.next_channel is None
-
-
-class TestSmsGate:
-    """SMS costs money, so it stays shut and says so out loud."""
-
-    def test_sms_is_disabled_by_default(self, tmp_path):
-        notifier = NotificationManager(
-            slack_token=None,
-            twilio_sid="AC123",
-            twilio_token="secret",
-            twilio_phone="+15550000",
-        )
-        with patch.dict("os.environ", {}, clear=False):
-            import os
-
-            os.environ.pop("TWILIO_ENABLED", None)
-            sent = asyncio.run(notifier.send_sms_rest("+900000000", "test"))
-        assert sent is False
-
-    def test_sms_without_credentials_is_false_not_fake_success(self, tmp_path):
-        notifier = NotificationManager(
-            slack_token=None, twilio_sid=None, twilio_token=None, twilio_phone=None
-        )
-        with patch.dict("os.environ", {"TWILIO_ENABLED": "true"}):
-            sent = asyncio.run(notifier.send_sms_rest("+900000000", "test"))
-        assert sent is False
-
-    def test_sms_without_destination_is_false(self):
-        notifier = NotificationManager(
-            slack_token=None,
-            twilio_sid="AC123",
-            twilio_token="secret",
-            twilio_phone="+15550000",
-        )
-        with patch.dict("os.environ", {"TWILIO_ENABLED": "1"}):
-            sent = asyncio.run(notifier.send_sms_rest("", "test"))
-        assert sent is False
-
-    def test_sms_posts_to_twilio_rest_when_enabled(self):
-        notifier = NotificationManager(
-            slack_token=None,
-            twilio_sid="AC123",
-            twilio_token="secret",
-            twilio_phone="+15550000",
-        )
-        captured = {}
-
-        class FakeResponse:
-            status_code = 201
-            text = ""
-
-        class FakeClient:
-            def __init__(self, *args, **kwargs):
-                pass
-
-            async def __aenter__(self):
-                return self
-
-            async def __aexit__(self, *args):
-                return False
-
-            async def post(self, url, auth=None, data=None):
-                captured["url"] = url
-                captured["auth"] = auth
-                captured["data"] = data
-                return FakeResponse()
-
-        import httpx
-
-        with patch.dict("os.environ", {"TWILIO_ENABLED": "true"}), patch.object(
-            httpx, "AsyncClient", FakeClient
-        ):
-            sent = asyncio.run(notifier.send_sms_rest("+900000000", "acil"))
-
-        assert sent is True
-        assert captured["url"].endswith("/Accounts/AC123/Messages.json")
-        assert captured["auth"] == ("AC123", "secret")
-        assert captured["data"]["To"] == "+900000000"
-        assert captured["data"]["From"] == "+15550000"
-
-    def test_twilio_http_error_is_a_failure(self):
-        notifier = NotificationManager(
-            slack_token=None,
-            twilio_sid="AC123",
-            twilio_token="secret",
-            twilio_phone="+15550000",
-        )
-
-        class FakeResponse:
-            status_code = 401
-            text = "unauthorized"
-
-        class FakeClient:
-            def __init__(self, *args, **kwargs):
-                pass
-
-            async def __aenter__(self):
-                return self
-
-            async def __aexit__(self, *args):
-                return False
-
-            async def post(self, *args, **kwargs):
-                return FakeResponse()
-
-        import httpx
-
-        with patch.dict("os.environ", {"TWILIO_ENABLED": "true"}), patch.object(
-            httpx, "AsyncClient", FakeClient
-        ):
-            sent = asyncio.run(notifier.send_sms_rest("+900000000", "acil"))
-        assert sent is False
-
-    def test_no_twilio_sdk_import_is_required(self):
-        """The REST path must not depend on the `twilio` package."""
-        import ai_assistant.integrations.notification_manager as module
-
-        source = open(module.__file__, encoding="utf-8").read()
-        rest = source.split("async def send_sms_rest", 1)[1].split("class Deadline")[0]
-        assert "twilio.rest" not in rest
 
 
 class TestChannelFailures:

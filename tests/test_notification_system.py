@@ -4,7 +4,6 @@ Test coverage:
 - Alert levels and severity
 - Slack alert delivery with buttons
 - Email alert formatting
-- SMS alert delivery (Twilio)
 - Deadline threshold calculations (-1 day, -2 hours, overdue)
 - Timezone handling
 - Task command parsing
@@ -111,18 +110,12 @@ class TestNotificationManager:
     @pytest.fixture
     def manager(self):
         """Create a NotificationManager instance."""
-        return NotificationManager(
-            slack_token="xoxb-test-token",
-            twilio_sid="test_sid",
-            twilio_token="test_token",
-            twilio_phone="+1234567890",
-        )
+        return NotificationManager(slack_token="xoxb-test-token")
 
     def test_notification_manager_init(self, manager):
         """Test NotificationManager initialization."""
         assert manager.slack_token == "xoxb-test-token"
-        assert manager.twilio_sid == "test_sid"
-        assert manager.twilio_phone == "+1234567890"
+        assert manager.slack_client is not None
 
     def test_send_slack_alert(self, manager):
         """Test sending a Slack alert."""
@@ -166,49 +159,6 @@ class TestNotificationManager:
         result = manager._send_email_alert(alert)
         # Result will be False without actual Gmail service, but method shouldn't crash
         assert isinstance(result, bool)
-
-    def test_send_sms_alert_high_level(self, manager):
-        """Test sending SMS for HIGH alert level."""
-        with patch.dict("os.environ", {"PHONE_JOHN": "+1234567890"}):
-            manager.twilio_client = Mock()
-            manager.twilio_client.messages.create = Mock(
-                return_value=Mock(sid="SM1234567890")
-            )
-
-            now = datetime.now(timezone.utc)
-            alert = AlertMessage(
-                task_id="task123",
-                title="SMS Test",
-                deadline=now + timedelta(hours=1),
-                owner="john",
-                level=AlertLevel.HIGH,
-                message="High priority alert",
-                channels=["sms"],
-            )
-
-            result = manager._send_sms_alert(alert)
-            # Result depends on mocking setup
-            assert isinstance(result, bool)
-
-    def test_send_sms_not_sent_for_low_level(self, manager):
-        """Test that SMS is not sent for LOW alert level."""
-        now = datetime.now(timezone.utc)
-        alert = AlertMessage(
-            task_id="task123",
-            title="Low Priority",
-            deadline=now + timedelta(days=5),
-            owner="john",
-            level=AlertLevel.LOW,
-            message="Low priority alert",
-            channels=["sms"],
-        )
-
-        # Create a tracker instance for testing channel logic
-        tracker = DeadlineTracker(manager)
-        channels = tracker._get_channels_for_level(alert.level)
-
-        # SMS should not be in channels for LOW level
-        assert "sms" not in channels
 
 
 class TestDeadlineTracker:
@@ -340,7 +290,6 @@ class TestDeadlineTracker:
         low_channels = tracker._get_channels_for_level(AlertLevel.LOW)
         assert "slack" in low_channels
         assert "email" not in low_channels
-        assert "sms" not in low_channels
 
         medium_channels = tracker._get_channels_for_level(AlertLevel.MEDIUM)
         assert "slack" in medium_channels
@@ -349,12 +298,11 @@ class TestDeadlineTracker:
         high_channels = tracker._get_channels_for_level(AlertLevel.HIGH)
         assert "slack" in high_channels
         assert "email" in high_channels
-        assert "sms" not in high_channels
 
         critical_channels = tracker._get_channels_for_level(AlertLevel.CRITICAL)
         assert "slack" in critical_channels
         assert "email" in critical_channels
-        assert "sms" in critical_channels
+        assert "sms" not in critical_channels
 
     @pytest.mark.asyncio
     async def test_timezone_aware_deadline_check(self):

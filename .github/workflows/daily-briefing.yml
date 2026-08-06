@@ -208,10 +208,6 @@ jobs:
           ASANA_TOKEN: ${{ secrets.ASANA_TOKEN }}
           ASANA_WORKSPACE_ID: ${{ secrets.ASANA_WORKSPACE_ID }}
           ASANA_PROJECT_TEMPLATE: ${{ secrets.ASANA_PROJECT_TEMPLATE }}
-          # LinkedIn integration for job market and professional network updates.
-          # Both required for the sync to work; missing either disables LinkedIn.
-          LINKEDIN_ACCESS_TOKEN: ${{ secrets.LINKEDIN_ACCESS_TOKEN }}
-          LINKEDIN_PROFILE_ID: ${{ secrets.LINKEDIN_PROFILE_ID }}
         run: python -m ai_assistant.notifiers.slack_notifier
 
       # Check task deadlines and send alerts
