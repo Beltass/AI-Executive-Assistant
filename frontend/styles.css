@@ -1397,6 +1397,38 @@ button {
   font-variant-numeric: tabular-nums;
 }
 
+/* Referans (taban) çizgisi — SERİ DEĞİL.
+ *
+ * Bu yüzden kesikli çizilir, kategorik bir seri rengi yerine sönük eksen
+ * mürekkebini giyer ve kendi etiketini taşır: okuyucunun hangi yatay çizginin
+ * hedef olduğunu tahmin etmesi gerekmez. Grafiğin göstergesinde yer almaz. */
+.chart__refline {
+  stroke: var(--text-3);
+  stroke-width: 1.5;
+  stroke-dasharray: 5 4;
+  opacity: 0.85;
+}
+
+.chart__reflabel {
+  fill: var(--text-3);
+  font-size: 10px;
+  font-family: var(--font);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Eksen başlığı: ne ölçülüyor ve hangi birimde.
+ *
+ * Figürün İÇİNDE döndürülmüş bir y başlığı yerine ÜSTÜNDE bir satır metin.
+ * Dikey başlık, tick sütunuyla aynı dar oluk için yarışır, telefon
+ * genişliğinde okunmaz ve ekran okuyucu onu sırasız duyurur. */
+.chart__axis-note {
+  margin: 0 0 var(--s1);
+  font-size: var(--t-xs);
+  line-height: 1.4;
+  color: var(--text-3);
+}
+
 .chart__label {
   fill: var(--text-2);
   font-size: 11px;

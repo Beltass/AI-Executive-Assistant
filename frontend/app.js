@@ -2160,6 +2160,23 @@
     });
   }
 
+  /** Eğilim grafiklerinin penceresi: son 14 çalıştırma (≈ 3,5 gün, 4 slot/gün). */
+  var TREND_RUN_WINDOW = 14;
+
+  /* Kapılar devreye girmeden ÖNCE ölçülen çalıştırma başına ortalama token.
+   * Kaynak: docs/SPRINT_0_AUDIT.md §4 — metrics.json'daki 25 çalıştırmanın
+   * ortalaması. Sabit bir hedef değil, GEÇMİŞTE ÖLÇÜLMÜŞ bir taban; token
+   * eğrisinin altında mı üstünde mi olduğunu görmek tasarrufun tek okunur
+   * hâlidir. Uydurma değil, dosyadan doğrulanabilir. */
+  var TOKEN_BASELINE_PER_RUN = 13941;
+
+  /** Tabanı verir; ölçüm dosyası kendi tabanını taşıyorsa o kazanır. */
+  function baselineTokensPerRun() {
+    var totals = (state.metrics && state.metrics.totals) || {};
+    var stated = num(totals.baseline_tokens_per_run);
+    return stated > 0 ? Math.round(stated) : TOKEN_BASELINE_PER_RUN;
+  }
+
   function renderRecommendations() {
     var host = $("recos");
     host.innerHTML = "";
@@ -2232,6 +2249,161 @@
     text($("attribution-note"), notes.filter(Boolean).join(" "));
   }
 
+  /* --- çalışan vs atlanan ajanlar ---------------------------------------- */
+
+  /* Atlanma nedenleri, `status.json` içindeki serbest metin `detail` alanından
+   * okunur. Bunlar backend'in yazdığı gerçek cümleler; buradaki eşleştirme
+   * SADECE sınıflandırır, yeni bilgi uydurmaz. Tanımadığı bir cümle
+   * "Başka neden" kovasına düşer ve cümlenin kendisi ipucunda görünür. */
+  var SKIP_REASONS = [
+    {
+      key: "not_triggered",
+      name: "Tetiklenmedi",
+      color: "var(--neutral)",
+      test: function (advisor) {
+        return /tetiklenmedi/i.test(advisor.detail || "");
+      }
+    },
+    {
+      key: "nothing_new",
+      name: "Veri değişmedi",
+      color: "var(--series-1)",
+      test: function (advisor) {
+        return advisor.nothing_new === true || /yeni bulgu yok/i.test(advisor.detail || "");
+      }
+    },
+    {
+      key: "not_configured",
+      name: "Yapılandırma eksik",
+      color: "var(--warning)",
+      test: function (advisor) {
+        return !!(advisor.detail || "").trim();
+      }
+    },
+    {
+      key: "unstated",
+      name: "Neden bildirilmedi",
+      color: "var(--serious)",
+      test: function () {
+        return true;
+      }
+    }
+  ];
+
+  function classifySkip(advisor) {
+    for (var i = 0; i < SKIP_REASONS.length; i += 1) {
+      if (SKIP_REASONS[i].test(advisor)) return SKIP_REASONS[i];
+    }
+    return SKIP_REASONS[SKIP_REASONS.length - 1];
+  }
+
+  /** Koşu başına kaç ajan çalıştı / hata verdi / atlandı — yığılmış sütun. */
+  function renderRunOutcomeChart() {
+    var host = $("chart-run-outcome");
+    if (!host || !charts.stackedColumns) return;
+
+    var history = (state.status && Array.isArray(state.status.history))
+      ? state.status.history
+      : [];
+    var recent = history.slice(-TREND_RUN_WINDOW);
+
+    charts.stackedColumns(
+      host,
+      recent.map(function (entry) {
+        return {
+          label: entry.at_istanbul || entry.at || "",
+          short: shortStamp(entry),
+          values: {
+            ok: num(entry.ok),
+            failed: num(entry.failed),
+            skipped: num(entry.skipped)
+          }
+        };
+      }),
+      [
+        { key: "ok", name: "Çalıştı", color: "var(--good)" },
+        { key: "failed", name: "Hata", color: "var(--critical)" },
+        { key: "skipped", name: "Atlandı", color: "var(--neutral)" }
+      ],
+      {
+        aria: "Çalıştırma başına çalışan, hata veren ve atlanan ajan sayısı",
+        axisLabel:
+          "Y ekseni: ajan sayısı (adet) · X ekseni: son " + recent.length +
+          " çalıştırma. Atlanan bir ajan hata değildir — kapı onu bilerek " +
+          "durdurur ve token harcatmaz.",
+        legendLabel: "Ajan sonucu göstergesi",
+        totalLabel: "Ajan toplamı",
+        unit: "ajan",
+        empty: "Henüz çalıştırma geçmişi yok — ilk koşu bekleniyor."
+      }
+    );
+
+    text(
+      $("run-outcome-sub"),
+      recent.length ? "son " + recent.length + " çalıştırma · adet" : ""
+    );
+  }
+
+  /** SON çalıştırmanın atlanma nedenleri. Geçmiş koşular için neden kaydı
+   *  yok; grafiğin altındaki not bunu açıkça söyler, uydurmaz. */
+  function renderSkipReasonChart() {
+    var host = $("chart-skip-reasons");
+    if (!host || !charts.barChart) return;
+
+    var advisors = (state.status && Array.isArray(state.status.advisors))
+      ? state.status.advisors
+      : [];
+
+    var buckets = {};
+    var names = {};
+    var skipped = 0;
+    advisors.forEach(function (advisor) {
+      if (!advisor || advisor.status !== "skipped") return;
+      skipped += 1;
+      var reason = classifySkip(advisor);
+      buckets[reason.key] = (buckets[reason.key] || 0) + 1;
+      names[reason.key] = names[reason.key] || [];
+      names[reason.key].push(advisor.name || advisor.id);
+    });
+
+    charts.barChart(
+      host,
+      SKIP_REASONS.filter(function (reason) {
+        return buckets[reason.key];
+      }).map(function (reason) {
+        return {
+          label: reason.name,
+          value: buckets[reason.key],
+          color: reason.color,
+          note: names[reason.key].join(", ")
+        };
+      }),
+      {
+        sort: "desc",
+        // Ajan sayısı tam sayıdır; eksen 0 · 1,25 · 2,5 gibi kesirli adımlarla
+        // bölünmemeli.
+        integerAxis: true,
+        aria: "Son çalıştırmada atlanma nedenine göre ajan sayısı",
+        axisLabel:
+          "X ekseni: ajan sayısı (adet) · yalnızca SON çalıştırma. " +
+          "Geçmiş koşular için neden kaydı tutulmuyor, o yüzden burada yok.",
+        format: function (value) {
+          return trNumber(value) + " ajan";
+        },
+        empty: advisors.length
+          ? "Son çalıştırmada hiçbir ajan atlanmadı — hepsi çalıştı."
+          : "Henüz ajan durumu yok — ilk koşu bekleniyor."
+      }
+    );
+
+    text(
+      $("skip-reasons-sub"),
+      advisors.length
+        ? skipped + " / " + advisors.length + " ajan atlandı · son çalıştırma"
+        : ""
+    );
+  }
+
   function renderPerfCharts(runs, last) {
     if (!charts.splitBar) return;
 
@@ -2240,9 +2412,13 @@
      * and never one dual-axis chart: overlaying them would invent a
      * correlation the numbers do not contain.
      * ---------------------------------------------------------------------- */
-    var recent = runs.slice(-24);
+    /* 14 çalıştırma ≈ son üç buçuk gün (günde dört slot). 24'te noktalar
+     * telefon genişliğinde birbirine giriyordu ve tabandan sonraki düşüş,
+     * kapılar öncesi platoya karışıyordu. */
+    var recent = runs.slice(-TREND_RUN_WINDOW);
 
     if (charts.lineChart) {
+      var tokenBaseline = baselineTokensPerRun();
       charts.lineChart(
         $("chart-tokens"),
         recent.map(function (run) {
@@ -2254,8 +2430,21 @@
         }),
         {
           name: "Toplam token",
-          aria: "Çalıştırma başına toplam token eğilimi",
+          aria:
+            "Çalıştırma başına toplam token eğilimi; kesikli çizgi kapılar " +
+            "öncesi ölçülen " + trNumber(tokenBaseline) + " token'lık tabandır",
           color: "var(--series-1)",
+          axisLabel:
+            "Y ekseni: çalıştırma başına toplam token (girdi + çıktı + düşünme) · " +
+            "X ekseni: son " + recent.length + " çalıştırma",
+          /* Tabansız bir tasarruf grafiği "iyi mi kötü mü" sorusunu
+           * cevaplamaz. Bu çizgi kapılar devreye girmeden ÖNCEKİ ölçülen
+           * ortalamadır; altında kalan her nokta gerçek bir kazançtır. */
+          refLine: {
+            value: tokenBaseline,
+            label: "taban " + trNumber(tokenBaseline),
+            title: "Kapılar öncesi ölçülen ortalama (25 çalıştırma)"
+          },
           format: function (value) {
             return trNumber(Math.round(value)) + " token";
           }
@@ -2275,12 +2464,18 @@
           name: "Gecikme",
           aria: "Model çağrısı gecikmesi eğilimi",
           color: "var(--series-3)",
+          axisLabel:
+            "Y ekseni: model çağrısı gecikmesi (saniye) · X ekseni: son " +
+            recent.length + " çalıştırma",
           format: function (value) {
             return Math.round(value) + " sn";
           }
         }
       );
     }
+
+    renderRunOutcomeChart();
+    renderSkipReasonChart();
 
     charts.splitBar(
       $("chart-split"),
@@ -2399,9 +2594,15 @@
           };
         }),
         {
+          // Pahalıdan ucuza. `sort` olmadan `limit` gelen sıradaki ilk on
+          // satırı kesiyordu — bu bir "ilk on" değil, sadece ilk ondu.
+          sort: "desc",
           limit: 10,
-          aria: "Ajan başına tahmini token karşılaştırması",
+          aria: "Ajan başına tahmini token karşılaştırması, en pahalıdan en ucuza",
           color: "var(--series-1)",
+          axisLabel:
+            "X ekseni: son " + Math.min(runs.length, 7) +
+            " çalıştırmada harcanan tahmini token (adet) · en pahalı ajan üstte",
           format: function (value) {
             return trNumber(Math.round(value));
           }
@@ -2425,9 +2626,11 @@
             return b.value - a.value;
           }),
         {
+          sort: "desc",
           limit: 10,
           aria: "Ajan başına 1000 token başına üretilen karakter",
           color: "var(--series-3)",
+          axisLabel: "X ekseni: 1.000 token başına üretilen karakter (yüksek olan iyi)",
           format: function (value) {
             return trNumber(Math.round(value)) + " kr.";
           }

@@ -93,6 +93,19 @@
     return 10 * magnitude;
   }
 
+  /** An axis top for a COUNT of things, so every tick lands on a whole number.
+   *
+   * `niceMax` optimises for round magnitudes, which is right for tokens but
+   * wrong for "how many advisors": five advisors over four ticks produced
+   * 0 · 1,25 · 2,5 · 3,75 · 5, printed as 0 · 1 · 3 · 4 · 5 — an axis whose
+   * steps look uneven and whose labels are rounded lies. Snapping the top to a
+   * multiple of the tick count makes every step exact. */
+  function countMax(value, ticks) {
+    var slots = ticks || 4;
+    var top = Math.max(1, Math.ceil(Number(value) || 0));
+    return Math.ceil(top / slots) * slots;
+  }
+
   function compact(value) {
     var n = Number(value) || 0;
     if (Math.abs(n) >= 1000000) return (n / 1000000).toFixed(1).replace(".", ",") + "M";
@@ -243,6 +256,19 @@
     return ul;
   }
 
+  /** The axis caption: what is measured and in which unit.
+   *
+   * Deliberately a DOM node above the figure rather than rotated text inside
+   * it. A vertical y-axis title fights the tick column for the same narrow
+   * gutter, is unreadable at phone width, and screen readers announce it out
+   * of order. A line of muted text is legible everywhere and costs one row. */
+  function axisNote(label) {
+    var p = document.createElement("p");
+    p.className = "chart__axis-note";
+    p.textContent = label;
+    return p;
+  }
+
   var SERIES = ["var(--series-1)", "var(--series-2)", "var(--series-3)", "var(--series-4)",
     "var(--series-5)", "var(--series-6)", "var(--series-7)", "var(--series-8)"];
 
@@ -305,12 +331,20 @@
       var animate = firstPaint(host);
       var H = opts.height || (W < 420 ? 190 : 230);
 
+      /* A reference line only reads as a reference if it is INSIDE the plot,
+       * so its value joins the max calculation. Drawn off the top edge it
+       * would silently stop existing, which is worse than not drawing it. */
+      var ref = opts.refLine && isFinite(opts.refLine.value) ? opts.refLine : null;
+
       var max = niceMax(
-        list.reduce(function (acc, s) {
-          return s.points.reduce(function (m, p) {
-            return Math.max(m, p.value);
-          }, acc);
-        }, 0)
+        Math.max(
+          ref ? ref.value : 0,
+          list.reduce(function (acc, s) {
+            return s.points.reduce(function (m, p) {
+              return Math.max(m, p.value);
+            }, acc);
+          }, 0)
+        )
       );
 
       var tickCount = H < 200 ? 3 : 4;
@@ -345,6 +379,49 @@
       }
       function py(value) {
         return padT + plotH - (value / max) * plotH;
+      }
+
+      /* --- reference line ----------------------------------------------------
+       * A baseline is not a series: it is dashed, it wears the muted axis ink
+       * rather than a categorical hue, and it carries its own written label so
+       * nobody has to guess which horizontal rule is the target. It is drawn
+       * BEFORE the marks so the data always sits on top of it.
+       * -------------------------------------------------------------------- */
+      if (ref) {
+        var refY = padT + plotH - (ref.value / max) * plotH;
+        var refG = group("chart__ref");
+        refG.appendChild(
+          el("line", {
+            class: "chart__refline",
+            x1: padL,
+            x2: W - padR,
+            y1: refY,
+            y2: refY
+          })
+        );
+        var refText = el("text", {
+          class: "chart__reflabel",
+          x: W - padR,
+          // Below the rule when it hugs the top edge, above it otherwise, so
+          // the label never leaves the figure.
+          y: refY - padT < 14 ? refY + 12 : refY - 5,
+          "text-anchor": "end"
+        });
+        refText.textContent = ref.label || fmt(ref.value);
+        refG.appendChild(refText);
+        refG.appendChild(
+          hoverable(
+            el("rect", {
+              class: "chart__hit",
+              x: padL,
+              y: refY - 6,
+              width: plotW,
+              height: 12
+            }),
+            (ref.title || ref.label || "Referans") + "\n" + fmt(ref.value)
+          )
+        );
+        svg.appendChild(refG);
       }
 
       // Area is a wash under a SINGLE series; with more than two lines stacked
@@ -474,6 +551,7 @@
       svg.appendChild(hits);
 
       host.innerHTML = "";
+      if (opts.axisLabel) host.appendChild(axisNote(opts.axisLabel));
       if (list.length > 1 && opts.legend !== false) {
         host.appendChild(
           legendList(
@@ -503,6 +581,16 @@
     var rows = (data || []).filter(function (row) {
       return row && isFinite(row.value);
     });
+    /* Ranking happens BEFORE the cut, otherwise `limit` keeps the first ten
+     * rows in whatever order the caller happened to build them and calls the
+     * result a top-ten. `sort` is opt-in because the vertical variant is
+     * time-ordered, and re-ranking a timeline destroys it. */
+    if (opts.sort === "desc" || opts.sort === "asc") {
+      var dir = opts.sort === "asc" ? 1 : -1;
+      rows = rows.slice().sort(function (a, b) {
+        return (a.value - b.value) * dir;
+      });
+    }
     if (opts.limit) rows = rows.slice(0, opts.limit);
     if (!rows.length) {
       emptyBox(host, opts.empty || "Veri yok.");
@@ -516,11 +604,10 @@
 
     mount(host, function (W) {
       var animate = firstPaint(host);
-      var max = niceMax(
-        rows.reduce(function (acc, row) {
-          return Math.max(acc, row.value);
-        }, 0)
-      );
+      var peak = rows.reduce(function (acc, row) {
+        return Math.max(acc, row.value);
+      }, 0);
+      var max = opts.integerAxis ? countMax(peak, 4) : niceMax(peak);
       var svg;
 
       if (!vertical) {
@@ -672,6 +759,174 @@
       }
 
       host.innerHTML = "";
+      if (opts.axisLabel) host.appendChild(axisNote(opts.axisLabel));
+      host.appendChild(svg);
+    });
+  }
+
+  /* ======================================================================== */
+  /* stackedColumns — composition of a count, per time slot                   */
+  /* ======================================================================== */
+  /*
+   * `rows` is [{ label, short, values: { <key>: number } }] and `series` is
+   * [{ key, name, color }] in a FIXED order — the stacking order is the
+   * legend order is the tooltip order, so the eye never has to re-map.
+   *
+   * This is the right form only when the segments genuinely sum to something
+   * meaningful (here: the advisors in one run). It is not a way to put two
+   * unrelated measures on one axis.
+   */
+
+  function stackedColumns(host, rows, series, options) {
+    var opts = options || {};
+    if (!host) return;
+    var cols = (series || []).filter(function (s) {
+      return s && s.key;
+    });
+    var data = (rows || []).filter(Boolean);
+
+    if (!cols.length || !data.length) {
+      emptyBox(host, opts.empty || "Veri yok.");
+      return;
+    }
+
+    function valueOf(row, key) {
+      var v = row.values ? row.values[key] : 0;
+      return isFinite(v) && v > 0 ? v : 0;
+    }
+
+    var totals = data.map(function (row) {
+      return cols.reduce(function (acc, s) {
+        return acc + valueOf(row, s.key);
+      }, 0);
+    });
+    if (!totals.some(function (t) { return t > 0; })) {
+      emptyBox(host, opts.empty || "Veri yok.");
+      return;
+    }
+
+    var fmt = opts.format || function (v) {
+      return String(v) + (opts.unit ? " " + opts.unit : "");
+    };
+
+    mount(host, function (W) {
+      var animate = firstPaint(host);
+      var H = opts.height || (W < 420 ? 190 : 230);
+      var peak = totals.reduce(function (acc, t) {
+        return Math.max(acc, t);
+      }, 0);
+      var max = opts.integerAxis === false ? niceMax(peak) : countMax(peak, 4);
+
+      var widest = 0;
+      for (var q = 0; q <= 4; q += 1) {
+        widest = Math.max(widest, textWidth(compact((max / 4) * q), 11));
+      }
+      var padL = Math.ceil(widest) + 10;
+      var padR = 8;
+      var padT = 12;
+      var padB = 26; // the tick band lives INSIDE the box, never cropped
+      var plotW = W - padL - padR;
+      var plotH = H - padT - padB;
+
+      var svg = figure(W, H, opts.aria || "Yığılmış çubuk grafik", animate);
+
+      var grid = group("chart__grid-g");
+      for (var t = 0; t <= 4; t += 1) {
+        var gv = (max / 4) * t;
+        var gy = padT + plotH - (gv / max) * plotH;
+        grid.appendChild(el("line", { class: "chart__grid", x1: padL, x2: W - padR, y1: gy, y2: gy }));
+        var tick = el("text", { class: "chart__tick", x: padL - 6, y: gy + 3.5, "text-anchor": "end" });
+        tick.textContent = compact(gv);
+        grid.appendChild(tick);
+      }
+      svg.appendChild(grid);
+
+      var band = plotW / data.length;
+      var colW = Math.min(28, Math.max(4, band - 6));
+      var GAP = 2; // the surface gap that keeps two fills from reading as one
+
+      var marks = group("chart__marks chart__marks--v");
+      var hits = group("chart__hits");
+
+      data.forEach(function (row, index) {
+        var x = padL + band * index + (band - colW) / 2;
+        var cursor = padT + plotH;
+        var stack = cols.filter(function (s) {
+          return valueOf(row, s.key) > 0;
+        });
+
+        stack.forEach(function (s, order) {
+          var h = (valueOf(row, s.key) / max) * plotH;
+          var drawn = Math.max(1, h - (order < stack.length - 1 ? 0 : 0) - (order ? GAP : 0));
+          var top = cursor - h;
+          // Only the crown of the stack gets the rounded data-end; the joints
+          // stay square so the segments still read as one column.
+          var isTop = order === stack.length - 1;
+          marks.appendChild(
+            el("path", {
+              class: "chart__bar",
+              fill: s.color,
+              d: isTop
+                ? columnPath(x, top, colW, Math.max(1, drawn), 4)
+                : "M" + x + " " + top + " h" + colW + " v" + Math.max(1, drawn) + " h" + -colW + " Z"
+            })
+          );
+          cursor = top - GAP;
+        });
+
+        var lines = cols.map(function (s) {
+          return s.name + ": " + fmt(valueOf(row, s.key));
+        });
+        hits.appendChild(
+          hoverable(
+            el("rect", {
+              class: "chart__hit",
+              x: padL + band * index,
+              y: padT,
+              width: band,
+              height: plotH
+            }),
+            (row.label || row.short || "") + "\n" +
+              lines.join("\n") + "\n" +
+              (opts.totalLabel || "Toplam") + ": " + fmt(totals[index])
+          )
+        );
+      });
+
+      svg.appendChild(marks);
+      svg.appendChild(
+        el("line", {
+          class: "chart__axis",
+          x1: padL, x2: W - padR, y1: padT + plotH, y2: padT + plotH
+        })
+      );
+      svg.appendChild(hits);
+
+      // X ticks: thin them out rather than let them overlap into a smear.
+      var every = Math.max(1, Math.ceil(data.length / Math.max(2, Math.floor(plotW / 62))));
+      data.forEach(function (row, index) {
+        if (index % every !== 0 && index !== data.length - 1) return;
+        if (!row.short) return;
+        var xt = el("text", {
+          class: "chart__tick",
+          x: padL + band * index + band / 2,
+          y: H - 8,
+          "text-anchor": "middle"
+        });
+        xt.textContent = clip(row.short, 8);
+        svg.appendChild(xt);
+      });
+
+      host.innerHTML = "";
+      if (opts.axisLabel) host.appendChild(axisNote(opts.axisLabel));
+      host.appendChild(
+        legendList(
+          cols.map(function (s) {
+            return { name: s.name, color: s.color };
+          }),
+          opts.legendLabel || "Grafik göstergesi"
+        )
+      );
       host.appendChild(svg);
     });
   }
@@ -710,9 +965,16 @@
       return;
     }
 
-    parts = parts.slice().sort(function (a, b) {
-      return b.value - a.value;
-    });
+    /* Biggest-first is right when the slices are unordered peers ("which
+     * advisor eats the budget"). It is WRONG when the categories are an
+     * ordered scale: P0 · acil belongs at the top of the legend even when it
+     * is the smallest slice, because the reader scans it as a severity
+     * ladder, not as a ranking. `preserveOrder` keeps the caller's order. */
+    if (!opts.preserveOrder) {
+      parts = parts.slice().sort(function (a, b) {
+        return b.value - a.value;
+      });
+    }
 
     // Past six slices the ring stops being readable and the hues stop being
     // reliably distinguishable — the tail folds into one honest "Diğer".
@@ -1763,6 +2025,7 @@
     /* v2 — responsive (viewBox at measured width), hoverable, empty-safe */
     lineChart: lineChart,
     barChart: barChart,
+    stackedColumns: stackedColumns,
     donutChart: donutChart,
     sparkline: sparkline,
     heatmap: heatmap,
