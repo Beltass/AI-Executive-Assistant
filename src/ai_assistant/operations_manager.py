@@ -73,11 +73,18 @@ SKIP_BATCH_FAILED = "batch_failed"
 #: This advisor's source has not changed since it last reported on it.
 SKIP_DATA_UNCHANGED = "veri_degismedi"
 
-#: This advisor's trigger is not due on this run (weekly / user-requested).
+#: This advisor's trigger is not due on this run. Always carries WHICH trigger
+#: held it back — ``tetiklenmedi(weekly)`` / ``tetiklenmedi(user_requested)``,
+#: see :func:`not_triggered_reason`. A bare ``tetiklenmedi`` says only "a gate
+#: closed", which is exactly the question the reason code exists to answer.
 SKIP_NOT_TRIGGERED = "tetiklenmedi"
 
 #: Incremental run, and the advisor had nothing genuinely new.
 SKIP_NOTHING_NEW = "yeni_bulgu_yok"
+
+#: The advisor ran and reported ``skipped`` itself — no credentials, no source
+#: data, nothing to say. It produced no section, so it is NOT an executed one.
+SKIP_NO_OUTPUT = "cikti_yok"
 
 _SKIP_NOTE = {
     SKIP_BATCH_FAILED: (
@@ -86,7 +93,28 @@ _SKIP_NOTE = {
     ),
     SKIP_DATA_UNCHANGED: "kaynak verisi son çalıştırmadan beri değişmedi",
     SKIP_NOT_TRIGGERED: "bu çalıştırmada tetiklenmedi",
+    SKIP_NOTHING_NEW: "artımlı çalıştırmada yeni bulgu yok",
+    SKIP_NO_OUTPUT: "danışman bu çalıştırmada bölüm üretmedi",
 }
+
+
+def not_triggered_reason(trigger: str) -> str:
+    """``tetiklenmedi(<trigger>)`` — WHICH trigger class closed the gate.
+
+    The dashboard groups skips by reason: lumping a weekly advisor together
+    with a user-requested one hides that the first is simply not Monday while
+    the second needs someone to ask for it.
+    """
+    trigger = str(trigger or "").strip()
+    return f"{SKIP_NOT_TRIGGERED}({trigger})" if trigger else SKIP_NOT_TRIGGERED
+
+
+def skip_note(reason: str) -> str:
+    """Human-readable note for a reason code, parenthetical qualifier and all."""
+    base, _, detail = str(reason or "").partition("(")
+    note = _SKIP_NOTE.get(base) or _SKIP_NOTE.get(str(reason), str(reason))
+    detail = detail.rstrip(")").strip()
+    return f"{note} ({detail})" if detail else note
 
 
 # --- WHO runs on THIS run ----------------------------------------------------
@@ -227,14 +255,33 @@ class Supervision:
     def nothing_new(self) -> List[Briefing]:
         return [b for b in self.briefings if b.nothing_new]
 
+    def __post_init__(self) -> None:
+        # ONE source of truth. A Supervision built straight from briefings (the
+        # chat path, tests) gets its rosters derived from them; a real run hands
+        # both in, already agreeing with the briefing statuses. Either way
+        # `counts` reads the rosters, so the numbers on the dashboard and the
+        # names underneath them can never tell two different stories.
+        if self.executed_advisors or self.skipped_advisors:
+            return
+        for briefing in self.briefings:
+            key = str(getattr(briefing, "key", "") or "")
+            if not key:
+                continue
+            if briefing.status == STATUS_OK:
+                self.executed_advisors.append(key)
+            elif briefing.status == STATUS_SKIPPED:
+                self.skipped_advisors[key] = (
+                    SKIP_NOTHING_NEW
+                    if getattr(briefing, "nothing_new", False)
+                    else SKIP_NO_OUTPUT
+                )
+
     @property
     def counts(self) -> dict:
         return {
-            STATUS_OK: sum(1 for b in self.briefings if b.status == STATUS_OK),
+            STATUS_OK: len(self.executed_advisors),
             STATUS_FAILED: sum(1 for b in self.briefings if b.status == STATUS_FAILED),
-            STATUS_SKIPPED: sum(
-                1 for b in self.briefings if b.status == STATUS_SKIPPED
-            ),
+            STATUS_SKIPPED: len(self.skipped_advisors),
         }
 
     @property
@@ -361,7 +408,7 @@ class OperationsManager:
                 if reason:
                     # Its trigger is not due, or its source has not moved since
                     # the last delivered run. Either way: no prompt, no call.
-                    briefings.append(advisor.skipped(_SKIP_NOTE[reason]))
+                    briefings.append(advisor.skipped(skip_note(reason)))
                     skipped[advisor.key] = reason
                     continue
                 if is_quiet(advisor):
@@ -383,15 +430,24 @@ class OperationsManager:
                         advisor.key,
                         batch.failure_reason or "eksik bölüm",
                     )
-                    briefings.append(advisor.skipped(_SKIP_NOTE[SKIP_BATCH_FAILED]))
+                    briefings.append(advisor.skipped(skip_note(SKIP_BATCH_FAILED)))
                     skipped[advisor.key] = SKIP_BATCH_FAILED
                     continue
                 else:
                     briefings.append(advisor.generate_briefing())
-                executed.append(advisor.key)
+
+                # WHO ran is decided by what came back, not by having reached
+                # this line: an advisor with no credentials returns a `skipped`
+                # briefing, and counting that as executed is what used to make
+                # `advisors_ok` disagree with `executed_advisors`.
+                briefing = briefings[-1]
+                if briefing.status == STATUS_SKIPPED:
+                    skipped[advisor.key] = SKIP_NO_OUTPUT
+                    continue
+                if briefing.status != STATUS_FAILED:
+                    executed.append(advisor.key)
 
                 # After successful advisor run, distribute to integrations
-                briefing = briefings[-1]
                 if briefing.status == STATUS_OK:
                     self._distribute_results(
                         advisor.key,
@@ -433,7 +489,9 @@ class OperationsManager:
             if trigger_allows(key, forced, weekly):
                 due.append(advisor)
             else:
-                not_triggered[key] = SKIP_NOT_TRIGGERED
+                # Only weekly / user_requested can fail this gate, and the two
+                # mean very different things to whoever reads the metrics.
+                not_triggered[key] = not_triggered_reason(advisor_trigger(key))
         if not_triggered:
             logger.info(
                 "tetiklenmediği için atlanan danışmanlar (haftalık slot %s): %s",

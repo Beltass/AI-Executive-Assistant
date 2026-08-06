@@ -336,6 +336,9 @@ def build_run_metrics(
         "fallback_used": bool(getattr(call_stats, "fallback_used", False)),
         "models_tried": int(_num(getattr(call_stats, "models_tried", 0))),
         # --- what came out ---
+        # These three are NOT counted here: `Supervision.counts` derives ok and
+        # skipped from the very rosters written below, so a counter can never
+        # disagree with the names it summarises.
         "advisors_ok": int(counts[STATUS_OK]),
         "advisors_failed": int(counts[STATUS_FAILED]),
         "advisors_skipped": int(counts[STATUS_SKIPPED]),
