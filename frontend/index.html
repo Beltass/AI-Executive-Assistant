@@ -202,6 +202,21 @@
         >
           <span class="tab__icon" aria-hidden="true">📊</span> Analiz
         </button>
+        <button
+          class="tab"
+          id="tab-linkedin"
+          role="tab"
+          type="button"
+          data-tab="linkedin"
+          aria-controls="panel-linkedin"
+          aria-selected="false"
+          tabindex="-1"
+          title="LinkedIn &amp; Etkileşim"
+          aria-label="LinkedIn &amp; Etkileşim"
+        >
+          <span class="tab__icon" aria-hidden="true">💼</span> LinkedIn
+          <span class="tab__badge" id="badge-linkedin" hidden></span>
+        </button>
       </div>
     </nav>
 
@@ -1156,6 +1171,113 @@
             </div>
           </section>
         </div>
+      </section>
+
+      <!-- =================================================================
+           TAB 9 — 💼 LINKEDIN & ETKİLEŞİM
+
+           Bu sekme `linkedin.json`u okur ve o dosya HENÜZ YOK: LinkedIn
+           erişim jetonu alınmadığı için gerçek veri gelmiyor. Bu yüzden
+           burada tek bir örnek gönderi, tek bir uydurma takipçi sayısı
+           YOKTUR — her bölüm kendi boş durumunu söyler ve dosya yazıldığı
+           anda aynı işaretleme veriyle dolar. Uydurulmuş bir etkileşim
+           grafiği, olmayan bir kitleyi varmış gibi gösterirdi.
+           ================================================================= -->
+      <section
+        id="panel-linkedin"
+        role="tabpanel"
+        aria-labelledby="tab-linkedin"
+        tabindex="0"
+        class="stack"
+        hidden
+      >
+        <div id="li-connection" class="state" hidden>
+          <div class="state__icon" aria-hidden="true">🔌</div>
+          <h2 id="li-connection-title">LinkedIn bağlantısı kurulmadı</h2>
+          <p id="li-connection-text">
+            Erişim jetonu (token) bekleniyor. Bağlantı kurulduğunda onay
+            bekleyen paylaşımlar, yayınlananlar, etkileşim ve takipçi eğilimi
+            ile profil sağlığı bu sekmede otomatik dolacak.
+          </p>
+          <p class="state__hint" id="li-connection-hint"></p>
+        </div>
+
+        <p class="section-note" id="li-note"></p>
+
+        <!-- 1 · Onay bekleyen paylaşımlar -->
+        <section aria-labelledby="li-pending-title">
+          <div class="section-head">
+            <h2 id="li-pending-title">1 · Onay bekleyen paylaşımlar</h2>
+            <span class="section-head__meta" id="li-pending-meta"></span>
+          </div>
+          <p class="section-note">
+            Taslak metnin tamamı ve onay durumu. Onay/ret Slack üzerinden
+            verilir; buradaki rozet o kararın aynasıdır.
+          </p>
+          <div class="li-posts" id="li-pending"></div>
+        </section>
+
+        <!-- 2 · Yayınlanan paylaşımlar -->
+        <section aria-labelledby="li-published-title">
+          <div class="section-head">
+            <h2 id="li-published-title">2 · Yayınlanan paylaşımlar</h2>
+            <span class="section-head__meta" id="li-published-meta"></span>
+          </div>
+          <div class="li-posts" id="li-published"></div>
+        </section>
+
+        <!-- 3 · Etkileşim trendi -->
+        <section aria-labelledby="li-engagement-title">
+          <div class="section-head">
+            <h2 id="li-engagement-title">3 · Etkileşim trendi</h2>
+            <span class="section-head__meta" id="li-engagement-meta"></span>
+          </div>
+          <div class="charts charts--2">
+            <div class="chart-card">
+              <div class="chart-card__head">
+                <span class="chart-card__title">Beğeni · yorum · görüntülenme</span>
+                <span class="chart-card__sub" id="li-engagement-sub"></span>
+              </div>
+              <div class="chart" id="chart-li-engagement"></div>
+            </div>
+            <div class="chart-card">
+              <div class="chart-card__head">
+                <span class="chart-card__title">Günlük dökümü</span>
+                <span class="chart-card__sub">başlığa tıklayarak sırala</span>
+              </div>
+              <div id="table-li-engagement"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 4 · Takipçi trendi -->
+        <section aria-labelledby="li-followers-title">
+          <div class="section-head">
+            <h2 id="li-followers-title">4 · Takipçi trendi</h2>
+            <span class="section-head__meta" id="li-followers-meta"></span>
+          </div>
+          <div class="chart-card">
+            <div class="chart-card__head">
+              <span class="chart-card__title">Takipçi sayısı</span>
+              <span class="chart-card__sub" id="li-followers-sub"></span>
+            </div>
+            <div class="chart" id="chart-li-followers"></div>
+          </div>
+        </section>
+
+        <!-- 5 · Profil sağlığı -->
+        <section aria-labelledby="li-profile-title">
+          <div class="section-head">
+            <h2 id="li-profile-title">5 · Profil sağlığı (İK gözünden)</h2>
+            <span class="section-head__meta" id="li-profile-meta"></span>
+          </div>
+          <p class="section-note">
+            Skor ve eksikler, profili bir işe alımcının okuduğu sırayla
+            değerlendirir: başlık, özet, deneyim, beceriler, referanslar.
+          </p>
+          <div class="tiles tiles--4" id="li-profile-tiles"></div>
+          <div class="checklist" id="li-profile-gaps" style="margin-top: var(--s3)"></div>
+        </section>
       </section>
     </main>
 

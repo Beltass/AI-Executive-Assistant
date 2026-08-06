@@ -3344,3 +3344,83 @@ button {
 .badge--source {
   color: var(--text-3);
 }
+
+/* ========================================================================== */
+/* LINKEDIN TAB — paylaşım kartları                                           */
+/* ========================================================================== */
+
+/* Bir gönderi kartı, aksiyon satırından daha uzundur: taslağın TAMAMI okunur
+ * olmalı, çünkü onaylanacak şey kısaltılmış hâli değil. Bu yüzden burada
+ * `line-clamp` yok — kart içeriği kadar uzar. */
+.li-posts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+
+.li-post {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: var(--s4);
+  display: grid;
+  gap: var(--s2);
+  min-width: 0;
+}
+
+/* Bir grid öğesinin varsayılan `min-width: auto`'su içeriği kadar geniş
+ * kalmakta ısrar eder: kırılamayan uzun bir başlık kelimesi kartı, kartla
+ * birlikte sayfayı 390px'de yatay kaydırmaya sokuyordu. `min-width: 0`
+ * öğenin küçülmesine, `overflow-wrap` ise kelimenin kırılmasına izin verir. */
+.li-post > * {
+  min-width: 0;
+}
+
+.li-post__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s3);
+  flex-wrap: wrap;
+}
+
+.li-post__title {
+  font-size: var(--t-md);
+  font-weight: 650;
+  color: var(--text-1);
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.li-post__date {
+  font-size: var(--t-xs);
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+/* Kaynak metindeki satır sonları anlam taşır (LinkedIn gönderisi paragrafla
+ * nefes alır), bu yüzden `pre-wrap`; ama taşmayı önlemek için kelime kırılır. */
+.li-post__body {
+  font-size: var(--t-sm);
+  color: var(--text-2);
+  line-height: 1.65;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  margin: 0;
+}
+
+.li-post__cta {
+  font-size: var(--t-sm);
+  color: var(--text-2);
+  border-left: 2px solid var(--border-strong);
+  padding-left: var(--s3);
+  margin: 0;
+  overflow-wrap: break-word;
+}
+
+.li-post__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+}
