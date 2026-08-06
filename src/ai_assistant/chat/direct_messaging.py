@@ -17,7 +17,7 @@ Dialog Sistemi:
   Bot: Menüyü göster → dialog oluştur → input bekle → analiz → rapor
 
 Configuration:
-    SLACK_NOTIFICATION_METHOD  "push" (varsayılan), "email", veya "sms"
+    SLACK_NOTIFICATION_METHOD  "push" (varsayılan) veya "email"
     DIRECT_MESSAGE_TIMEOUT     Timeout süresi saniyecinsinden (varsayılan: 30)
     ADVISOR_DIALOG_ENABLED     Dialog sistemi aktif mi? (varsayılan: true)
 """
@@ -35,7 +35,6 @@ logger = logging.getLogger(__name__)
 NOTIFICATION_METHOD_ENV = "SLACK_NOTIFICATION_METHOD"
 NOTIFICATION_PUSH = "push"
 NOTIFICATION_EMAIL = "email"
-NOTIFICATION_SMS = "sms"
 
 TIMEOUT_ENV = "DIRECT_MESSAGE_TIMEOUT"
 DEFAULT_TIMEOUT = 30
@@ -113,7 +112,7 @@ class DirectMessenger:
         import os
 
         method = (os.getenv(NOTIFICATION_METHOD_ENV) or "").strip().lower()
-        if method in [NOTIFICATION_PUSH, NOTIFICATION_EMAIL, NOTIFICATION_SMS]:
+        if method in [NOTIFICATION_PUSH, NOTIFICATION_EMAIL]:
             return method
         return NOTIFICATION_PUSH
 
@@ -341,7 +340,7 @@ class DirectMessenger:
     async def send_notification(
         self, user_id: str, notification: str, urgent: bool = False
     ) -> bool:
-        """Bildirim gönder (push/email/SMS).
+        """Bildirim gönder (push/e-posta).
 
         Args:
             user_id: Slack kullanıcı ID'si
@@ -358,8 +357,6 @@ class DirectMessenger:
                 return await self._send_email_notification(
                     user_id, notification, urgent
                 )
-            elif self.notification_method == NOTIFICATION_SMS:
-                return await self._send_sms_notification(user_id, notification, urgent)
 
             return False
 
@@ -401,14 +398,6 @@ class DirectMessenger:
         logger.info(f"E-posta bildirimi (mock): {user_id} -> {text[:50]}")
         return True
 
-    async def _send_sms_notification(
-        self, user_id: str, text: str, urgent: bool
-    ) -> bool:
-        """SMS bildirimi gönder."""
-        # TODO: SMS entegrasyonu (Twilio vb.)
-        logger.info(f"SMS bildirimi (mock): {user_id} -> {text[:50]}")
-        return True
-
     async def fallback_if_offline(
         self, user_id: str, message: str, method_preference: Optional[str] = None
     ) -> bool:
@@ -423,8 +412,8 @@ class DirectMessenger:
             Başarılı mı?
         """
         try:
-            # Fallback sırası: push -> email -> sms
-            methods = [NOTIFICATION_PUSH, NOTIFICATION_EMAIL, NOTIFICATION_SMS]
+            # Fallback sırası: push -> e-posta
+            methods = [NOTIFICATION_PUSH, NOTIFICATION_EMAIL]
 
             for method in methods:
                 if method_preference and method != method_preference:
@@ -439,8 +428,6 @@ class DirectMessenger:
                         await self._send_email_notification(
                             user_id, message, urgent=True
                         )
-                    elif method == NOTIFICATION_SMS:
-                        await self._send_sms_notification(user_id, message, urgent=True)
 
                     logger.info(f"Fallback bildirim gönderildi: {method}")
                     return True

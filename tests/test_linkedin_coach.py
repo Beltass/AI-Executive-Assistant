@@ -149,12 +149,6 @@ class TestLinkedInCoachAdvisor:
             def setting_side_effect(key, default=""):
                 if key == "LINKEDIN_PROFILE_URL":
                     return "https://linkedin.com/in/testuser"
-                elif key == "LINKEDIN_ACCESS_TOKEN":
-                    return "mock_token"
-                elif key == "LINKEDIN_AUTO_PUBLISH":
-                    return "false"
-                elif key == "LINKEDIN_APPROVAL_CHANNEL":
-                    return ""
                 elif key == "LINKEDIN_SECTOR":
                     return "yazılım & bulut teknolojileri"
                 return default
@@ -247,23 +241,22 @@ class TestLinkedInCoachAdvisor:
         assert edited_post.hashtags == new_hashtags
         assert edited_post.cta == new_cta
 
-    def test_publish_post(self, coach, temp_state_dir):
-        """Test publishing an approved post."""
+    def test_the_coach_cannot_publish(self, coach):
+        """The LinkedIn API is gone: nothing here may put a post online."""
+        assert not hasattr(coach, "publish_post")
+        assert not hasattr(coach, "access_token")
+
+    def test_approval_leaves_the_post_a_draft(self, coach, temp_state_dir):
+        """Approval is a bookmark, not a publish trigger."""
         posts = coach.generate_daily_posts()
         post_id = posts[0].id
 
-        # Approve first
-        coach.mark_post_approved(post_id)
+        assert coach.mark_post_approved(post_id) is True
 
-        # Then publish
-        result = coach.publish_post(post_id)
-        assert result is True
-
-        published_post = next(
-            (p for p in coach._load_drafts() if p.id == post_id), None
-        )
-        assert published_post.draft is False
-        assert published_post.posted_at is not None
+        post = next((p for p in coach._load_drafts() if p.id == post_id), None)
+        assert post.approved is True
+        assert post.draft is True
+        assert post.posted_at is None
 
     def test_get_pending_posts(self, coach, temp_state_dir):
         """Test getting posts awaiting approval."""
@@ -354,8 +347,8 @@ class TestLinkedInCoachAdvisor:
         """Test batch section generation."""
         section = coach.batch_section()
 
-        # Should return a batch section when configured
-        if coach.profile_url and coach.access_token:
+        # Should return a batch section when a profile URL is configured
+        if coach.profile_url:
             assert section is not None
             assert section.key == coach.key
             assert section.title == coach.title
@@ -405,18 +398,15 @@ class TestLinkedInCoachAdvisor:
         posts = coach.generate_daily_posts()
         assert len(posts) >= 1
 
-        # Approve first post
+        # Approve first post — it stays a draft, because nothing publishes
         if len(posts) > 0:
             first_post_id = posts[0].id
             coach.mark_post_approved(first_post_id)
 
-            # Publish first post
-            coach.publish_post(first_post_id)
-
-            # Check published post
             all_posts = coach._load_drafts()
-            published = next((p for p in all_posts if p.id == first_post_id), None)
-            assert published.draft is False
+            picked = next((p for p in all_posts if p.id == first_post_id), None)
+            assert picked.approved is True
+            assert picked.draft is True
 
         # Reject second post if exists
         if len(posts) > 1:
@@ -439,9 +429,6 @@ class TestLinkedInCoachIntegration:
             def setting_side_effect(key, default=""):
                 config = {
                     "LINKEDIN_PROFILE_URL": "https://linkedin.com/in/testuser",
-                    "LINKEDIN_ACCESS_TOKEN": "test_token_123",
-                    "LINKEDIN_AUTO_PUBLISH": "false",
-                    "LINKEDIN_APPROVAL_CHANNEL": "#content",
                     "LINKEDIN_SECTOR": "yazılım geliştirme",
                 }
                 return config.get(key, default)
@@ -450,20 +437,17 @@ class TestLinkedInCoachIntegration:
             return LinkedInCoach()
 
     def test_full_workflow_simulation(self, coach_with_config):
-        """Simulate a complete workflow: generate, approve, publish, track."""
+        """Simulate a complete workflow: generate, approve, track."""
         # 1. Generate posts
         posts = coach_with_config.generate_daily_posts()
         assert len(posts) >= 1
 
         post_id = posts[0].id
 
-        # 2. Approve post
+        # 2. Approve post (a bookmark; publishing is the user's job)
         assert coach_with_config.mark_post_approved(post_id) is True
 
-        # 3. Publish post
-        assert coach_with_config.publish_post(post_id) is True
-
-        # 4. Track engagement
+        # 3. Track engagement
         metrics = coach_with_config.track_engagement()
         assert metrics.posts_published >= 0
 

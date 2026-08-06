@@ -126,12 +126,23 @@ class TestNoFakeData:
         block = app.split("TAB 9 — 💼 LinkedIn", 1)[1].split("function renderAll(", 1)[0]
         assert block.count("LINKEDIN_EMPTY") >= 7
 
-    def test_empty_message_names_the_missing_token(self, app):
-        assert "LinkedIn bağlantısı kurulmadı — token bekleniyor." in app
+    def test_empty_message_says_the_integration_is_gone(self, app):
+        assert (
+            "LinkedIn API entegrasyonu kaldırıldı — ajan yalnızca öneri üretir."
+            in app
+        )
 
     def test_connection_state_is_in_the_markup(self, html):
+        """The panel must say out loud that the agent cannot publish."""
         assert 'id="li-connection"' in html
-        assert "token" in html.split('id="li-connection"', 1)[1][:600]
+        block = html.split('id="li-connection"', 1)[1][:800]
+        assert "Otomatik paylaşım devre dışı" in block
+        assert "paylaşmaz" in block
+
+    def test_published_section_is_hidden(self, html):
+        """Nothing can publish, so that list can never fill — keep it hidden."""
+        block = html.split('id="li-published-title"', 1)[0]
+        assert 'aria-labelledby="li-published-title" hidden' in block
 
     def test_no_sample_post_or_follower_count_in_the_source(self, app):
         block = app.split("TAB 9 — 💼 LinkedIn", 1)[1].split("function renderAll(", 1)[0]

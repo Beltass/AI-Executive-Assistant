@@ -12,7 +12,7 @@
       "color": "#4A90E2",
       "dashboard_order": 1,
       "trigger": "always",
-      "token_ceiling": 1600,
+      "token_ceiling": 400,
       "data_owner": "gmail_calendar",
       "slack_target": "#morning-operations"
     },
@@ -68,7 +68,7 @@
       "color": "#1ABC9C",
       "dashboard_order": 5,
       "trigger": "data_triggered",
-      "token_ceiling": 1200,
+      "token_ceiling": 2000,
       "data_owner": "career_feeds",
       "slack_target": "#career-development"
     },
@@ -82,7 +82,7 @@
       "color": "#F5A623",
       "dashboard_order": 6,
       "trigger": "user_requested",
-      "token_ceiling": 1400,
+      "token_ceiling": 2600,
       "data_owner": "market_feeds",
       "slack_target": "#market-intelligence"
     },
@@ -96,7 +96,7 @@
       "color": "#F5A623",
       "dashboard_order": 7,
       "trigger": "data_triggered",
-      "token_ceiling": 1200,
+      "token_ceiling": 1600,
       "data_owner": "complaint_feeds",
       "slack_target": "#complaint-radar"
     },
@@ -166,7 +166,7 @@
       "color": "#9B59B6",
       "dashboard_order": 12,
       "trigger": "weekly",
-      "token_ceiling": 1000,
+      "token_ceiling": 2000,
       "data_owner": "ai_feeds",
       "slack_target": "#ai-innovation"
     },
@@ -180,7 +180,7 @@
       "color": "#34495E",
       "dashboard_order": 13,
       "trigger": "user_requested",
-      "token_ceiling": 800,
+      "token_ceiling": 700,
       "data_owner": "",
       "slack_target": "#kids-development"
     },
@@ -194,7 +194,7 @@
       "color": "#7ED321",
       "dashboard_order": 14,
       "trigger": "weekly",
-      "token_ceiling": 900,
+      "token_ceiling": 500,
       "data_owner": "",
       "slack_target": "#executive-coaching"
     },
@@ -236,7 +236,7 @@
       "color": "#4A90E2",
       "dashboard_order": 17,
       "trigger": "data_triggered",
-      "token_ceiling": 1200,
+      "token_ceiling": 600,
       "data_owner": "run_history",
       "slack_target": "#risk-sentinel"
     },
@@ -292,7 +292,7 @@
       "color": "#4A90E2",
       "dashboard_order": 21,
       "trigger": "always",
-      "token_ceiling": 1600,
+      "token_ceiling": 300,
       "data_owner": "run_briefings",
       "slack_target": "#operations-director"
     },

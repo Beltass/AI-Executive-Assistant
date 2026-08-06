@@ -1,12 +1,11 @@
-"""Notification system for task deadlines via Slack, Email, and SMS.
+"""Notification system for task deadlines via Slack and Email.
 
 Provides multi-channel alert delivery with intelligent scheduling:
 - Slack: Direct messages with interactive buttons
 - Email: HTML-formatted alerts via Gmail
-- SMS: Critical alerts via Twilio
 - Deadline tracking: -1 day, -2 hours, overdue levels
 - Timezone-aware scheduling
-- Escalation: unanswered critical alerts climb Slack DM -> e-mail -> SMS
+- Escalation: unanswered critical alerts climb Slack DM -> e-mail
 """
 
 from __future__ import annotations
@@ -54,7 +53,7 @@ class AlertMessage:
     owner: str
     level: AlertLevel
     message: str
-    channels: List[str]  # ["slack", "email", "sms"]
+    channels: List[str]  # ["slack", "email"]
     description: Optional[str] = None
     priority: int = 3
 
@@ -65,7 +64,6 @@ class NotificationManager:
     Supports:
     - Slack direct messages with interactive buttons
     - Email alerts via Gmail
-    - SMS alerts via Twilio (for HIGH/CRITICAL only)
     - Concurrent delivery with error handling
     """
 
@@ -73,28 +71,18 @@ class NotificationManager:
         self,
         slack_token: Optional[str] = None,
         gmail_creds: Optional[Dict[str, Any]] = None,
-        twilio_sid: Optional[str] = None,
-        twilio_token: Optional[str] = None,
-        twilio_phone: Optional[str] = None,
     ):
         """Initialize NotificationManager.
 
         Args:
             slack_token: Slack bot token for API calls
             gmail_creds: Google service credentials dict
-            twilio_sid: Twilio account SID
-            twilio_token: Twilio auth token
-            twilio_phone: Twilio phone number
         """
         self.slack_token = slack_token or os.getenv("SLACK_BOT_TOKEN")
         self.gmail_creds = gmail_creds
-        self.twilio_sid = twilio_sid or os.getenv("TWILIO_ACCOUNT_SID")
-        self.twilio_token = twilio_token or os.getenv("TWILIO_AUTH_TOKEN")
-        self.twilio_phone = twilio_phone or os.getenv("TWILIO_PHONE_NUMBER")
 
         self.slack_client = None
         self.gmail_service = None
-        self.twilio_client = None
 
         self._init_clients()
 
@@ -124,18 +112,6 @@ class NotificationManager:
             except Exception as e:
                 logger.error(f"Failed to initialize Gmail service: {e}")
 
-        # Twilio client
-        if self.twilio_sid and self.twilio_token:
-            try:
-                from twilio.rest import Client
-
-                self.twilio_client = Client(self.twilio_sid, self.twilio_token)
-                logger.info("Twilio client initialized")
-            except ImportError:
-                logger.warning("twilio not installed; SMS alerts disabled")
-            except Exception as e:
-                logger.error(f"Failed to initialize Twilio client: {e}")
-
     def send_alert_sync(self, alert: AlertMessage) -> Dict[str, bool]:
         """Send alert across multiple channels (synchronous).
 
@@ -152,13 +128,6 @@ class NotificationManager:
 
         if "email" in alert.channels and self.gmail_service:
             results["email"] = self._send_email_alert(alert)
-
-        if (
-            "sms" in alert.channels
-            and self.twilio_client
-            and alert.level in [AlertLevel.HIGH, AlertLevel.CRITICAL]
-        ):
-            results["sms"] = self._send_sms_alert(alert)
 
         return results
 
@@ -316,96 +285,6 @@ class NotificationManager:
             logger.error(f"Email alert error: {e}")
             return False
 
-    def _send_sms_alert(self, alert: AlertMessage) -> bool:
-        """Send SMS alert via Twilio (critical alerts only).
-
-        Args:
-            alert: Alert message
-
-        Returns:
-            True if successful
-        """
-        if not self.twilio_client or not self.twilio_phone:
-            return False
-
-        try:
-            message_text = (
-                f"{alert.level.emoji()} {alert.title} due "
-                f"{alert.deadline.strftime('%Y-%m-%d %H:%M')}"
-            )
-
-            # In production, look up user phone from profile
-            user_phone = os.getenv(f"PHONE_{alert.owner.upper()}")
-            if not user_phone:
-                logger.warning(f"No phone number for {alert.owner}")
-                return False
-
-            message = self.twilio_client.messages.create(
-                body=message_text, from_=self.twilio_phone, to=user_phone
-            )
-
-            logger.info(f"SMS alert sent to {alert.owner} (SID: {message.sid})")
-            return True
-
-        except Exception as e:
-            logger.error(f"SMS alert error: {e}")
-            return False
-
-    async def send_sms_rest(self, to_number: str, body: str) -> bool:
-        """Send one SMS through Twilio's REST API using httpx.
-
-        Deliberately NOT the ``twilio`` SDK: httpx is already a dependency and
-        this is a single POST, so the SDK would be a new package for one call.
-
-        SMS costs money, so it is opt-in twice over: ``TWILIO_ENABLED`` must be
-        truthy AND the account/token/from/to must all be present. When either
-        gate is closed this returns ``False`` — it never reports a send that
-        did not happen.
-        """
-        if not _env_flag("TWILIO_ENABLED", False):
-            logger.info("SMS skipped: TWILIO_ENABLED is off")
-            return False
-        if not (self.twilio_sid and self.twilio_token and self.twilio_phone):
-            logger.info("SMS skipped: Twilio account/token/from number missing")
-            return False
-        if not to_number:
-            logger.info("SMS skipped: no destination number")
-            return False
-
-        try:
-            import httpx
-        except ImportError:  # pragma: no cover - httpx is a hard dependency
-            logger.warning("httpx not installed; SMS disabled")
-            return False
-
-        url = (
-            "https://api.twilio.com/2010-04-01/Accounts/"
-            f"{self.twilio_sid}/Messages.json"
-        )
-        try:
-            async with httpx.AsyncClient(timeout=15.0) as client:
-                response = await client.post(
-                    url,
-                    auth=(self.twilio_sid, self.twilio_token),
-                    data={
-                        "To": to_number,
-                        "From": self.twilio_phone,
-                        "Body": body[:1500],
-                    },
-                )
-            if response.status_code in (200, 201):
-                logger.info("SMS sent via Twilio REST to %s", to_number)
-                return True
-            logger.error(
-                "Twilio REST send failed: HTTP %s %s",
-                response.status_code,
-                getattr(response, "text", "")[:200],
-            )
-            return False
-        except Exception as exc:
-            logger.error("Twilio REST send error: %s", exc)
-            return False
-
 
 class DeadlineTracker:
     """Monitors tasks and sends alerts at appropriate times.
@@ -514,9 +393,7 @@ class DeadlineTracker:
         Returns:
             List of channel names
         """
-        if level == AlertLevel.CRITICAL:
-            return ["slack", "email", "sms"]
-        elif level == AlertLevel.HIGH:
+        if level in (AlertLevel.CRITICAL, AlertLevel.HIGH):
             return ["slack", "email"]
         else:
             return ["slack"]
@@ -538,11 +415,10 @@ class DeadlineTracker:
 #
 #   1. slack  — a Slack DM raises a push notification on the phone and costs
 #               nothing. It is the primary channel for every alert.
-#   2. email  — sent only if the DM went unanswered for
+#   2. email  — the last rung, sent only if the DM went unanswered for
 #               ESCALATION_DELAY_MINUTES (default 30). Uses the Gmail service
-#               NotificationManager already holds.
-#   3. sms    — the loud one. Costs money, so it is OFF unless TWILIO_ENABLED
-#               is truthy, and it is sent via httpx REST (no twilio SDK).
+#               NotificationManager already holds. Once it goes out the chain
+#               is exhausted; there is no paid channel behind it.
 #
 # Two guard rails:
 #   * Only alerts at or above ESCALATION_MIN_PRIORITY (default P1) may climb.
@@ -556,7 +432,7 @@ STATE_DIR = ".assistant_state"
 DEFAULT_ESCALATION_STATE_FILE = f"{STATE_DIR}/escalations.json"
 
 #: Channels in the order they are tried. Index 0 is sent immediately.
-ESCALATION_CHAIN = ("slack", "email", "sms")
+ESCALATION_CHAIN = ("slack", "email")
 
 DEFAULT_ESCALATION_DELAY_MINUTES = 30
 DEFAULT_ESCALATION_MIN_PRIORITY = "P1"
@@ -627,8 +503,8 @@ class EscalationRecord:
     ``stage`` is the index in :data:`ESCALATION_CHAIN` of the channel most
     recently ATTEMPTED, so ``stage=0`` means "the Slack DM went out and we are
     waiting". ``attempts`` keeps the outcome per channel — including the
-    honest ``skipped:<reason>`` entries — because a silent SMS and a sent SMS
-    must not look the same in the state file.
+    honest ``failed:<timestamp>`` entries — because an alert that was never
+    delivered must not look like one that was.
     """
 
     alert_id: str
@@ -670,8 +546,8 @@ class EscalationManager:
     The manager owns no API client of its own: Slack goes through the
     :class:`~ai_assistant.integrations.slack_advisor_bridge.SlackAdvisorBridge`
     (or, absent one, the Slack client :class:`NotificationManager` already
-    built), e-mail goes through that same NotificationManager's Gmail service,
-    and SMS goes through its httpx REST helper.
+    built) and e-mail goes through that same NotificationManager's Gmail
+    service.
     """
 
     def __init__(
@@ -686,7 +562,7 @@ class EscalationManager:
         """Initialize the escalation manager.
 
         Args:
-            notification_manager: Supplies the Slack/Gmail/Twilio plumbing.
+            notification_manager: Supplies the Slack/Gmail plumbing.
             slack_bridge: Optional SlackAdvisorBridge; preferred for DMs.
             state_file: Where the chain state is persisted.
             delay_minutes: Wait between rungs (default ESCALATION_DELAY_MINUTES).
@@ -787,7 +663,6 @@ class EscalationManager:
         priority: Any = "P2",
         slack_target: Optional[str] = None,
         email_to: Optional[str] = None,
-        sms_to: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Send the first rung (Slack DM) and register the chain.
 
@@ -820,7 +695,6 @@ class EscalationManager:
             targets={
                 "slack": slack_target or os.getenv("ESCALATION_SLACK_TARGET", ""),
                 "email": email_to or os.getenv("ESCALATION_EMAIL_TO", ""),
-                "sms": sms_to or os.getenv("ESCALATION_SMS_TO", ""),
             },
         )
 
@@ -920,8 +794,6 @@ class EscalationManager:
                 return await self._send_slack(record)
             if channel == "email":
                 return await self._send_email(record)
-            if channel == "sms":
-                return await self._send_sms(record)
         except Exception as exc:
             logger.error("Escalation %s on %s failed: %s", record.alert_id, channel, exc)
         return False
@@ -961,7 +833,7 @@ class EscalationManager:
         return bool(response.get("ok")) if hasattr(response, "get") else bool(response)
 
     async def _send_email(self, record: EscalationRecord) -> bool:
-        """Second rung: the same Gmail path NotificationManager already uses."""
+        """Last rung: the same Gmail path NotificationManager already uses."""
         target = record.targets.get("email") or ""
         if not target:
             logger.info("Email escalation skipped for %s: no recipient", record.alert_id)
@@ -986,12 +858,6 @@ class EscalationManager:
         return await loop.run_in_executor(
             None, self.notification_manager._send_email_alert, alert
         )
-
-    async def _send_sms(self, record: EscalationRecord) -> bool:
-        """Last rung: paid SMS. Off by default; silence is reported honestly."""
-        target = record.targets.get("sms") or ""
-        body = self._compose(record, "AI Asistan uyarisi: ")
-        return await self.notification_manager.send_sms_rest(target, body)
 
 
 async def notify_with_escalation(

@@ -22,7 +22,7 @@ Tetikleyici sözlüğü: **Her gün** = `always` · **Veri değişince** = `data
 | 5 | 💼 Kariyer Gelişimi | İK, ilanlar, İngilizce, ücretsiz sertifika | Veri değişince | `#career-development` |
 | 6 | 📊 Pazar İstihbaratı | Sektör, YZ, CX ve bankacılık haber akışı | Sadece istediğinizde | `#market-intelligence` |
 | 7 | 📊 Kapsamlı Pazar & Sentiment Analizi | Müşteri şikâyeti, trend, rakip hamlesi | Veri değişince | `#complaint-radar` |
-| 8 | 💼 LinkedIn İmaj Koçu | Profil, post taslağı, etkileşim takibi | Veri değişince | `#linkedin-coach` |
+| 8 | 💼 LinkedIn İmaj Koçu | Profil ve post **taslağı** (paylaşım yapmaz) | Veri değişince | `#linkedin-coach` |
 | 9 | 📱 Sosyal Medya İmaj Koçu | Instagram/Twitter içerik ve marka tutarlılığı | Haftada bir (Pazartesi) | `#social-media-coach` |
 | 10 | 📅 Kişisel Asistan | Takvim, hedefler, ağ ve fırsat takibi | Haftada bir (Pazartesi) | `#personal-assistant` |
 | 11 | 🔬 Raporlama & Veri Analisti | Operasyon verisini yoruma çevirir (Excel/rapor) | Veri değişince | `#data-analyst` |
@@ -122,10 +122,11 @@ Tetikleyici sözlüğü: **Her gün** = `always` · **Veri değişince** = `data
 - **Nasıl tetiklenir:** Besleme değişince otomatik. **Uyumluluk kuralı:** oturum açmaz, otomatik başvuru göndermez — yalnızca malzeme ve link hazırlar.
 
 **💼 LinkedIn İmaj Koçu** (`linkedin_coach`)
-- **Ne yapar:** Profil iyileştirme önerisi, günlük post taslağı, onay iş akışı ve etkileşim takibi.
-- **Girdisi:** LinkedIn (`linkedin`) — `LINKEDIN_PROFILE_URL`, token varsa API.
-- **Çıktısı:** Slack mesajı (`#linkedin-coach`) + onay bekleyen post taslağı.
-- **Nasıl tetiklenir:** Veri değişince otomatik. **Token yoksa mock modda çalışır: taslak üretir, paylaşmaz** (bkz. "Şu an çalışmayan özellikler").
+- **Ne yapar:** Profil iyileştirme önerisi, günlük post **taslağı** ve elle girilen etkileşim ölçümlerinin takibi.
+- **Girdisi:** LinkedIn (`linkedin`) — yalnızca `LINKEDIN_PROFILE_URL` ve `LINKEDIN_SECTOR`.
+- **Çıktısı:** Slack mesajı (`#linkedin-coach`) + taslak içerik önerileri.
+- **Nasıl tetiklenir:** Veri değişince otomatik.
+- **⚠️ Paylaşım YAPMAZ.** LinkedIn API entegrasyonu kaldırıldı: erişim jetonu yok, oturum açılmıyor, hiçbir uç noktaya istek gitmiyor. Ajan yalnızca öneri üretir; beğendiğiniz taslağı **kopyalayıp kendiniz yayımlarsınız**.
 
 **📱 Sosyal Medya İmaj Koçu** (`social_media_coach`)
 - **Ne yapar:** Bio/profil optimizasyonu, içerik takvimi, etkileşim izleme, platformlar arası marka tutarlılığı.
@@ -267,7 +268,7 @@ Pano `frontend/index.html` + `frontend/app.js`; sekme listesi `app.js` içindeki
 | 🔌 Bağlantılar | Entegrasyon sağlığı: Slack, Asana, Drive — gönderim sayıları ve hatalar. |
 | 📬 Gmail | E-posta analizi görünümü. |
 | 🔬 Analiz | Veri Analisti çıktıları, grafikler ve tablolar. |
-| 💼 LinkedIn | LinkedIn koçunun profil/post çıktıları ve onay bekleyenler. |
+| 💼 LinkedIn | LinkedIn koçunun profil önerileri ve taslak içerikleri. Otomatik paylaşım yoktur; "yayınlananlar" bölümü gizlidir. |
 
 **Öncelik rozetleri** (Aksiyon sekmesi, `app.js` içinde tanımlı):
 
@@ -294,8 +295,10 @@ yazar (`P0 · acil`), yani anlam yalnızca renge bırakılmaz. Aksiyon sekmesini
 | Sıra | Kanal | Ne zaman | Not |
 |---|---|---|---|
 | 1 | **Slack DM** | Hemen | Telefona push düşer, ücretsizdir. Her uyarının birincil kanalı. |
-| 2 | **E-posta** | DM `ESCALATION_DELAY_MINUTES` (varsayılan **30 dk**) yanıtsız kalırsa | Gmail servisi üzerinden. |
-| 3 | **SMS** | E-posta da yanıtsız kalırsa | Twilio REST (httpx ile). **Ücretlidir ve varsayılan KAPALI.** |
+| 2 | **E-posta** | DM `ESCALATION_DELAY_MINUTES` (varsayılan **30 dk**) yanıtsız kalırsa | Gmail servisi üzerinden. Zincirin **son basamağı**: buradan sonrası yok. |
+
+> Ücretli **SMS basamağı kaldırıldı**. Twilio entegrasyonu ve `TWILIO_*`
+> ayarları artık kodda yok; zincir iki basamaktan ibarettir.
 
 **İki emniyet kilidi:**
 1. **Öncelik eşiği:** yalnızca `ESCALATION_MIN_PRIORITY` (varsayılan **P1**) ve
@@ -318,9 +321,6 @@ Hedefi boş bırakılan kanal **sessizce atlanır**; sahte başarı dönmez.
 | `ESCALATION_MIN_PRIORITY` | Bu önceliğe kadar olanlar tırmanır | `P1` |
 | `ESCALATION_SLACK_TARGET` | Slack DM hedefi | boş (atlanır) |
 | `ESCALATION_EMAIL_TO` | E-posta hedefi | boş (atlanır) |
-| `ESCALATION_SMS_TO` | SMS hedefi | boş (atlanır) |
-| `TWILIO_ENABLED` | SMS ana anahtarı | `false` |
-| `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_PHONE_NUMBER` | Twilio üçlüsü; biri eksikse SMS gitmez | boş |
 | `NOTIFICATION_ENABLED` | Bildirim sistemi ana anahtarı | `true` |
 | `GMAIL_SENDER_EMAIL` | E-postanın gönderen adresi | `noreply@ai-assistant.com` |
 
@@ -352,6 +352,46 @@ Aşağıdakiler **ölçülmüş** değerlerdir, tahmin değil:
 
 Ajan başına `token_ceiling` manifestte yazılıdır (0 = model çağırmaz:
 `work_analyst` ve `sre_watchdog`).
+
+### Pahalı ajanlar: ölçüm ve düzeltme (31 koşu, 29.07–06.08.2026)
+
+`frontend/metrics.json`ın kendi ölçümlerinden çıkan en pahalı beş ajan ve ne
+yapıldığı. Rakamlar tahmini token payıdır (`attribute_tokens`).
+
+| Ajan | Koşu | Toplam | Koşu başına | Ne yapıldı |
+|---|---:|---:|---:|---|
+| `market_intelligence` | 21 | 93.063 | **4.431** | Zaten `user_requested`. İstem 9.914 → 7.535 karakter; uzunluk hedefi 800-1000 → 550-700 kelime. Tavan 1.400 → 2.600 (gerçekçi). |
+| `ai_innovation` | 10 | 24.695 | 2.469 | Ücretsiz sertifika bloğu `career_development` ile birebir örtüşüyordu → kaldırıldı. Fikir sayısı 4-6 → 3-4, uzunluk 550-750 → 450-600 kelime. |
+| `career_development` | 10 | 24.318 | 2.431 | Çıktı payı token payından yüksek (verimli). Yalnızca uzunluk 700-900 → 550-700 kelimeye çekildi. |
+| `complaint_radar` | 4 | 9.642 | 2.410 | "Pazar trendleri" + "Rakip yöne" blokları `market_intelligence` §1'in tekrarıydı → tek bloğa indi; ölçülemeyen "hacim & mevsimsellik" bloğu kaldırıldı. Sekiz blok → altı. |
+| `morning_operations` | 8 | 1.458 | 182 | Ucuz. Tavanı 1.600'dü — gerçeğin 8 katı; 400'e çekildi. |
+
+Tavanlar da ölçüme göre yeniden ayarlandı: `operations_director` 1.600 → 300
+(ölçüm 46), `executive_coaching` 900 → 500 (331), `risk_sentinel` 1.200 → 600
+(356), `kids_development` 800 → 700 (614). Tavan bir uyarı eşiğidir; gerçeğin
+üç katı bir tavan hiçbir şeyi uyarmaz.
+
+### Hiç çalışmayan ajanlar
+
+31 koşuda **tek bir ölçümü olmayan** ajanlar ve nedeni. Hiçbiri token
+harcamıyor — hepsi model çağrılmadan önce eleniyor — bu yüzden tetikleyicileri
+değiştirilmedi; sorun maliyet değil, **yapılandırma eksiği**:
+
+| Ajan | Neden çalışmıyor |
+|---|---|
+| `communications_calendar` | Google kimliği yok. `always` tetikleyicili ama 31 koşunun hiçbirinde çıktı vermedi. |
+| `meeting_prep`, `drive_insight` | Google kimliği yok. |
+| `data_analyst` | `DATA_ANALYST_*` veri kaynağı tanımlı değil. |
+| `social_guardian` | `SOCIAL_GUARDIAN_RSS_URL` tanımlı değil. |
+| `linkedin_coach` | `LINKEDIN_PROFILE_URL` tanımlı değil. |
+| `social_media_coach`, `productivity_coach`, `learning_curator`, `decision_intelligence` | `weekly` — ölçüm penceresinde haftalık yuvaya denk gelmediler. |
+
+> ⚠️ `weekly` kapısı bir GÜN kapısıdır (`operations_manager.weekly_due`):
+> pazartesi günü yapılan **her** koşuda açılır. Günde 3-4 koşu varsa haftalık
+> bir ajan haftada 3-4 kez çalışır. Ölçümde `ai_innovation` 9 günde 10 kez
+> çalışmıştır. Gerçekten haftada bir istiyorsanız `DIGEST_WEEKLY_RUN`u yalnızca
+> haftalık iş akışında `true` verin; bu kapı henüz koşu başına değil gün
+> başınadır.
 
 ---
 
@@ -442,9 +482,8 @@ Bu bölüm bilinçli olarak dürüsttür. Aşağıdakiler kodda vardır ama **u�
 
 | Özellik | Durum | Ne gerekiyor |
 |---|---|---|
-| **LinkedIn otomatik paylaşım** | ❌ Paylaşmıyor | `LINKEDIN_ACCESS_TOKEN` gerekiyor: LinkedIn OAuth uygulaması + `w_member_social` izni. Token yokken ajan **taslak üretir ama paylaşmaz**. |
+| **LinkedIn otomatik paylaşım** | ❌ **Kaldırıldı** | LinkedIn API entegrasyonu tamamen sökülmüştür. Ajan LinkedIn'e bağlanmaz, oturum açmaz, **hiçbir şey paylaşmaz** — yalnızca profil ve içerik **önerisi/taslağı** üretir; yayımlamayı siz elle yaparsınız. |
 | **Instagram** | ❌ Yayınlamıyor | Graph API için **business/creator hesabı** ve **bağlı bir Facebook sayfası** şart. Şu an yalnızca içerik önerisi üretiliyor. |
-| **SMS bildirimi** | ⚠️ Varsayılan kapalı | Twilio hesabı gerekiyor, **ücretlidir**. `TWILIO_ENABLED=false` varsayılan; açmak için bayrak **ve** Twilio üçlüsü birlikte dolmalı. |
 | **Google Slides sunumu** | ❌ API entegrasyonu yok | Sunum dosyası **üretilmiyor**; yerine kopyala-yapıştır edilebilir slayt taslağı (metin) veriliyor. |
 | **Uçtan uca toplantı akışı** | ⚠️ Doğrulanmadı | Gerçek bir ses dosyasıyla henüz koşulmadı. Ses → transkript → not → hazırlık zinciri kanıtlanmış değil. |
 

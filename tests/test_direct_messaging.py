@@ -7,7 +7,6 @@ from ai_assistant.chat.direct_messaging import (
     DirectMessageResponse,
     NOTIFICATION_PUSH,
     NOTIFICATION_EMAIL,
-    NOTIFICATION_SMS,
 )
 
 
@@ -104,10 +103,8 @@ class TestDirectMessenger:
         messenger = DirectMessenger()
         assert hasattr(messenger, "_send_push_notification")
         assert hasattr(messenger, "_send_email_notification")
-        assert hasattr(messenger, "_send_sms_notification")
         assert callable(messenger._send_push_notification)
         assert callable(messenger._send_email_notification)
-        assert callable(messenger._send_sms_notification)
 
     def test_direct_message_has_optional_thread(self):
         """Test DirectMessage has optional thread_ts."""

@@ -1176,12 +1176,13 @@
       <!-- =================================================================
            TAB 9 — 💼 LINKEDIN & ETKİLEŞİM
 
-           Bu sekme `linkedin.json`u okur ve o dosya HENÜZ YOK: LinkedIn
-           erişim jetonu alınmadığı için gerçek veri gelmiyor. Bu yüzden
-           burada tek bir örnek gönderi, tek bir uydurma takipçi sayısı
-           YOKTUR — her bölüm kendi boş durumunu söyler ve dosya yazıldığı
-           anda aynı işaretleme veriyle dolar. Uydurulmuş bir etkileşim
-           grafiği, olmayan bir kitleyi varmış gibi gösterirdi.
+           LinkedIn API entegrasyonu KALDIRILDI. Ajan artık LinkedIn'e
+           bağlanmaz, hiçbir şey paylaşmaz — yalnızca profil ve içerik
+           ÖNERİSİ üretir; paylaşma işini kullanıcı elle yapar. Bu sekme
+           `linkedin.json`u okur ve o dosya YOKTUR. Bu yüzden burada tek bir
+           örnek gönderi, tek bir uydurma takipçi sayısı YOKTUR — her bölüm
+           kendi boş durumunu söyler. "Yayınlanan paylaşımlar" bölümü, ajan
+           artık paylaşım yapamadığı için gizlenmiştir.
            ================================================================= -->
       <section
         id="panel-linkedin"
@@ -1192,33 +1193,38 @@
         hidden
       >
         <div id="li-connection" class="state" hidden>
-          <div class="state__icon" aria-hidden="true">🔌</div>
-          <h2 id="li-connection-title">LinkedIn bağlantısı kurulmadı</h2>
+          <div class="state__icon" aria-hidden="true">✍️</div>
+          <h2 id="li-connection-title">Otomatik paylaşım devre dışı</h2>
           <p id="li-connection-text">
-            Erişim jetonu (token) bekleniyor. Bağlantı kurulduğunda onay
-            bekleyen paylaşımlar, yayınlananlar, etkileşim ve takipçi eğilimi
-            ile profil sağlığı bu sekmede otomatik dolacak.
+            LinkedIn API entegrasyonu kaldırıldı: ajan LinkedIn'e bağlanmaz ve
+            sizin adınıza <strong>hiçbir şey paylaşmaz</strong>. Yalnızca
+            profil iyileştirme ve içerik önerisi üretir; paylaşma kararı da
+            paylaşma işi de sizde kalır.
           </p>
           <p class="state__hint" id="li-connection-hint"></p>
         </div>
 
         <p class="section-note" id="li-note"></p>
 
-        <!-- 1 · Onay bekleyen paylaşımlar -->
+        <!-- 1 · Ajanın ürettiği taslak öneriler -->
         <section aria-labelledby="li-pending-title">
           <div class="section-head">
-            <h2 id="li-pending-title">1 · Onay bekleyen paylaşımlar</h2>
+            <h2 id="li-pending-title">1 · Taslak içerik önerileri</h2>
             <span class="section-head__meta" id="li-pending-meta"></span>
           </div>
           <p class="section-note">
-            Taslak metnin tamamı ve onay durumu. Onay/ret Slack üzerinden
-            verilir; buradaki rozet o kararın aynasıdır.
+            Ajanın hazırladığı taslak metinler. <strong>Otomatik paylaşım
+            yoktur</strong> — beğendiğiniz taslağı kopyalayıp LinkedIn'de
+            kendiniz yayımlarsınız.
           </p>
           <div class="li-posts" id="li-pending"></div>
         </section>
 
-        <!-- 2 · Yayınlanan paylaşımlar -->
-        <section aria-labelledby="li-published-title">
+        <!-- 2 · Yayınlanan paylaşımlar — GİZLİ.
+             Ajan artık paylaşım yapmadığı için bu bölüm hiçbir zaman
+             dolmaz. İşaretleme, entegrasyon geri gelirse tek satırlık bir
+             değişiklikle canlansın diye yerinde bırakıldı. -->
+        <section aria-labelledby="li-published-title" hidden>
           <div class="section-head">
             <h2 id="li-published-title">2 · Yayınlanan paylaşımlar</h2>
             <span class="section-head__meta" id="li-published-meta"></span>

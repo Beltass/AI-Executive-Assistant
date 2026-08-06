@@ -4,19 +4,18 @@ Türkçe linkedin-focused advisor that manages the user's professional image on
 LinkedIn through:
 
 1. **Profil Optimizasyonu** — LinkedIn profili taraması ve iyileştirme önerileri
-2. **Günlük Post Üretimi** — Sector news + tech developments based daily posts
-3. **Onay İş Akışı** — Draft posts stored in state, Slack approval menu
-4. **Engagement İzleme** — Likes, comments, shares tracking
-5. **İş Arayışı Desteği** — Company posting & recruiting activity detection
+2. **Günlük Taslak Üretimi** — Sector news + tech developments based drafts
+3. **Engagement İzleme** — Kullanıcının elle girdiği ölçümlerin takibi
+4. **İş Arayışı Desteği** — Company posting & recruiting activity detection
 
-This advisor works in MOCK mode initially (no real LinkedIn API), but is
-structured for easy real API integration later.
+ÖNERİ ÜRETİR, PAYLAŞMAZ. The LinkedIn API integration was removed on the
+user's request: this advisor holds no access token, opens no session and calls
+no LinkedIn endpoint. It writes drafts to ``.assistant_state`` and stops there
+— publishing is a human action, done by hand. Everything the advisor cannot
+measure itself (followers, impressions) stays absent rather than invented.
 
 Configuration (via environment):
-    LINKEDIN_ACCESS_TOKEN      OAuth token for LinkedIn API (optional, mock mode)
     LINKEDIN_PROFILE_URL       User's LinkedIn profile URL
-    LINKEDIN_AUTO_PUBLISH      false for manual approval (default)
-    LINKEDIN_APPROVAL_CHANNEL  Slack channel for post approvals
     LINKEDIN_SECTOR            Sector to monitor for job opportunities
 """
 
@@ -37,11 +36,8 @@ from ._llm_base import RICH_BRIEFING_GUIDE
 
 logger = logging.getLogger(__name__)
 
-# Configuration keys
-ENV_ACCESS_TOKEN = "LINKEDIN_ACCESS_TOKEN"
+# Configuration keys. No token key: the advisor never authenticates anywhere.
 ENV_PROFILE_URL = "LINKEDIN_PROFILE_URL"
-ENV_AUTO_PUBLISH = "LINKEDIN_AUTO_PUBLISH"
-ENV_APPROVAL_CHANNEL = "LINKEDIN_APPROVAL_CHANNEL"
 ENV_SECTOR = "LINKEDIN_SECTOR"
 
 # Default configuration values
@@ -201,10 +197,7 @@ class LinkedInCoach(Advisor):
     def __init__(self):
         """Initialize the LinkedIn Coach."""
         self._ensure_state_dir()
-        self.access_token = setting(ENV_ACCESS_TOKEN, "")
         self.profile_url = setting(ENV_PROFILE_URL, "")
-        self.auto_publish = setting(ENV_AUTO_PUBLISH, "false").lower() == "true"
-        self.approval_channel = setting(ENV_APPROVAL_CHANNEL, "")
         self.sector = setting(ENV_SECTOR, DEFAULT_SECTOR)
 
     def _generate(self) -> Briefing:
@@ -225,11 +218,12 @@ class LinkedInCoach(Advisor):
             if profile:
                 sections.append(self._format_profile_section(profile))
 
-            # 2. Pending approvals
+            # 2. Drafts waiting for the user to post them by hand
             if pending_posts:
                 sections.append(
-                    f"\n## 📋 Onay Bekleyen Postlar\n\n"
-                    f"{len(pending_posts)} post yayınlanmayı bekliyor."
+                    f"\n## 📋 Taslak İçerik Önerileri\n\n"
+                    f"{len(pending_posts)} taslak hazır. Otomatik paylaşım "
+                    f"yoktur — beğendiğinizi kopyalayıp kendiniz yayımlayın."
                 )
 
             # 3. Recent engagement summary
@@ -253,10 +247,11 @@ class LinkedInCoach(Advisor):
     def batch_section(self) -> Optional[BatchSection]:
         """Return optional LLM work for post generation.
 
-        Only contributes to batch if user has LinkedIn configured and we have
-        sector news to work with.
+        Only contributes to batch if the user has a profile URL configured.
+        The output is a DRAFT for the user to post by hand; nothing here
+        reaches LinkedIn.
         """
-        if not self.profile_url or not self.access_token:
+        if not self.profile_url:
             return None
 
         # In a real implementation, fetch sector news here
@@ -391,7 +386,11 @@ class LinkedInCoach(Advisor):
             return []
 
     def mark_post_approved(self, post_id: str) -> bool:
-        """Mark a post as approved (ready to publish).
+        """Mark a draft as "I like this one".
+
+        This is a bookmark, not a publish trigger: nothing in this module can
+        put a post on LinkedIn. The flag only survives so the user can tell
+        the drafts they picked apart from the ones they have not read yet.
 
         Args:
             post_id: ID of the post to approve
@@ -473,33 +472,6 @@ class LinkedInCoach(Advisor):
             return False
         except Exception as exc:
             logger.error("Post düzenleme hatası: %s", exc)
-            return False
-
-    def publish_post(self, post_id: str) -> bool:
-        """Publish an approved post (mock implementation).
-
-        In a real implementation, this would call LinkedIn's Share API.
-        For now, it just marks it as posted in local storage.
-
-        Args:
-            post_id: ID of the post to publish
-
-        Returns:
-            True if success, False otherwise
-        """
-        try:
-            posts = self._load_drafts()
-            for post in posts:
-                if post.id == post_id and post.approved:
-                    post.draft = False
-                    post.posted_at = datetime.utcnow().isoformat()
-                    self._save_drafts(posts)
-                    logger.info("Post %s yayınlandı", post_id)
-                    return True
-            logger.warning("Post %s onaylı değil", post_id)
-            return False
-        except Exception as exc:
-            logger.error("Post yayınlama hatası: %s", exc)
             return False
 
     # -- Profile Management ---------------------------------------------------
