@@ -337,6 +337,20 @@ _LIVE_ROSTER = (
         data_owner="",
     ),
     _live(
+        "learning_curator",
+        "Öğrenme Küratörü (Beceri Boşluğu · Öğrenme Sırası)",
+        "🪜",
+        CATEGORY_GROWTH,
+        advisor_class="LearningCuratorAdvisor",
+        # Bir öğrenme sırası günden güne değişmez: haftada bir kurulur, hafta
+        # boyunca uygulanır. ``career_development``dan farkı burada da geçerli —
+        # o pazarı (ilan, başvuru) izler ve veri tetiklemelidir; bu bölüm
+        # müfredat kurar, kendi verisi yoktur.
+        trigger=TRIGGER_WEEKLY,
+        token_ceiling=1000,
+        data_owner="",
+    ),
+    _live(
         "risk_sentinel",
         "Risk Nöbetçisi (Erken Uyarı · Eşik Aşımı)",
         "📉",

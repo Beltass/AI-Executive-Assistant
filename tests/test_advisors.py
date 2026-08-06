@@ -100,6 +100,7 @@ EXPECTED_ADVISOR_KEYS = [
     "kids_development",
     "executive_coaching",
     "productivity_coach",
+    "learning_curator",
     "risk_sentinel",
     "decision_intelligence",
     "social_guardian",
@@ -111,7 +112,7 @@ EXPECTED_ADVISOR_KEYS = [
 
 def test_all_advisors_discovered():
     advisors = all_advisors()
-    assert len(advisors) == 21
+    assert len(advisors) == 22
     assert [a.key for a in advisors] == EXPECTED_ADVISOR_KEYS
 
 

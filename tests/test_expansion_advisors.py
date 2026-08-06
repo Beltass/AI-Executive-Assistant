@@ -29,6 +29,7 @@ NEW_ADVISORS = (
     ("risk_sentinel", status_report.TRIGGER_DATA),
     ("decision_intelligence", status_report.TRIGGER_WEEKLY),
     ("social_guardian", status_report.TRIGGER_DATA),
+    ("learning_curator", status_report.TRIGGER_WEEKLY),
 )
 
 _LLM_ENV = ("GEMINI_API_KEY", "OPENAI_API_KEY")
@@ -303,3 +304,91 @@ def test_decision_intelligence_appends_its_caveat_to_the_batched_text():
     briefing = module.DecisionIntelligenceAdvisor().briefing_from_batch("gövde")
     assert briefing.text.startswith("gövde")
     assert module.CAVEAT in briefing.text
+
+
+# --- learning_curator: SIRA, iş fırsatı DEĞİL -------------------------------
+
+
+def test_learning_curator_admits_it_does_not_know_the_starting_point(monkeypatch):
+    """Beceri bildirilmediyse sıfır noktasını uydurmaz."""
+    from ai_assistant.advisors import learning_curator as module
+
+    for var in (module.SKILLS_ENV, module.TARGET_ROLE_ENV, module.WEEKLY_HOURS_ENV):
+        monkeypatch.delenv(var, raising=False)
+
+    block = module.context_block()
+    assert "BİLDİRİLMEDİ" in block
+    assert module.current_skills() == []
+    assert module.target_role() == ""
+    # Hedef rol yoksa bir rol UYDURULMAZ, varsayım olduğu söylenir.
+    assert "VARSAYIM" in block
+
+
+def test_learning_curator_uses_the_configured_skills_and_budget(monkeypatch):
+    from ai_assistant.advisors import learning_curator as module
+
+    monkeypatch.setenv(module.SKILLS_ENV, "SQL, Excel , ekip yönetimi")
+    monkeypatch.setenv(module.TARGET_ROLE_ENV, "veri analitiği yöneticisi")
+    monkeypatch.setenv(module.WEEKLY_HOURS_ENV, "5")
+
+    assert module.current_skills() == ["SQL", "Excel", "ekip yönetimi"]
+    assert module.weekly_hours() == 5
+    block = module.context_block()
+    assert "SQL" in block
+    assert "veri analitiği yöneticisi" in block
+    assert "5 saat" in block
+
+
+def test_learning_curator_weekly_hours_falls_back_on_nonsense(monkeypatch):
+    from ai_assistant.advisors import learning_curator as module
+
+    monkeypatch.setenv(module.WEEKLY_HOURS_ENV, "haftada bolca")
+    assert module.weekly_hours() == module.DEFAULT_WEEKLY_HOURS
+    monkeypatch.setenv(module.WEEKLY_HOURS_ENV, "0")
+    assert module.weekly_hours() == module.DEFAULT_WEEKLY_HOURS
+
+
+def test_learning_curator_prompt_draws_the_line_at_career_development(monkeypatch):
+    """``career_development`` ile örtüşme prompt düzeyinde YASAKLANMIŞ olmalı.
+
+    Kariyer danışmanı FIRSAT sunar (ilan, başvuru, sertifika duyurusu);
+    küratör SIRA kurar. İkisi bir maddede buluşmamalı.
+    """
+    from ai_assistant.advisors import learning_curator as module
+
+    for var in (module.SKILLS_ENV, module.TARGET_ROLE_ENV, module.WEEKLY_HOURS_ENV):
+        monkeypatch.delenv(var, raising=False)
+
+    advisor = module.LearningCuratorAdvisor()
+    prompt = advisor.user_prompt
+    assert "İş ilanı" in prompt
+    assert "YAZMA" in prompt
+    assert "sıra" in prompt.lower()
+    assert "ön koşul" in prompt.lower()
+    assert "SENİN İŞİN DEĞİL" in module.SYSTEM_PROMPT
+    # Panoya yazılabilir: kişisel veri okumaz.
+    assert advisor.private is False
+    assert advisor.incremental_source is False
+
+
+def test_learning_curator_manifest_record_is_complete():
+    """Manifest bütünlüğü: kayıt, modül, sınıf ve Slack rotası birlikte var."""
+    from ai_assistant.advisors import all_advisors
+    from ai_assistant.integrations.slack_setup import ADVISOR_CHANNELS
+
+    record = status_report.ADVISOR_META["learning_curator"]
+    assert record["status"] == status_report.ADVISOR_LIVE
+    assert record["trigger"] == status_report.TRIGGER_WEEKLY
+    assert record["token_ceiling"] > 0
+    # Kendi verisi yok: haftalık ritim parçası, veri tetiklemeli değil.
+    assert record["data_owner"] == ""
+    assert record["dashboard_order"] > 0
+    assert record["slack_target"] == "#learning-curator"
+
+    advisor = _build("learning_curator")
+    assert advisor.key == "learning_curator"
+    assert advisor.title == record["title"]
+    assert "learning_curator" in [a.key for a in all_advisors()]
+    assert any(
+        spec.advisor_key == "learning_curator" for spec in ADVISOR_CHANNELS
+    )

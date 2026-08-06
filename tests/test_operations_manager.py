@@ -81,6 +81,7 @@ def test_manager_runs_all_advisors_offline(no_config):
         "kids_development",
         "executive_coaching",
         "productivity_coach",
+        "learning_curator",
         "risk_sentinel",
         "decision_intelligence",
         "social_guardian",
