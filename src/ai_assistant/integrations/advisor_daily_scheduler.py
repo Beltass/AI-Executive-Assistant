@@ -14,9 +14,11 @@ Schedule:
 
 from __future__ import annotations
 
+import argparse
 import asyncio
 import logging
 import os
+import sys
 from datetime import datetime, time
 from typing import List, Optional, Dict, Any, Callable, Awaitable
 
@@ -364,3 +366,150 @@ class AdvisorUpdateTask:
         """Mark task as successful."""
         self.last_error = None
         logger.info(f"Task for {self.advisor_key} completed successfully")
+
+
+# =============================================================================
+# CLI entrypoint
+# =============================================================================
+
+
+def build_report_generators(
+    advisor_keys: List[str],
+) -> Dict[str, Callable[[], Awaitable[Dict[str, Any]]]]:
+    """Build report generators backed by the real advisor team.
+
+    Each generator runs the advisor's ``generate_briefing()`` in a worker
+    thread (the advisors are synchronous) and shapes the result into the report
+    dict the scheduler expects.
+
+    Args:
+        advisor_keys: Advisor keys to build generators for.
+
+    Returns:
+        Dict of ``{advisor_key: async generator}``. Keys with no matching live
+        advisor are omitted.
+    """
+    from ..advisors import all_advisors
+
+    try:
+        advisors = {a.key: a for a in all_advisors()}
+    except Exception as e:
+        logger.error(f"Failed to build advisor team: {e}")
+        return {}
+
+    generators: Dict[str, Callable[[], Awaitable[Dict[str, Any]]]] = {}
+
+    for key in advisor_keys:
+        advisor = advisors.get(key)
+        if advisor is None:
+            logger.warning(f"No live advisor named '{key}', skipping")
+            continue
+
+        def make_generator(adv: Any) -> Callable[[], Awaitable[Dict[str, Any]]]:
+            async def generate() -> Dict[str, Any]:
+                briefing = await asyncio.to_thread(adv.generate_briefing)
+                return {
+                    "summary": briefing.text,
+                    "status": briefing.status,
+                    "drive_links": {},
+                    "timestamp": datetime.now(),
+                }
+
+            return generate
+
+        generators[key] = make_generator(advisor)
+
+    return generators
+
+
+def build_slack_bridge() -> Optional[Any]:
+    """Build a SlackAdvisorBridge, or None when Slack is not configured."""
+    from .slack_advisor_bridge import SlackAdvisorBridge, build_slack_client
+
+    slack_client = build_slack_client()
+    if slack_client is None:
+        return None
+    return SlackAdvisorBridge(slack_client=slack_client)
+
+
+async def run_once() -> int:
+    """Run one pass of the daily advisor updates. Returns a process exit code."""
+    slack_bridge = build_slack_bridge()
+    if slack_bridge is None:
+        logger.warning(
+            "SKIPPED: Slack is not configured (SLACK_BOT_TOKEN missing or slack_sdk "
+            "unavailable) — no daily advisor updates sent."
+        )
+        return 0
+
+    scheduler = AdvisorDailyScheduler(slack_bridge=slack_bridge)
+
+    for key, generator in build_report_generators(scheduler.advisors_to_update).items():
+        scheduler.register_report_generator(key, generator)
+
+    if not scheduler.report_generators:
+        logger.error(
+            "No report generators could be built for %s — nothing to send",
+            scheduler.advisors_to_update,
+        )
+        return 1
+
+    results = await scheduler.schedule_advisor_updates()
+    if results and not any(results.values()):
+        logger.error("Every advisor update failed: %s", results)
+        return 1
+
+    return 0
+
+
+def build_arg_parser() -> argparse.ArgumentParser:
+    """Build the CLI argument parser."""
+    parser = argparse.ArgumentParser(
+        prog="python -m ai_assistant.integrations.advisor_daily_scheduler",
+        description="Send daily advisor updates to Slack.",
+    )
+    parser.add_argument(
+        "--loop",
+        action="store_true",
+        help="Stay resident and run at the scheduled hour every day.",
+    )
+    return parser
+
+
+async def run_loop() -> int:
+    """Run the resident scheduler loop. Returns a process exit code."""
+    slack_bridge = build_slack_bridge()
+    if slack_bridge is None:
+        logger.warning(
+            "SKIPPED: Slack is not configured — scheduler loop not started."
+        )
+        return 0
+
+    scheduler = AdvisorDailyScheduler(slack_bridge=slack_bridge)
+    for key, generator in build_report_generators(scheduler.advisors_to_update).items():
+        scheduler.register_report_generator(key, generator)
+
+    await scheduler.start_scheduler()
+    return 0
+
+
+def main(argv: Optional[List[str]] = None) -> int:
+    """CLI entrypoint. Returns an exit code (0 ok / 1 failure)."""
+    logging.basicConfig(
+        level=os.getenv("LOG_LEVEL", "INFO"),
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    )
+    args = build_arg_parser().parse_args(argv)
+
+    try:
+        return asyncio.run(run_loop() if args.loop else run_once())
+    except KeyboardInterrupt:
+        logger.info("Scheduler interrupted")
+        return 0
+    except Exception:
+        logger.exception("advisor daily scheduler failed")
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -18,13 +18,16 @@ Thread Format:
 
 from __future__ import annotations
 
+import argparse
 import asyncio
 import json
 import logging
 import os
+import re
+import sys
 from dataclasses import dataclass, asdict
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Callable, Awaitable
+from typing import Any, Dict, List, Optional, Tuple, Callable, Awaitable
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -44,6 +47,120 @@ ADVISOR_DESCRIPTIONS = {
     "social_media_coach": "Sosyal medya stratejisi, içerik planlama, platform optimizasyonu",
     "personal_assistant": "Günlük planlama, görev takibi, hedefler, takvim yönetimi",
 }
+
+# Turkish/short aliases users are likely to type instead of the canonical key.
+# Keys are normalised (lowercase, no spaces/dots/dashes) before lookup.
+ADVISOR_ALIASES: Dict[str, str] = {
+    "data_analyst": "data_analyst",
+    "dataanalyst": "data_analyst",
+    "veri_analisti": "data_analyst",
+    "verianalisti": "data_analyst",
+    "veri": "data_analyst",
+    "analist": "data_analyst",
+    "linkedin_coach": "linkedin_coach",
+    "linkedincoach": "linkedin_coach",
+    "linkedin": "linkedin_coach",
+    "linkedin_kocu": "linkedin_coach",
+    "linkedinkocu": "linkedin_coach",
+    "social_media_coach": "social_media_coach",
+    "socialmediacoach": "social_media_coach",
+    "sosyal_medya_kocu": "social_media_coach",
+    "sosyalmedyakocu": "social_media_coach",
+    "sosyal": "social_media_coach",
+    "sosyalmedya": "social_media_coach",
+    "personal_assistant": "personal_assistant",
+    "personalassistant": "personal_assistant",
+    "kisisel_asistan": "personal_assistant",
+    "kisiselasistan": "personal_assistant",
+    "asistan": "personal_assistant",
+}
+
+# `@name` at the start of a word. Slack user mentions look like `<@U123>` and are
+# stripped first so a bot mention never gets mistaken for an advisor name.
+_SLACK_USER_MENTION_RE = re.compile(r"<@[A-Z0-9]+>")
+_MENTION_RE = re.compile(r"(?:^|\s)@([\wÀ-ɏ]+)", re.UNICODE)
+
+# Turkish characters folded to ASCII so `@kişisel_asistan` matches too.
+_TR_FOLD = str.maketrans(
+    {
+        "ı": "i",
+        "İ": "i",
+        "ş": "s",
+        "Ş": "s",
+        "ğ": "g",
+        "Ğ": "g",
+        "ü": "u",
+        "Ü": "u",
+        "ö": "o",
+        "Ö": "o",
+        "ç": "c",
+        "Ç": "c",
+    }
+)
+
+
+def normalize_advisor_name(name: str) -> str:
+    """Normalise a raw mention token so it can be looked up in ADVISOR_ALIASES."""
+    folded = name.strip().translate(_TR_FOLD).lower()
+    return re.sub(r"[^a-z0-9_]", "", folded)
+
+
+def resolve_advisor_key(name: str) -> Optional[str]:
+    """Map a raw mention token to a known advisor key, or None if unknown."""
+    normalized = normalize_advisor_name(name)
+    if not normalized:
+        return None
+    if normalized in ADVISOR_NAMES:
+        return normalized
+    key = ADVISOR_ALIASES.get(normalized)
+    if key:
+        return key
+    # Also accept the alias written without underscores (e.g. "veri analisti").
+    return ADVISOR_ALIASES.get(normalized.replace("_", ""))
+
+
+def parse_advisor_mention(text: str) -> Tuple[Optional[str], Optional[str], str]:
+    """Parse an ``@advisor`` mention out of a Slack message.
+
+    Args:
+        text: Raw Slack message text.
+
+    Returns:
+        ``(advisor_key, raw_mention, remaining_message)``:
+        - ``advisor_key`` is the resolved advisor, or ``None`` when the mention
+          names an advisor we do not know (or there is no mention at all).
+        - ``raw_mention`` is the literal token the user typed after ``@``, or
+          ``None`` when the message contains no ``@mention``.
+        - ``remaining_message`` is the message with the advisor mention removed.
+    """
+    if not text:
+        return None, None, ""
+
+    cleaned = _SLACK_USER_MENTION_RE.sub(" ", text)
+
+    for match in _MENTION_RE.finditer(cleaned):
+        raw = match.group(1)
+        key = resolve_advisor_key(raw)
+        if key:
+            remainder = (cleaned[: match.start()] + " " + cleaned[match.end() :]).strip()
+            return key, raw, remainder
+        # First mention is unknown — report it so the user gets a help message.
+        remainder = (cleaned[: match.start()] + " " + cleaned[match.end() :]).strip()
+        return None, raw, remainder
+
+    return None, None, cleaned.strip()
+
+
+def build_advisor_help_message(unknown_name: Optional[str] = None) -> str:
+    """Message listing the advisors that can be mentioned."""
+    lines = []
+    if unknown_name:
+        lines.append(f"❓ `@{unknown_name}` diye bir danışman yok.")
+    lines.append("Çağırabileceğin danışmanlar:")
+    for key, name in ADVISOR_NAMES.items():
+        lines.append(f"• `@{key}` — {name}: {ADVISOR_DESCRIPTIONS.get(key, '')}")
+    lines.append("Örnek: `@data_analyst son satış verisini özetler misin?`")
+    return "\n".join(lines)
 
 
 @dataclass
@@ -245,6 +362,78 @@ class SlackAdvisorBridge:
             except Exception as post_error:
                 logger.error(f"Failed to post error message: {post_error}")
             return None
+
+    async def handle_mention(
+        self,
+        user_id: str,
+        text: str,
+        channel: Optional[str] = None,
+        thread_ts: Optional[str] = None,
+    ) -> Optional[str]:
+        """Route an ``@advisor`` mention in a Slack message to the right advisor.
+
+        Args:
+            user_id: Slack user ID of the author.
+            text: Raw Slack message text (may contain ``<@Uxxxx>`` bot mention).
+            channel: Channel the message came from (replies go back here).
+            thread_ts: Thread to reply in, when the mention was inside a thread.
+
+        Returns:
+            The request ID when the message was routed, otherwise ``None``
+            (no mention found, or the advisor name was not recognised).
+        """
+        advisor_key, raw_mention, remainder = parse_advisor_mention(text)
+
+        if advisor_key is None:
+            if raw_mention is None:
+                # No @mention at all — nothing to route.
+                return None
+            logger.info("Unknown advisor mention '@%s' from %s", raw_mention, user_id)
+            await self._post_reply(
+                channel or user_id,
+                build_advisor_help_message(raw_mention),
+                thread_ts,
+            )
+            return None
+
+        if not remainder:
+            logger.info(
+                "Empty request for advisor %s from %s, sending capabilities",
+                advisor_key,
+                user_id,
+            )
+            await self._post_reply(
+                channel or user_id,
+                f"{ADVISOR_NAMES[advisor_key]} burada. "
+                f"{ADVISOR_DESCRIPTIONS.get(advisor_key, '')}\n"
+                "Ne yapmamı istediğini yaz.",
+                thread_ts,
+            )
+            return None
+
+        return await self.handle_advisor_request(
+            user_id=user_id,
+            advisor_key=advisor_key,
+            message=remainder,
+            channel=channel,
+        )
+
+    async def _post_reply(
+        self, channel: str, text: str, thread_ts: Optional[str] = None
+    ) -> bool:
+        """Post a plain text reply, optionally into a thread."""
+        if not self.slack_client:
+            logger.error("Slack client not configured, cannot reply: %s", text[:80])
+            return False
+        try:
+            kwargs: Dict[str, Any] = {"channel": channel, "text": text}
+            if thread_ts:
+                kwargs["thread_ts"] = thread_ts
+            response = await self.slack_client.chat_postMessage(**kwargs)
+            return bool(response.get("ok"))
+        except Exception as e:
+            logger.error(f"Failed to post reply: {e}")
+            return False
 
     async def complete_advisor_request(
         self,
@@ -769,3 +958,187 @@ class AdvisorRequestManager:
                 json.dump(requests, f, ensure_ascii=False, indent=2)
         except Exception as e:
             logger.error(f"Failed to save requests: {e}")
+
+
+# =============================================================================
+# CLI entrypoint
+# =============================================================================
+
+
+def build_slack_client(token: Optional[str] = None) -> Optional[Any]:
+    """Build an AsyncWebClient, or None when Slack is not configured.
+
+    Returns None (rather than raising) when there is no token or the Slack SDK
+    is missing, so callers can report a clear "skipped" instead of a crash.
+    """
+    token = token or os.getenv("SLACK_BOT_TOKEN", "")
+    if not token:
+        return None
+    try:
+        from slack_sdk.web.async_client import AsyncWebClient
+    except ImportError:
+        logger.error("slack_sdk is not installed; cannot build Slack client")
+        return None
+    return AsyncWebClient(token=token)
+
+
+async def process_pending_requests(bridge: SlackAdvisorBridge) -> int:
+    """Dispatch every request still sitting in ``pending`` state.
+
+    Returns:
+        Number of requests successfully dispatched.
+    """
+    stored = bridge.request_manager._load_requests()
+    pending = [r for r in stored.values() if r.get("status") == "pending"]
+
+    if not pending:
+        logger.info("No pending advisor requests to process")
+        return 0
+
+    logger.info("Processing %d pending advisor request(s)", len(pending))
+    processed = 0
+    for raw in pending:
+        try:
+            request = AdvisorRequest.from_dict(raw)
+        except Exception as e:
+            logger.error("Skipping malformed request %r: %s", raw, e)
+            continue
+
+        advisor_key = request.advisor_key
+        message = request.message
+        # A request may carry the raw Slack text; re-parse it so an @mention
+        # written by the user still wins over whatever was recorded.
+        parsed_key, raw_mention, remainder = parse_advisor_mention(message)
+        if parsed_key:
+            advisor_key = parsed_key
+            message = remainder or message
+        elif raw_mention and advisor_key not in ADVISOR_NAMES:
+            await bridge._post_reply(
+                request.user_id,
+                build_advisor_help_message(raw_mention),
+                request.thread_ts or None,
+            )
+            await bridge.fail_advisor_request(
+                request.request_id, f"unknown advisor: {raw_mention}"
+            )
+            continue
+
+        result = await bridge.handle_advisor_request(
+            user_id=request.user_id,
+            advisor_key=advisor_key,
+            message=message,
+        )
+        if result:
+            processed += 1
+        else:
+            logger.warning("Failed to dispatch request %s", request.request_id)
+
+    logger.info("Dispatched %d/%d pending request(s)", processed, len(pending))
+    return processed
+
+
+async def send_daily_updates(
+    bridge: SlackAdvisorBridge, advisors: Optional[List[str]] = None
+) -> int:
+    """Send a daily update for each configured advisor.
+
+    Returns:
+        Number of updates posted successfully.
+    """
+    if advisors is None:
+        configured = os.getenv("SLACK_ADVISOR_INCLUDE", "")
+        advisors = [a.strip() for a in configured.split(",") if a.strip()] or list(
+            ADVISOR_NAMES
+        )
+
+    sent = 0
+    for advisor_key in advisors:
+        report_data = {
+            "summary": ADVISOR_DESCRIPTIONS.get(advisor_key, ""),
+            "drive_links": {},
+            "timestamp": datetime.now(),
+        }
+        response = await bridge.send_daily_advisor_update(advisor_key, report_data)
+        if response and response.get("ok"):
+            sent += 1
+        else:
+            logger.warning("Daily update for %s was not posted", advisor_key)
+
+    logger.info("Posted %d/%d daily advisor update(s)", sent, len(advisors))
+    return sent
+
+
+async def run_cli(args: argparse.Namespace) -> int:
+    """Execute the requested CLI action. Returns a process exit code."""
+    slack_client = build_slack_client()
+    if slack_client is None:
+        logger.warning(
+            "SKIPPED: Slack is not configured (SLACK_BOT_TOKEN missing or slack_sdk "
+            "unavailable) — no advisor requests processed, no updates sent."
+        )
+        return 0
+
+    bridge = SlackAdvisorBridge(slack_client=slack_client)
+
+    did_something = False
+    if args.process_requests:
+        await process_pending_requests(bridge)
+        did_something = True
+    if args.daily_update:
+        await send_daily_updates(bridge)
+        did_something = True
+    if args.cleanup:
+        removed = await bridge.request_manager.cleanup_old_requests(days=args.cleanup)
+        logger.info("Cleaned up %d old request(s)", removed)
+        did_something = True
+
+    if not did_something:
+        logger.error("No action requested; pass --process-requests or --daily-update")
+        return 1
+
+    return 0
+
+
+def build_arg_parser() -> argparse.ArgumentParser:
+    """Build the CLI argument parser."""
+    parser = argparse.ArgumentParser(
+        prog="python -m ai_assistant.integrations.slack_advisor_bridge",
+        description="Slack advisor bridge — process requests and post updates.",
+    )
+    parser.add_argument(
+        "--process-requests",
+        action="store_true",
+        help="Dispatch pending advisor requests to their advisors.",
+    )
+    parser.add_argument(
+        "--daily-update",
+        action="store_true",
+        help="Post a daily update for each configured advisor.",
+    )
+    parser.add_argument(
+        "--cleanup",
+        type=int,
+        metavar="DAYS",
+        default=0,
+        help="Remove requests older than DAYS.",
+    )
+    return parser
+
+
+def main(argv: Optional[List[str]] = None) -> int:
+    """CLI entrypoint. Returns an exit code (0 ok / 1 failure)."""
+    logging.basicConfig(
+        level=os.getenv("LOG_LEVEL", "INFO"),
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    )
+    args = build_arg_parser().parse_args(argv)
+
+    try:
+        return asyncio.run(run_cli(args))
+    except Exception:
+        logger.exception("slack advisor bridge failed")
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
