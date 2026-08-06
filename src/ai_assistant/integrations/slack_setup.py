@@ -291,6 +291,18 @@ ADVISOR_CHANNELS: Tuple[ChannelSpec, ...] = (
         advisor_key="productivity_coach",
     ),
     ChannelSpec(
+        env_key=advisor_channel_env("learning_curator"),
+        name="ai-ogrenme-kuratoru",
+        label="Öğrenme Küratörü",
+        purpose=(
+            "Öğrenme Küratörü ajanının kanalı. Beceri boşluğu haritası ve "
+            "öğrenme SIRASI: hangi beceri hangi ön koşuldan sonra. İş ilanı "
+            "ve başvuru malzemesi değil — o kariyer kanalında."
+        ),
+        topic="🪜 Beceri boşluğu · ön koşul zinciri · öğrenme sırası",
+        advisor_key="learning_curator",
+    ),
+    ChannelSpec(
         env_key=advisor_channel_env("risk_sentinel"),
         name="ai-risk-nobetci",
         label="Risk Nöbetçisi",
