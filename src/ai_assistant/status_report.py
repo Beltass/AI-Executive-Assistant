@@ -337,6 +337,19 @@ _LIVE_ROSTER = (
         data_owner="",
     ),
     _live(
+        "risk_sentinel",
+        "Risk Nöbetçisi (Erken Uyarı · Eşik Aşımı)",
+        "📉",
+        CATEGORY_OPS,
+        advisor_class="RiskSentinelAdvisor",
+        # Konusu koşu GEÇMİŞİ: yeni koşu kaydı yoksa trend de değişmez, o yüzden
+        # veri tetiklemeli. ``run_history`` sahibi olduğu için geçmiş
+        # büyümediğinde model hiç çağrılmaz.
+        trigger=TRIGGER_DATA,
+        token_ceiling=1200,
+        data_owner="run_history",
+    ),
+    _live(
         "work_analyst",
         "İş Analisti Danışmanı",
         "📈",

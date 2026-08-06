@@ -291,6 +291,19 @@ ADVISOR_CHANNELS: Tuple[ChannelSpec, ...] = (
         advisor_key="productivity_coach",
     ),
     ChannelSpec(
+        env_key=advisor_channel_env("risk_sentinel"),
+        name="ai-risk-nobetci",
+        label="Risk Nöbetçisi",
+        purpose=(
+            "Risk Nöbetçisi ajanının kanalı. Koşu geçmişinde TREND hâlinde "
+            "kötüleşen ölçümler ve eşik aşımları. SİSTEM İÇ ÖLÇÜMÜ taşır; "
+            "panoya yazılmaz."
+        ),
+        topic="📉 Erken uyarı · kötüleşen eğilim + eşik aşımı · 🔒 kişisel",
+        private=True,
+        advisor_key="risk_sentinel",
+    ),
+    ChannelSpec(
         env_key=advisor_channel_env("work_analyst"),
         name="ai-is-analisti",
         label="İş Analisti Danışmanı",

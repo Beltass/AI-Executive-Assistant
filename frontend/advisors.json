@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "count": 18,
+  "count": 19,
   "advisors": [
     {
       "id": "morning-operations",
@@ -213,6 +213,20 @@
       "slack_target": "#productivity-coach"
     },
     {
+      "id": "risk-sentinel",
+      "advisor_id": "risk_sentinel",
+      "name_tr": "Risk Nöbetçisi (Erken Uyarı · Eşik Aşımı)",
+      "emoji": "📉",
+      "category": "operasyon",
+      "topic": "business-analytics",
+      "color": "#4A90E2",
+      "dashboard_order": 16,
+      "trigger": "data_triggered",
+      "token_ceiling": 1200,
+      "data_owner": "run_history",
+      "slack_target": "#risk-sentinel"
+    },
+    {
       "id": "work-analyst",
       "advisor_id": "work_analyst",
       "name_tr": "İş Analisti Danışmanı",
@@ -220,7 +234,7 @@
       "category": "operasyon",
       "topic": "business-analytics",
       "color": "#4A90E2",
-      "dashboard_order": 16,
+      "dashboard_order": 17,
       "trigger": "always",
       "token_ceiling": 0,
       "data_owner": "run_briefings",
@@ -234,7 +248,7 @@
       "category": "operasyon",
       "topic": "business-analytics",
       "color": "#4A90E2",
-      "dashboard_order": 17,
+      "dashboard_order": 18,
       "trigger": "always",
       "token_ceiling": 1600,
       "data_owner": "run_briefings",
@@ -248,7 +262,7 @@
       "category": "operasyon",
       "topic": "innovation-tech",
       "color": "#9B59B6",
-      "dashboard_order": 18,
+      "dashboard_order": 19,
       "trigger": "always",
       "token_ceiling": 0,
       "data_owner": "system_health",
