@@ -42,7 +42,7 @@ FAKE_KEY = "AQ.FAKE-secret-key-should-never-leak-123456"
 # Real manifest keys, so the gates read the real trigger/data_owner metadata.
 ALWAYS = "morning_operations"  # trigger: always
 WEEKLY = "executive_coaching"  # trigger: weekly
-DATA_A = "market_intelligence"  # trigger: data_triggered, owner market_feeds
+DATA_A = "drive_insight"  # trigger: data_triggered, owner drive_files
 DATA_B = "complaint_radar"  # trigger: data_triggered, owner complaint_feeds
 ON_REQUEST = "kids_development"  # trigger: user_requested
 

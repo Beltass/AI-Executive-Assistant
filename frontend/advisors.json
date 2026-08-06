@@ -81,7 +81,7 @@
       "topic": "marketing-sales",
       "color": "#F5A623",
       "dashboard_order": 6,
-      "trigger": "data_triggered",
+      "trigger": "user_requested",
       "token_ceiling": 1400,
       "data_owner": "market_feeds",
       "slack_target": "#market-intelligence"

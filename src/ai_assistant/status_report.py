@@ -238,7 +238,7 @@ _LIVE_ROSTER = (
         "📊",
         CATEGORY_SECTOR,
         advisor_class="MarketIntelligenceAdvisor",
-        trigger=TRIGGER_DATA,
+        trigger=TRIGGER_USER_REQUESTED,
         token_ceiling=1400,
         data_owner="market_feeds",
     ),

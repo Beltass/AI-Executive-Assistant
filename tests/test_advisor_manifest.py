@@ -156,7 +156,6 @@ def test_the_trigger_plan_is_the_one_that_was_agreed():
         "meeting_prep",
         "drive_insight",
         "career_development",
-        "market_intelligence",
         "complaint_radar",
         "linkedin_coach",
         "data_analyst",
@@ -174,7 +173,7 @@ def test_the_trigger_plan_is_the_one_that_was_agreed():
     )
     assert status_report.advisors_with_trigger(
         status_report.TRIGGER_USER_REQUESTED
-    ) == ("kids_development",)
+    ) == ("market_intelligence", "kids_development")
 
 
 def test_data_triggered_advisors_all_own_a_source():
