@@ -20,6 +20,14 @@ exclude =
     *.egg-info,
     node_modules,
     venv,
-    .venv
+    .venv,
+    # Checkouts of *other* branches living inside this working tree
+    # (`git worktree list` shows both). Their contents are not this branch's
+    # source and linting them made flake8 report the same file three times:
+    # 852 findings from .claude/worktrees and 657 from linkedin-coach, against
+    # 443 in the code this branch actually owns. linkedin-coach/ is already in
+    # .gitignore for the same reason.
+    .claude,
+    linkedin-coach
 
 max-complexity = 10
