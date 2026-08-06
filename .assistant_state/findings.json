@@ -174,6 +174,7 @@
     },
     "career_development": {
       "t:52d30a2acf71ab98": "2026-08-02",
+      "t:565c82384a56fbc7": "2026-08-06",
       "t:58673b8d79e95138": "2026-08-01",
       "t:6e551e40dc459083": "2026-08-01",
       "t:767c74c3c143a05a": "2026-08-01",
@@ -188,6 +189,7 @@
       "u:4fef9c289007fd46": "2026-08-01",
       "u:625e8b6e5c47ab86": "2026-08-04",
       "u:71131e143a7f75cb": "2026-08-04",
+      "u:d03f9d839561c8eb": "2026-08-06",
       "u:e993bec45a0420e0": "2026-08-01",
       "u:f0416f703bcbade7": "2026-08-01",
       "u:fb865fd6071c64a8": "2026-08-01"
@@ -520,10 +522,11 @@
   "retention_days": 30,
   "schema_version": 1,
   "sources": {
-    "career_feeds": "s:a3169d8d9beceeedc76aa59893c0b7e4",
+    "career_feeds": "s:b8ad470a7077b97103d8dc0138c00755",
     "complaint_feeds": "s:8196cf08f4e45f9d5a40c09bb3d0949d",
     "market_feeds": "s:8970e7b803b4e806bdd4a9185c4d1afc",
     "run_history": "s:39182a00856db0cc97c7dccd26274de9"
   },
-  "updated_at": "2026-08-06"
+  "updated_at": "2026-08-06",
+  "weekly_runs": {}
 }

@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
   "date": "2026-08-06",
-  "generated_at": "2026-08-06T12:39:26+03:00",
-  "generated_at_istanbul": "06.08.2026 12:39",
-  "mode": "full",
-  "mode_label": "tam brifing",
+  "generated_at": "2026-08-06T15:58:55+03:00",
+  "generated_at_istanbul": "06.08.2026 15:58",
+  "mode": "incremental",
+  "mode_label": "artımlı",
   "count": 4,
   "reports": [
     {
@@ -27,14 +27,14 @@
       "name": "Kariyer Gelişimi (İK · İlanlar · İngilizce · Sertifika)",
       "emoji": "💼",
       "category": "kariyer",
-      "headline": "Banka çağrı merkezi yöneticisi olarak kariyerinizi bir üst seviyeye taşımak için veriyle hikâye anlatma yetkinliğinizi geliştirmeli, hedefli ilanlara başvurmalı ve ücretsiz sertifikalarla bilgi birikiminizi güçlendirmelisiniz.",
-      "excerpt": "Bir kariyer yolculuğu, sadece mevcut yetenekleri kullanmak değil, aynı zamanda geleceğin ihtiyaçlarına göre kendini sürekli yenilemektir. Bankacılık çağrı merkezi yöneticisi olarak, sektördeki hızlı…",
-      "words": 1867,
-      "read_minutes": 9,
+      "headline": "Üst düzey çağrı merkezi yöneticileri için kariyer yolculuğunun anahtarı, dijital dönüşüm liderliği ve veriyle hikaye anlatma becerilerini geliştirmektir.",
+      "excerpt": "Merhaba! Kariyer yolculuğunuzun bu kritik aşamasında, bankacılık çağrı merkezleri gibi dinamik bir alanda üst düzey yönetici olarak, sadece operasyonel mükemmellik değil, aynı zamanda stratejik…",
+      "words": 1574,
+      "read_minutes": 8,
       "action_count": 0,
       "actions": [],
-      "generated_at": "2026-08-06T03:51:26+03:00",
-      "generated_at_istanbul": "06.08.2026 03:51",
+      "generated_at": "2026-08-06T15:58:55+03:00",
+      "generated_at_istanbul": "06.08.2026 15:58",
       "path": "career_development.json"
     },
     {
