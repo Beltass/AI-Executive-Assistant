@@ -200,6 +200,13 @@ jobs:
           OPS_BRIEFING_EMAIL_WINDOW: ${{ secrets.OPS_BRIEFING_EMAIL_WINDOW }}
           # Drive root folder: where reports are archived.
           GOOGLE_DRIVE_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
+          # Data analyst input. DATA_ANALYST_SOURCE is an explicit spreadsheet
+          # (local .xlsx/.csv path or a Drive file id); DATA_ANALYST_DRIVE_FOLDER_ID
+          # is the fallback folder whose most recently modified spreadsheet is
+          # analysed. With NEITHER secret set the advisor reports `skipped`
+          # ("no source") — it never invents data.
+          DATA_ANALYST_SOURCE: ${{ secrets.DATA_ANALYST_SOURCE }}
+          DATA_ANALYST_DRIVE_FOLDER_ID: ${{ secrets.DATA_ANALYST_DRIVE_FOLDER_ID }}
           # Asana task sync. Without BOTH of the first two the sync is skipped
           # for every advisor (and now SAYS so in the run log instead of
           # reporting a success that never happened). ASANA_PROJECT_TEMPLATE is

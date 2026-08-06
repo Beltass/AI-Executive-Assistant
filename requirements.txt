@@ -56,6 +56,9 @@ sentence-transformers==2.2.2
 # Vector Database
 chromadb==0.4.16
 
+# Spreadsheet I/O (data_analyst reads .xlsx sources and writes Excel output)
+openpyxl>=3.1.0
+
 # Utilities
 python-dotenv==1.0.0
 requests==2.31.0
