@@ -20,7 +20,7 @@ Tetikleyici sözlüğü: **Her gün** = `always` · **Veri değişince** = `data
 | 3 | 🤝 Toplantı Hazırlık & Takip | Yaklaşan toplantı öncesi hazırlık notu | Veri değişince | `#meeting-prep` |
 | 4 | 🗂️ Drive Dosya Analisti | Drive'a düşen yeni dosyayı okur, özetler | Veri değişince | `#drive-insight` |
 | 5 | 💼 Kariyer Gelişimi | İK, ilanlar, İngilizce, ücretsiz sertifika | Veri değişince | `#career-development` |
-| 6 | 📊 Pazar İstihbaratı | Sektör, YZ, CX ve bankacılık haber akışı | Veri değişince | `#market-intelligence` |
+| 6 | 📊 Pazar İstihbaratı | Sektör, YZ, CX ve bankacılık haber akışı | Sadece istediğinizde | `#market-intelligence` |
 | 7 | 📊 Kapsamlı Pazar & Sentiment Analizi | Müşteri şikâyeti, trend, rakip hamlesi | Veri değişince | `#complaint-radar` |
 | 8 | 💼 LinkedIn İmaj Koçu | Profil, post taslağı, etkileşim takibi | Veri değişince | `#linkedin-coach` |
 | 9 | 📱 Sosyal Medya İmaj Koçu | Instagram/Twitter içerik ve marka tutarlılığı | Haftada bir (Pazartesi) | `#social-media-coach` |
@@ -93,7 +93,7 @@ Tetikleyici sözlüğü: **Her gün** = `always` · **Veri değişince** = `data
 - **Ne yapar:** Sektör, YZ, CX ve bankacılık akışlarını tek havuzda birleştirir, tekilleştirir ve "bugün ne oynadı, ne yapmalıyım" der.
 - **Girdisi:** RSS beslemeleri (`market_feeds`) — `SECTOR_NEWS_RSS_URL`, `AI_NEWS_RSS_URL`, `CX_RESEARCH_RSS_URL`, `BANKING_NEWS_RSS_URL`, `BANKING_SECURITY_RSS_URL`.
 - **Çıktısı:** Slack mesajı (`#market-intelligence`) + pano raporu.
-- **Nasıl tetiklenir:** Akışta yeni içerik varsa otomatik.
+- **Nasıl tetiklenir:** Sadece istediğinizde — otomatik koşmaz, Slack'ten sipariş verin.
 
 **📊 Kapsamlı Pazar & Sentiment Analizi** (`complaint_radar`)
 - **Ne yapar:** Müşteri şikâyet gündemini sabit temalara toplar, rakip hamlesi ve tehdit/fırsat sinyalini KPI baskısına çevirir.
