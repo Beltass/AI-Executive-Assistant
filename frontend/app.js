@@ -2824,6 +2824,22 @@
   /* TAB 7 — 📧 Gmail & Takvim                                              */
   /* ====================================================================== */
 
+  /* `calendar.next_meeting` arrives as an object from status.json, but older
+   * snapshots stored a ready-made string. Return "" when there is nothing to
+   * show so the caller can hide the tile rather than print a placeholder. */
+  function formatNextMeeting(meeting) {
+    if (!meeting) return "";
+    if (typeof meeting === "string") return meeting.trim();
+    if (typeof meeting !== "object") return "";
+    var parts = [];
+    if (meeting.summary) parts.push(String(meeting.summary));
+    if (meeting.time) parts.push(String(meeting.time));
+    if (meeting.duration_minutes != null) {
+      parts.push(meeting.duration_minutes + " dk");
+    }
+    return parts.join(" · ");
+  }
+
   function renderGmailCalendar() {
     var data = state.status;
     if (!data) return;
@@ -2845,21 +2861,39 @@
     text($("gmail-total-24h"), gmail.total_emails_24h || 0);
     text($("gmail-urgent"), gmail.urgent_count || 0);
     text($("gmail-action-items"), gmail.action_items || 0);
-    text($("gmail-vip-count"), (gmail.vip_emails && gmail.vip_emails.length) || 0);
+    /* `vip_emails` is written two different ways by the backend: the
+     * communications advisor emits a LIST of e-mail objects, while the
+     * status-report stub emits a plain COUNT (0). Accept both so the tile
+     * never reads 0 just because the shape changed. */
+    var vipEmails = Array.isArray(gmail.vip_emails) ? gmail.vip_emails : [];
+    var vipCount = Array.isArray(gmail.vip_emails)
+      ? gmail.vip_emails.length
+      : (typeof gmail.vip_emails === "number" ? gmail.vip_emails : 0);
+    text($("gmail-vip-count"), vipCount);
 
     // --- Calendar Stats ---
     text($("calendar-today-meetings"), calendar.today_meetings || 0);
     text($("calendar-total-time"), calendar.total_meeting_time_hours != null
       ? calendar.total_meeting_time_hours.toFixed(1) + " sa"
       : "—");
-    text($("calendar-focus-blocks"), calendar.focus_blocks || 0);
+    /* status.json calls this `focus_blocks_available`; the older name is kept
+     * as a fallback so archived snapshots still render. */
+    text($("calendar-focus-blocks"),
+      calendar.focus_blocks_available != null
+        ? calendar.focus_blocks_available
+        : (calendar.focus_blocks || 0));
 
-    // Next meeting display
+    /* Next meeting display.
+     * `next_meeting` is an OBJECT ({summary, time, duration_minutes}) in
+     * status.json — assigning it straight to textContent printed
+     * "[object Object]". Format it, and stay hidden while every field is
+     * empty (which is what "no meeting scheduled" looks like). */
     var nextMeetingContainer = $("calendar-next-meeting-container");
     var nextMeetingEl = $("calendar-next-meeting");
     if (nextMeetingEl) {
-      if (calendar.next_meeting) {
-        nextMeetingEl.textContent = calendar.next_meeting;
+      var nextMeetingLabel = formatNextMeeting(calendar.next_meeting);
+      if (nextMeetingLabel) {
+        nextMeetingEl.textContent = nextMeetingLabel;
         if (nextMeetingContainer) nextMeetingContainer.hidden = false;
       } else {
         if (nextMeetingContainer) nextMeetingContainer.hidden = true;
@@ -2885,8 +2919,11 @@
     // --- Recent Emails ---
     var emailsList = $("gmail-recent-emails");
     emailsList.innerHTML = "";
-    if (gmail.vip_emails && Array.isArray(gmail.vip_emails)) {
-      gmail.vip_emails.slice(0, 5).forEach(function (email) {
+    /* Never leave this section silently blank: the markup ships an honest
+     * "Son e-postalar yok." line, so toggle it instead of showing nothing. */
+    show($("gmail-empty-emails"), vipEmails.length === 0);
+    if (vipEmails.length) {
+      vipEmails.slice(0, 5).forEach(function (email) {
         var row = make("div", "gmail-email-row");
 
         var from = make("div", "gmail-email-from");
@@ -2910,11 +2947,17 @@
       });
     }
 
-    // Update last sync time
-    if (gmail.last_update || calendar.last_update) {
-      var lastUpdate = gmail.last_update || calendar.last_update;
-      text($("gmail-last-update"), "Son güncelleme: " + relativeTime(lastUpdate));
+    // Update last sync time, and say so out loud when a fetch failed.
+    var notes = [];
+    var lastUpdate = gmail.last_update || calendar.last_update;
+    if (lastUpdate) notes.push("Son güncelleme: " + relativeTime(lastUpdate));
+    if (gmail.last_fetch_error) {
+      notes.push("Gmail verisi alınamadı: " + gmail.last_fetch_error);
     }
+    if (calendar.last_fetch_error) {
+      notes.push("Takvim verisi alınamadı: " + calendar.last_fetch_error);
+    }
+    text($("gmail-last-update"), notes.join(" — "));
   }
 
   /* ====================================================================== */
