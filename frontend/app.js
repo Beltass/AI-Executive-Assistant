@@ -35,12 +35,15 @@
    * üretir (`python -m ai_assistant.frontend_manifest`), yani roster burada
    * ELLE tutulmaz. Dosya yoksa aşağıdaki gömülü yedek kullanılır. */
   var ADVISORS_URL = "./advisors.json";
+  /* LinkedIn sekmesinin verisi. Dosya HENÜZ YOK (erişim jetonu bekleniyor);
+   * yokluğu bir hata değil, sekmenin dürüst boş durumudur. */
+  var LINKEDIN_URL = "./linkedin.json";
 
   var REFRESH_MS = 60000; // live monitor: re-read the files every minute
   var CLOCK_MS = 20000; // how often the "x dk önce" label is recomputed
   var STALE_HOURS = 12; // older than this and we say so, loudly
 
-  var TABS = ["aksiyon", "sistem", "icerik", "performans", "isler", "fikirler", "entegrasyonlar", "gmail", "analiz"];
+  var TABS = ["aksiyon", "sistem", "icerik", "performans", "isler", "fikirler", "entegrasyonlar", "gmail", "analiz", "linkedin"];
   var DEFAULT_TAB = "aksiyon";
 
   var STATUS_LABEL = { ok: "Çalıştı", failed: "Hata", skipped: "Atlandı" };
@@ -383,6 +386,7 @@
     metrics: null,
     health: null,
     advisors: null, // advisors.json (manifestten üretilen canlı roster)
+    linkedin: null, // linkedin.json (yoksa sekme boş durumunu gösterir)
     archive: null,
     days: {}, // date -> day index
     docs: {}, // "date/id" -> document
@@ -3959,9 +3963,419 @@
     if (state.status) renderPerformance();
   }
 
+  /* ====================================================================== */
+  /* TAB 9 — 💼 LinkedIn & Etkileşim                                        */
+  /* ====================================================================== */
+  /*
+   * DATA CONTRACT — ./linkedin.json, written by the LinkedIn integration.
+   * The file does NOT exist yet (no access token), and that is exactly why
+   * every function below treats "absent" as a first-class state instead of
+   * substituting a sample. A demo follower curve would be a claim about an
+   * audience nobody has measured.
+   *
+   *   {
+   *     "schema_version": 1,
+   *     "generated_at": "2026-08-06T09:00:00+00:00",
+   *     "connected": false,          // true once a token is in hand
+   *     "connection_note": "…",      // why it is not connected, in Turkish
+   *     "pending_posts":   [{ id, headline, body, hashtags[], cta,
+   *                           created_at, approval_status }],
+   *     "published_posts": [{ id, headline, body, posted_at, url,
+   *                           likes, comments, impressions, shares }],
+   *     "engagement":      [{ date, likes, comments, impressions,
+   *                           shares, engagement_rate }],
+   *     "followers":       [{ date, followers }],
+   *     "profile":         { score, updated_at, strengths[],
+   *                          gaps: [{ title, detail, severity }] }
+   *   }
+   *
+   * `approval_status` is the Action Center vocabulary (action_center.py):
+   * not_required | pending | approved | rejected — so one badge legend serves
+   * both tabs and a reader never has to learn two words for one state.
+   */
+
+  var LINKEDIN_EMPTY =
+    "LinkedIn bağlantısı kurulmadı — token bekleniyor.";
+
+  function linkedinData() {
+    return state.linkedin && typeof state.linkedin === "object"
+      ? state.linkedin
+      : null;
+  }
+
+  /** A number that is allowed to be ABSENT.
+   *
+   * The shared `num()` coerces anything unparseable to 0, which is right for
+   * a total but wrong here: an unmeasured like count and a post nobody liked
+   * must not print the same. This returns null so the caller can print "—".
+   */
+  function liNum(value) {
+    if (value == null || value === "") return null;
+    var n = Number(value);
+    return isFinite(n) ? n : null;
+  }
+
+  function liList(data, key) {
+    var rows = data && Array.isArray(data[key]) ? data[key] : [];
+    return rows.filter(function (row) {
+      return row && typeof row === "object";
+    });
+  }
+
+  /** One post card: full draft text, hashtags, CTA and its approval badge. */
+  function liPostCard(post, published) {
+    var card = make("article", "li-post");
+
+    var head = make("div", "li-post__head");
+    head.appendChild(
+      make("h3", "li-post__title", post.headline || "(başlıksız taslak)")
+    );
+    var stamp = published ? post.posted_at || "" : post.created_at || "";
+    if (stamp) {
+      head.appendChild(make("span", "li-post__date", prettyDate(stamp) || stamp));
+    }
+    card.appendChild(head);
+
+    if (post.body) card.appendChild(make("p", "li-post__body", post.body));
+    if (post.cta) card.appendChild(make("p", "li-post__cta", "↳ " + post.cta));
+
+    var badges = make("div", "li-post__badges");
+
+    if (published) {
+      // Engagement counts only appear when the integration measured them.
+      // A missing count shows as "—", never as a zero we did not observe.
+      [
+        { key: "likes", icon: "👍", label: "beğeni" },
+        { key: "comments", icon: "💬", label: "yorum" },
+        { key: "impressions", icon: "👁️", label: "görüntülenme" },
+        { key: "shares", icon: "🔁", label: "paylaşım" }
+      ].forEach(function (spec) {
+        var value = post[spec.key];
+        badges.appendChild(
+          make(
+            "span",
+            "badge",
+            spec.icon + " " + (liNum(value) == null ? "—" : trNumber(value)) +
+              " " + spec.label
+          )
+        );
+      });
+    } else {
+      var status = APPROVAL_LABEL[post.approval_status]
+        ? post.approval_status
+        : "pending";
+      var tone =
+        status === "approved" ? "ok" : status === "rejected" ? "failed" : "warn";
+      badges.appendChild(
+        make("span", "badge badge--" + tone, APPROVAL_LABEL[status])
+      );
+    }
+
+    (Array.isArray(post.hashtags) ? post.hashtags : []).forEach(function (tag) {
+      badges.appendChild(make("span", "badge badge--owner", tag));
+    });
+
+    if (published && post.url) {
+      var link = make("a", "badge badge--source", "🔗 LinkedIn'de aç");
+      link.href = post.url;
+      link.rel = "noopener noreferrer";
+      link.target = "_blank";
+      badges.appendChild(link);
+    }
+
+    card.appendChild(badges);
+    return card;
+  }
+
+  /* --- 1: onay bekleyen paylaşımlar ------------------------------------ */
+
+  function renderLinkedInPending(data) {
+    var rows = liList(data, "pending_posts").filter(function (post) {
+      var status = post.approval_status || "pending";
+      return status === "pending" || status === "rejected";
+    });
+    var count = fillList(
+      $("li-pending"),
+      rows.map(function (post) {
+        return liPostCard(post, false);
+      }),
+      data
+        ? "Onay bekleyen paylaşım yok."
+        : LINKEDIN_EMPTY + " Taslaklar bağlantı kurulunca burada listelenecek."
+    );
+    text($("li-pending-meta"), count ? count + " taslak" : "");
+    return rows.filter(function (post) {
+      return (post.approval_status || "pending") === "pending";
+    }).length;
+  }
+
+  /* --- 2: yayınlanan paylaşımlar --------------------------------------- */
+
+  function renderLinkedInPublished(data) {
+    var rows = liList(data, "published_posts").slice().sort(function (a, b) {
+      return String(b.posted_at || "").localeCompare(String(a.posted_at || ""));
+    });
+    var count = fillList(
+      $("li-published"),
+      rows.map(function (post) {
+        return liPostCard(post, true);
+      }),
+      data
+        ? "Henüz yayınlanmış paylaşım yok."
+        : LINKEDIN_EMPTY + " Yayınlananlar ve etkileşim sayıları burada birikecek."
+    );
+    text($("li-published-meta"), count ? count + " paylaşım" : "");
+  }
+
+  /* --- 3: etkileşim trendi --------------------------------------------- */
+
+  function renderLinkedInEngagement(data) {
+    var rows = liList(data, "engagement").filter(function (row) {
+      return row.date;
+    });
+    rows.sort(function (a, b) {
+      return String(a.date).localeCompare(String(b.date));
+    });
+
+    var host = $("chart-li-engagement");
+    if (host && charts.lineChart) {
+      // Three counts on ONE axis. They share a unit (adet), so a single scale
+      // is honest; impressions dwarf the rest, which is itself the finding.
+      var specs = [
+        { key: "likes", name: "Beğeni", color: "var(--series-1)" },
+        { key: "comments", name: "Yorum", color: "var(--series-2)" },
+        { key: "impressions", name: "Görüntülenme", color: "var(--series-3)" }
+      ];
+      var series = rows.length
+        ? specs.map(function (spec) {
+            return {
+              name: spec.name,
+              color: spec.color,
+              points: rows.map(function (row) {
+                return { label: row.date, value: liNum(row[spec.key]) || 0 };
+              })
+            };
+          })
+        : [];
+      charts.lineChart(host, series, {
+        unit: "adet",
+        aria: "LinkedIn etkileşim eğilimi: beğeni, yorum ve görüntülenme",
+        empty: LINKEDIN_EMPTY,
+        single: "Eğilim için en az iki günlük ölçüm gerekiyor."
+      });
+    }
+
+    if ($("table-li-engagement") && charts.dataTable) {
+      charts.dataTable(
+        $("table-li-engagement"),
+        [
+          { key: "tarih", label: "Tarih" },
+          { key: "begeni", label: "Beğeni", num: true },
+          { key: "yorum", label: "Yorum", num: true },
+          { key: "goruntulenme", label: "Görüntülenme", num: true },
+          { key: "oran", label: "Etkileşim oranı" }
+        ],
+        rows.map(function (row) {
+          var rate = liNum(row.engagement_rate);
+          return {
+            tarih: row.date,
+            begeni: liNum(row.likes) || 0,
+            yorum: liNum(row.comments) || 0,
+            goruntulenme: liNum(row.impressions) || 0,
+            oran: rate == null ? "—" : "%" + trDecimal(rate * 100, 1)
+          };
+        }),
+        {
+          sort: { key: "tarih", dir: "desc" },
+          caption: "LinkedIn etkileşimi: gün, beğeni, yorum, görüntülenme ve oran",
+          empty: LINKEDIN_EMPTY
+        }
+      );
+    }
+
+    text(
+      $("li-engagement-meta"),
+      rows.length ? rows.length + " gün ölçüldü" : "ölçüm yok"
+    );
+    text($("li-engagement-sub"), rows.length ? "adet · gün" : "veri yok");
+  }
+
+  /* --- 4: takipçi trendi ------------------------------------------------ */
+
+  function renderLinkedInFollowers(data) {
+    var rows = liList(data, "followers").filter(function (row) {
+      return row.date && liNum(row.followers) != null;
+    });
+    rows.sort(function (a, b) {
+      return String(a.date).localeCompare(String(b.date));
+    });
+
+    var host = $("chart-li-followers");
+    if (host && charts.lineChart) {
+      charts.lineChart(
+        host,
+        rows.length
+          ? [
+              {
+                name: "Takipçi",
+                color: "var(--series-1)",
+                points: rows.map(function (row) {
+                  return { label: row.date, value: liNum(row.followers) };
+                })
+              }
+            ]
+          : [],
+        {
+          unit: "kişi",
+          aria: "LinkedIn takipçi sayısının zaman içindeki değişimi",
+          empty: LINKEDIN_EMPTY,
+          single: "Eğilim için en az iki günlük ölçüm gerekiyor."
+        }
+      );
+    }
+
+    var last = rows.length ? rows[rows.length - 1] : null;
+    var first = rows.length ? rows[0] : null;
+    var delta = last && first ? liNum(last.followers) - liNum(first.followers) : null;
+    text(
+      $("li-followers-meta"),
+      last ? trNumber(last.followers) + " takipçi" : "ölçüm yok"
+    );
+    text(
+      $("li-followers-sub"),
+      delta == null
+        ? "veri yok"
+        : (delta >= 0 ? "▲ +" : "▼ ") + trNumber(Math.abs(delta)) +
+            " · " + rows.length + " günde"
+    );
+  }
+
+  /* --- 5: profil sağlığı ------------------------------------------------ */
+
+  function renderLinkedInProfile(data) {
+    var profile = (data && data.profile) || null;
+    var host = $("li-profile-tiles");
+    host.innerHTML = "";
+
+    var score = profile ? liNum(profile.score) : null;
+    if (score == null) {
+      host.appendChild(
+        make(
+          "p",
+          "section-note",
+          data
+            ? "Profil taraması henüz yapılmadı."
+            : LINKEDIN_EMPTY + " Profil skoru bağlantı kurulunca hesaplanacak."
+        )
+      );
+    } else {
+      var strengths = Array.isArray(profile.strengths) ? profile.strengths : [];
+      var gapCount = Array.isArray(profile.gaps) ? profile.gaps.length : 0;
+      mountMetricCard(
+        host,
+        renderMetricCard("İK skoru", String(score), "/100", "", null, null, true)
+      );
+      mountMetricCard(
+        host,
+        renderMetricCard("Güçlü yan", String(strengths.length), "adet", "", null, null, true)
+      );
+      mountMetricCard(
+        host,
+        renderMetricCard("Eksik", String(gapCount), "adet", "", null, null, true)
+      );
+      mountMetricCard(
+        host,
+        renderMetricCard(
+          "Son tarama",
+          profile.updated_at ? prettyDate(profile.updated_at) || "—" : "—",
+          "",
+          "",
+          null,
+          null,
+          true
+        )
+      );
+    }
+
+    var gaps = profile && Array.isArray(profile.gaps) ? profile.gaps : [];
+    var rows = gaps.map(function (gap) {
+      var item = make("div", "checklist__item");
+      item.appendChild(make("span", "checklist__box", "☐"));
+      var body = make("div", "checklist__body");
+      body.appendChild(make("p", "checklist__text", gap.title || ""));
+      if (gap.detail) body.appendChild(make("p", "section-note", gap.detail));
+      var badges = make("div", "checklist__badges");
+      var severity = gap.severity === "critical" || gap.severity === "warn"
+        ? gap.severity
+        : "info";
+      badges.appendChild(
+        make(
+          "span",
+          "badge badge--" + severity,
+          severity === "critical" ? "⛔ kritik" : severity === "warn" ? "⚠️ önemli" : "ℹ️ iyileştirme"
+        )
+      );
+      body.appendChild(badges);
+      item.appendChild(body);
+      return item;
+    });
+
+    fillList(
+      $("li-profile-gaps"),
+      rows,
+      data
+        ? "Bir işe alımcının takılacağı eksik bulunmadı."
+        : LINKEDIN_EMPTY + " Eksikler bağlantı kurulunca listelenecek."
+    );
+    text($("li-profile-meta"), score == null ? "" : score + "/100");
+  }
+
+  function renderLinkedIn() {
+    if (!$("panel-linkedin")) return;
+    var data = linkedinData();
+    var connected = !!(data && data.connected === true);
+
+    show($("li-connection"), !connected);
+    if (!connected) {
+      text(
+        $("li-connection-title"),
+        data && data.connection_note
+          ? "LinkedIn bağlantısı bekleniyor"
+          : "LinkedIn bağlantısı kurulmadı"
+      );
+      text(
+        $("li-connection-hint"),
+        data && data.connection_note ? data.connection_note : ""
+      );
+    }
+
+    text(
+      $("li-note"),
+      connected && data.generated_at
+        ? "Son güncelleme " + relativeTime(data.generated_at) +
+            " · veriler LinkedIn API'sinden okundu."
+        : "Aşağıdaki bölümler gerçek veriyle dolar; örnek/sahte gönderi " +
+            "gösterilmez."
+    );
+
+    var pending = renderLinkedInPending(data);
+    renderLinkedInPublished(data);
+    renderLinkedInEngagement(data);
+    renderLinkedInFollowers(data);
+    renderLinkedInProfile(data);
+
+    var badge = $("badge-linkedin");
+    if (badge) {
+      badge.hidden = !pending;
+      badge.className = "tab__badge";
+      badge.textContent = String(pending);
+    }
+  }
+
   function renderAll() {
     state.loaded = true;
     renderAksiyon();
+    renderLinkedIn();
     renderSistem();
     renderPerformans();
     renderIsler();
@@ -4000,7 +4414,8 @@
       }),
       fetchOptional(METRICS_URL),
       fetchOptional(HEALTH_URL),
-      fetchOptional(ADVISORS_URL)
+      fetchOptional(ADVISORS_URL),
+      fetchOptional(LINKEDIN_URL)
     ])
       .then(function (results) {
         state.lastFetch = new Date().toISOString();
@@ -4009,6 +4424,7 @@
         if (results[3] && applyAdvisorManifest(results[3])) {
           state.advisors = results[3];
         }
+        state.linkedin = results[4] || null;
 
         if (results[0] && results[0].__error) {
           // Keep showing the last good data; only freshness changes.
@@ -4022,6 +4438,7 @@
           renderPerformans();
           renderIsler();
           renderAksiyon();
+          renderLinkedIn();
         }
       })
       .then(function () {

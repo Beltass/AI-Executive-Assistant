@@ -248,6 +248,8 @@ def test_private_key_list_matches_the_rosters_private_flags():
         "personal_assistant",
         "work_analyst",
         "operations_director",
+        "decision_intelligence",
+        "risk_sentinel",
         "sre_watchdog",
     }
     # Every private advisor is covered…

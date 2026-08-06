@@ -284,7 +284,7 @@ _LIVE_ROSTER = (
     ),
     _live(
         "data_analyst",
-        "Veri Analisti (Çağrı Merkezi Operasyonu)",
+        "Raporlama & Veri Analisti (Excel · Sunum Taslağı · Yazılı Rapor)",
         "🔬",
         CATEGORY_OPS,
         advisor_class="DataAnalystAdvisor",
@@ -323,6 +323,55 @@ _LIVE_ROSTER = (
         trigger=TRIGGER_WEEKLY,
         token_ceiling=900,
         data_owner="",
+    ),
+    _live(
+        "productivity_coach",
+        "Verimlilik Koçu (Odak Blokları · Enerji Yönetimi)",
+        "⏱️",
+        CATEGORY_GROWTH,
+        advisor_class="ProductivityCoachAdvisor",
+        # Gün mimarisi günden güne değişmez: haftada bir kurulur, hafta boyunca
+        # uygulanır. Her sabah tekrarlamak kotayı da dikkati de boşa harcardı.
+        trigger=TRIGGER_WEEKLY,
+        token_ceiling=900,
+        data_owner="",
+    ),
+    _live(
+        "risk_sentinel",
+        "Risk Nöbetçisi (Erken Uyarı · Eşik Aşımı)",
+        "📉",
+        CATEGORY_OPS,
+        advisor_class="RiskSentinelAdvisor",
+        # Konusu koşu GEÇMİŞİ: yeni koşu kaydı yoksa trend de değişmez, o yüzden
+        # veri tetiklemeli. ``run_history`` sahibi olduğu için geçmiş
+        # büyümediğinde model hiç çağrılmaz.
+        trigger=TRIGGER_DATA,
+        token_ceiling=1200,
+        data_owner="run_history",
+    ),
+    _live(
+        "decision_intelligence",
+        "Karar Zekâsı (Sonuç Takibi · Karar Kalitesi)",
+        "⚖️",
+        CATEGORY_OPS,
+        advisor_class="DecisionIntelligenceAdvisor",
+        # Bir kararın sonucu bir günde belli olmaz: haftalık ritim, hem tekrarı
+        # hem kota israfını engeller.
+        trigger=TRIGGER_WEEKLY,
+        token_ceiling=1000,
+        data_owner="",
+    ),
+    _live(
+        "social_guardian",
+        "İtibar Muhafızı (Kriz Erken Uyarısı)",
+        "🛟",
+        CATEGORY_SECTOR,
+        advisor_class="SocialGuardianAdvisor",
+        # Konusu izleme AKIŞI: yeni başlık yoksa uyarı da yok. ``reputation_feeds``
+        # sahibi olduğu için akış değişmediğinde model hiç çağrılmaz.
+        trigger=TRIGGER_DATA,
+        token_ceiling=1200,
+        data_owner="reputation_feeds",
     ),
     _live(
         "work_analyst",

@@ -82,6 +82,8 @@ _PRIVATE_ADVISOR_KEYS_CURRENT = frozenset(
         "personal_assistant",  # personal tasks, goals and schedule
         "work_analyst",  # consolidates everyone else's private work
         "operations_director",  # synthesises every private section above
+        "decision_intelligence",  # the user's own recorded decisions
+        "risk_sentinel",  # the run history's internal measurements
         "sre_watchdog",  # the system's own technical internals
     }
 )

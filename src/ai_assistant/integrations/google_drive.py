@@ -44,7 +44,7 @@ import logging
 import os
 import time
 from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from googleapiclient.discovery import Resource
@@ -75,6 +75,23 @@ MIME_TYPE_FOLDER = "application/vnd.google-apps.folder"
 MIME_TYPE_DOCUMENT = "application/vnd.google-apps.document"
 MIME_TYPE_MARKDOWN = "text/markdown"
 MIME_TYPE_TEXT = "text/plain"
+#: Excel çalışma kitabı — Veri Analisti'nin ürettiği ``.xlsx`` çıktısı bu tiple
+#: yüklenir. Metin değil BAYT taşır (bkz. :func:`_as_bytes`).
+MIME_TYPE_XLSX = (
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
+
+
+def _as_bytes(content: Any) -> bytes:
+    """Upload payload as raw bytes.
+
+    Drive'a yüklenen her şey sonuçta bayttır. Metin raporlar UTF-8'e çevrilir;
+    ``.xlsx`` gibi İKİLİ çıktılar zaten bayt gelir ve olduğu gibi geçer —
+    ``bytes.encode`` diye bir şey olmadığı için bu ayrım şart.
+    """
+    if isinstance(content, (bytes, bytearray)):
+        return bytes(content)
+    return str(content).encode("utf-8")
 
 
 class DriveError(RuntimeError):
@@ -357,7 +374,7 @@ class DriveClient:
     def upload_report(
         self,
         file_name: str,
-        file_content: str,
+        file_content: Any,
         folder_id: str,
         mime_type: str = MIME_TYPE_MARKDOWN,
     ) -> str:
@@ -368,7 +385,9 @@ class DriveClient:
 
         Args:
             file_name: Name of the file (e.g., "mail_analyst.md").
-            file_content: Text content of the document.
+            file_content: Text content of the document, or raw ``bytes`` for a
+                binary artefact such as an ``.xlsx`` workbook. Bytes are
+                uploaded verbatim; there is no second Drive client for them.
             folder_id: Destination folder ID.
             mime_type: MIME type (default: text/markdown).
 
@@ -402,7 +421,7 @@ class DriveClient:
     def _create_file(
         self,
         file_name: str,
-        content: str,
+        content: Any,
         folder_id: str,
         mime_type: str,
     ) -> str:
@@ -424,7 +443,7 @@ class DriveClient:
 
         try:
             media = MediaInMemoryUpload(
-                content.encode("utf-8"),
+                _as_bytes(content),
                 mimetype=mime_type,
                 resumable=False,
             )
@@ -458,7 +477,7 @@ class DriveClient:
     def _update_file_content(
         self,
         file_id: str,
-        content: str,
+        content: Any,
         mime_type: str,
     ) -> str:
         """Update the content of an existing file.
@@ -478,7 +497,7 @@ class DriveClient:
 
         try:
             media = MediaInMemoryUpload(
-                content.encode("utf-8"),
+                _as_bytes(content),
                 mimetype=mime_type,
                 resumable=False,
             )

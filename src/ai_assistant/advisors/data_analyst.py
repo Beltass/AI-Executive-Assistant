@@ -35,6 +35,17 @@ TASARIM KARARLARI (hepsi bilinçli):
 TEK LLM ÇAĞRISI: veri yükleme ve analiz LLM'in DIŞINDA yapılır; yalnızca
 yorumlama ekibin ortak toplu çağrısına (``advisors._batch``) katılır.
 
+ÜÇ ÇIKTI, TEK ANALİZ: aynı koşudan (1) grafikli bir ``.xlsx`` çalışma kitabı
+(:func:`write_workbook` — motorun ``analysis.excel_report`` yazıcısını
+kullanır), (2) sunuma yapıştırılabilir bir SLAYT TASLAĞI
+(:func:`build_slide_outline`) ve (3) yazılı rapor çıkar. Üretilen dosyalar
+:func:`upload_deliverables` ile mevcut Drive istemcisine yüklenir; ikinci bir
+Drive istemcisi yoktur.
+
+SUNUM DOSYASI ÜRETİLMEZ: Google Slides API'si bu projede yok (bkz.
+:data:`SLIDES_LIMIT_NOTE`) — ``drive_insight`` ile aynı karar. Taslak metin
+olarak verilir, "sunum oluşturuldu" denmez.
+
 YAPISAL RAPOR: brifing metnine ek olarak ``briefing.report`` alanına
 ``ai_assistant.reports`` şeması (headline / key_metrics / sections /
 action_items / sources) yazılır; böylece rapor okuma görünümünde tablo ve
@@ -50,6 +61,12 @@ Yapılandırma (ortam değişkenleri):
     DATA_ANALYST_SLA_TARGET        SLA hedefi (varsayılan 80).
     DATA_ANALYST_TOP_N             Kırılım tablolarında en fazla satır.
     DATA_ANALYST_QUESTION          Bu koşuda cevaplanmasını istediğin soru.
+    DATA_ANALYST_OUTPUT_DIR        Excel/sunum taslağının yazılacağı yerel klasör
+                                   (varsayılan ``.assistant_state/deliverables``).
+    DATA_ANALYST_OUTPUT_FOLDER_ID  Çıktıların yükleneceği Drive klasörü; tanımsızsa
+                                   ``GOOGLE_DRIVE_FOLDER_ID``, o da yoksa yükleme yok.
+    DATA_ANALYST_MAX_SLIDES        Sunum taslağındaki en fazla slayt (varsayılan 7).
+    DATA_ANALYST_EXCEL             ``false`` ise Excel üretimi kapanır.
 
 GİZLİLİK: analiz edilen tablo kurumun kendi operasyon verisidir; bu yüzden
 ``private = True`` — bölüm panoya yazılmaz, yalnızca Slack'te durur.
@@ -58,6 +75,11 @@ GİZLİLİK: analiz edilen tablo kurumun kendi operasyon verisidir; bu yüzden
 from __future__ import annotations
 
 import logging
+import os
+import re
+import unicodedata
+from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from . import Advisor, BatchSection, Briefing
@@ -73,6 +95,47 @@ LAST_DAYS_ENV = "DATA_ANALYST_LAST_DAYS"
 SLA_TARGET_ENV = "DATA_ANALYST_SLA_TARGET"
 TOP_N_ENV = "DATA_ANALYST_TOP_N"
 QUESTION_ENV = "DATA_ANALYST_QUESTION"
+
+# --- ÇIKTI (deliverable) yapılandırması -------------------------------------
+#
+# Danışman artık yalnızca "brifing yazan" değil, ÇIKTI ÜRETEN bir raporlama
+# analisti: aynı analizden (1) grafikli bir ``.xlsx`` çalışma kitabı,
+# (2) sunuma yapıştırılabilir bir slayt taslağı ve (3) yazılı rapor çıkar.
+
+#: ``.xlsx`` ve slayt taslağının yazıldığı YEREL klasör. Varsayılan
+#: ``.assistant_state/deliverables`` — ``.gitignore`` bu ağacı zaten eliyor,
+#: yani üretilen dosya çalışma kopyasını kirletmez.
+OUTPUT_DIR_ENV = "DATA_ANALYST_OUTPUT_DIR"
+DEFAULT_OUTPUT_DIR = os.path.join(".assistant_state", "deliverables")
+
+#: Çıktıların YÜKLENECEĞİ Drive klasörü. Tanımsızsa ``GOOGLE_DRIVE_FOLDER_ID``
+#: denenir; o da yoksa yükleme yapılmaz (yerel dosya yine üretilir).
+#: KAYNAK klasörden (``DATA_ANALYST_DRIVE_FOLDER_ID``) ayrıdır: okuduğumuz
+#: klasöre yazmak, bir sonraki koşuda kendi çıktımızı veri sanmak demektir.
+OUTPUT_FOLDER_ENV = "DATA_ANALYST_OUTPUT_FOLDER_ID"
+FALLBACK_OUTPUT_FOLDER_ENV = "GOOGLE_DRIVE_FOLDER_ID"
+
+#: Slayt taslağındaki en fazla slayt sayısı (varsayılan 7).
+MAX_SLIDES_ENV = "DATA_ANALYST_MAX_SLIDES"
+DEFAULT_MAX_SLIDES = 7
+
+#: ``false`` yazılırsa Excel üretimi kapanır; brifing ve slayt taslağı kalır.
+EXCEL_ENV = "DATA_ANALYST_EXCEL"
+
+#: Slayt taslağı bloğunun başlığı — brifing metninde bu başlıkla görünür.
+SLIDE_HEADING = "## 🖼️ Sunum taslağı"
+
+#: Üretilen dosyaların listelendiği blok başlığı.
+DELIVERABLES_HEADING = "## 📦 Üretilen çıktılar"
+
+#: Google Slides API'si BU PROJEDE YOKTUR (Drive entegrasyonunda böyle bir
+#: kapsam/istemci tanımlı değil, bkz. ``integrations/google_drive.py``). Bu
+#: yüzden sunum DOSYASI oluşturulmaz; oluşturuluyormuş gibi de yapılmaz —
+#: slayt taslağı metin olarak verilir ve sınır açıkça yazılır.
+SLIDES_LIMIT_NOTE = (
+    "Sunum DOSYASI oluşturulmadı: bu projede Google Slides API istemcisi yok. "
+    "Aşağıdaki taslak doğrudan bir sunuma yapıştırılmak üzere hazırlandı."
+)
 
 #: Drive'da e-tablo sayılan MIME tipleri (Google E-Tablo + yüklenmiş Excel).
 SPREADSHEET_MIME_TYPES = (
@@ -707,11 +770,349 @@ def offline_narrative(
     return "\n".join(lines)
 
 
+# --- ÇIKTILAR: Excel, sunum taslağı, Drive -----------------------------------
+#
+# Buradaki her şey LLM'İN DIŞINDADIR. Slayt taslağı motorun bulgularından
+# deterministik olarak kurulur; model bir slaydı ekleyemez, çıkaramaz ve
+# içindeki sayıyı değiştiremez. Sunum "üretmek" bu projede bir dosya yazmak
+# değil, iskeleti kusursuz vermektir (bkz. :data:`SLIDES_LIMIT_NOTE`).
+
+
+def _slugify(text: str, fallback: str = "analiz") -> str:
+    """Dosya adı için güvenli, ASCII bir kısa ad üretir."""
+    lowered = (text or "").strip().lower()
+    for source, target in (
+        ("ı", "i"),
+        ("ğ", "g"),
+        ("ü", "u"),
+        ("ş", "s"),
+        ("ö", "o"),
+        ("ç", "c"),
+    ):
+        lowered = lowered.replace(source, target)
+    normalized = unicodedata.normalize("NFKD", lowered)
+    ascii_only = normalized.encode("ascii", "ignore").decode("ascii")
+    slug = re.sub(r"[^a-z0-9]+", "-", ascii_only).strip("-")
+    return slug[:48] or fallback
+
+
+def output_dir() -> str:
+    """Çıktıların yazılacağı yerel klasör."""
+    return setting(OUTPUT_DIR_ENV) or DEFAULT_OUTPUT_DIR
+
+
+def output_folder_id() -> str:
+    """Çıktıların yükleneceği Drive klasörü; yoksa boş (yükleme yapılmaz)."""
+    return setting(OUTPUT_FOLDER_ENV) or setting(FALLBACK_OUTPUT_FOLDER_ENV) or ""
+
+
+def excel_enabled() -> bool:
+    """``DATA_ANALYST_EXCEL=false`` denmedikçe Excel üretilir."""
+    return str(setting(EXCEL_ENV) or "true").strip().lower() not in (
+        "false",
+        "0",
+        "hayir",
+        "hayır",
+        "no",
+    )
+
+
+def max_slides() -> int:
+    value = _int_setting(MAX_SLIDES_ENV)
+    if value is None or value < 3:
+        return DEFAULT_MAX_SLIDES
+    return min(value, 20)
+
+
+def deliverable_basename(result: Any, moment: Optional[datetime] = None) -> str:
+    """``veri-analizi-<kaynak>-<tarih>`` — uzantısız ortak dosya adı."""
+    when = moment or datetime.now()
+    name = getattr(getattr(result, "dataset", None), "name", "") or "analiz"
+    return f"veri-analizi-{_slugify(name)}-{when.strftime('%Y-%m-%d')}"
+
+
+def build_slide_outline(
+    result: Any,
+    findings: Sequence[Any],
+    limits: Sequence[str],
+    limit: Optional[int] = None,
+) -> List[Dict[str, Any]]:
+    """Motorun bulgularından bir sunum İSKELETİ kurar.
+
+    Dönen her öğe ``{"title": ..., "bullets": [...]}``. Sıra bir yöneticinin
+    dinleme sırasıdır: kapak → karar özeti → etkiye göre bulgular → kırılım →
+    trend → sınırlar → aksiyon. Yalnızca motorda GERÇEKTEN olan bloklar
+    slayta dönüşür; boş slayt üretilmez.
+    """
+    cap = limit or max_slides()
+    dataset = getattr(result, "dataset", None)
+    ranked = list(findings)
+
+    # Slaytlar (anlatım sırası, ÖNCELİK) çiftleriyle toplanır. Sınır aşıldığında
+    # kesilen ANLATIMIN SONU değil, ÖNCELİĞİ EN DÜŞÜK slayt olur: kapak, karar
+    # özeti, bulgular ve aksiyonlar her hâlükârda kalır; kırılım/seri/sınırlar
+    # yer kalırsa girer. Aksiyonu düşürüp kırılımı tutan bir sunum, dinleyiciye
+    # "ne yapacağız" demeden biter.
+    collected: List[Tuple[int, Dict[str, Any]]] = []
+
+    def _add(priority: int, title: str, bullets: Sequence[Any]) -> None:
+        cleaned = [str(b).strip() for b in bullets if str(b).strip()]
+        if cleaned:
+            collected.append((priority, {"title": title, "bullets": cleaned}))
+
+    cover: List[str] = []
+    if dataset is not None:
+        summary = getattr(dataset, "summary_tr", None)
+        cover.append(f"Kaynak: {getattr(dataset, 'name', 'veri kümesi')}")
+        if callable(summary):
+            try:
+                cover.append(str(summary()))
+            except Exception:  # pragma: no cover - savunma amaçlı
+                pass
+    generated = str(getattr(result, "generated_at", "") or "")
+    if generated:
+        cover.append(f"Üretim: {generated}")
+    _add(0, str(getattr(result, "title", "") or "Veri Analizi"), cover or ["Kaynak veri kümesi"])
+
+    headline = str(getattr(result, "headline", "") or "").strip()
+    decision: List[str] = []
+    if headline:
+        decision.append(headline)
+    for finding in ranked[:3]:
+        decision.append(f"{finding.metric}: {finding.display}")
+    _add(1, "Karar özeti", decision)
+
+    impact = [f for f in ranked if getattr(f, "tone", "") in ("bad", "warn")]
+    _add(
+        2,
+        "Etkiye göre bulgular",
+        [
+            f"{f.metric} = {f.display}"
+            + (f" — {f.interpretation}" if f.interpretation else "")
+            for f in impact[:5]
+        ],
+    )
+
+    for pivot in list(getattr(result, "pivots", []) or [])[:2]:
+        # Satırlar düz sözlüktür; Türkçe biçimlenmiş halini pivotun kendisi
+        # verir (``display_rows``), böylece slaytta ham float görünmez.
+        try:
+            rows = pivot.display_rows()
+        except Exception:  # pragma: no cover - savunma amaçlı
+            rows = list(getattr(pivot, "rows", []) or [])
+        if not rows:
+            continue
+        dimensions = list(getattr(pivot, "dimensions", []) or [])
+        measures = [m.key for m in getattr(pivot, "measures", []) or []]
+        bullets = []
+        for row in rows[:5]:
+            label = " / ".join(str(row.get(dim, "")) for dim in dimensions).strip()
+            value = str(row.get(measures[0], "")) if measures else ""
+            bullets.append(f"{label}: {value}".strip(": ").strip())
+        _add(5, f"Kırılım — {getattr(pivot, 'title', 'dağılım')}", bullets)
+
+    series_list = list(getattr(result, "series", []) or [])
+    if series_list:
+        bullets = []
+        for series in series_list[:3]:
+            points = list(getattr(series, "points", []) or [])
+            if not points:
+                continue
+            bullets.append(
+                f"{getattr(series, 'title', 'seri')}: "
+                f"{len(points)} dönem, ilk {points[0].label} → son {points[-1].label}"
+            )
+        _add(6, "Zaman içindeki seyir", bullets)
+
+    _add(4, "Verinin desteklemediği şeyler", [str(note) for note in list(limits)[:5]])
+    _add(3, "Aksiyonlar", [item["text"] for item in build_action_items(ranked, result)[:5]])
+
+    # Önce önceliğe göre ele (kimler kalıyor), sonra ANLATIM sırasına geri dön.
+    order = {id(slide): index for index, (_, slide) in enumerate(collected)}
+    kept = sorted(collected, key=lambda pair: (pair[0], order[id(pair[1])]))[:cap]
+    return [slide for _, slide in sorted(kept, key=lambda pair: order[id(pair[1])])]
+
+
+def render_slide_outline(slides: Sequence[Dict[str, Any]]) -> str:
+    """Slayt iskeletini Slack/Markdown'a yapıştırılabilir metne çevirir."""
+    if not slides:
+        return ""
+    lines = [SLIDE_HEADING, "", SLIDES_LIMIT_NOTE, ""]
+    for index, slide in enumerate(slides, start=1):
+        lines.append(f"**Slayt {index} — {slide.get('title', '')}**")
+        for bullet in slide.get("bullets", []):
+            lines.append(f"- {bullet}")
+        lines.append("")
+    return "\n".join(lines).rstrip()
+
+
+@dataclass
+class Deliverables:
+    """Bir analiz koşusundan çıkan somut dosyalar ve bağlantılar."""
+
+    slides: List[Dict[str, Any]] = field(default_factory=list)
+    excel_path: str = ""
+    excel_link: str = ""
+    outline_path: str = ""
+    outline_link: str = ""
+    notes: List[str] = field(default_factory=list)
+
+    def summary_block(self) -> str:
+        """Brifinge eklenen "ne üretildi" bloğu. Üretilmeyen şey YAZILMAZ."""
+        rows: List[str] = []
+        if self.excel_path:
+            target = self.excel_link or self.excel_path
+            rows.append(f"- 📊 Excel çalışma kitabı (özet tablo + grafik): {target}")
+        if self.outline_path:
+            target = self.outline_link or self.outline_path
+            rows.append(f"- 🖼️ Sunum taslağı (metin): {target}")
+        for note in self.notes:
+            rows.append(f"- ⚠️ {note}")
+        if not rows:
+            return ""
+        return "\n".join([DELIVERABLES_HEADING, ""] + rows)
+
+
+def write_workbook(
+    result: Any,
+    directory: str = "",
+    moment: Optional[datetime] = None,
+) -> str:
+    """Analiz sonucunu grafikli bir ``.xlsx`` dosyasına yazar, yolunu döner.
+
+    Yeni bir Excel yazıcısı YOK: :mod:`ai_assistant.analysis.excel_report`
+    zaten kapak, KPI, ham veri, kırılım (pasta/sütun grafikli), seri, aykırı
+    ve korelasyon sayfalarını üretiyor. Buradaki iş dosyayı doğru yere,
+    doğru adla koymak.
+    """
+    from ..analysis.excel_report import build_workbook
+
+    target_dir = directory or output_dir()
+    os.makedirs(target_dir, exist_ok=True)
+    path = os.path.join(target_dir, deliverable_basename(result, moment) + ".xlsx")
+    return build_workbook(result, path, moment=moment)
+
+
+def upload_deliverables(
+    deliverables: Deliverables,
+    folder_id: str = "",
+    client: Any = None,
+) -> Deliverables:
+    """Üretilen dosyaları Drive'a yükler ve bağlantılarını doldurur.
+
+    Mevcut :class:`~ai_assistant.integrations.google_drive.DriveClient`
+    kullanılır; ikinci bir Drive istemcisi yoktur. Klasör tanımlı değilse ya
+    da kimlik yoksa yükleme SESSİZCE atlanmaz — ``notes`` alanına Türkçe bir
+    açıklama düşer ve yerel dosya yolları geçerli kalır.
+    """
+    target = folder_id or output_folder_id()
+    if not target:
+        deliverables.notes.append(
+            f"Drive'a yüklenmedi: {OUTPUT_FOLDER_ENV} (ya da "
+            f"{FALLBACK_OUTPUT_FOLDER_ENV}) tanımlı değil. Dosyalar yalnızca "
+            f"yerelde."
+        )
+        return deliverables
+
+    from ..integrations import google_drive as drive_mod
+
+    try:
+        drive = client or drive_mod.DriveClient()
+    except Exception as exc:
+        deliverables.notes.append(f"Drive'a yüklenemedi (kimlik/bağlantı): {exc}")
+        return deliverables
+
+    def _push(path: str, payload: Any, mime: str) -> str:
+        name = os.path.basename(path)
+        file_id = drive.upload_report(name, payload, target, mime_type=mime)
+        try:
+            return drive.get_file_link(file_id)
+        except Exception:  # pragma: no cover - bağlantı alınamazsa ad yeter
+            return ""
+
+    if deliverables.excel_path:
+        try:
+            with open(deliverables.excel_path, "rb") as handle:
+                deliverables.excel_link = _push(
+                    deliverables.excel_path, handle.read(), drive_mod.MIME_TYPE_XLSX
+                )
+        except Exception as exc:
+            deliverables.notes.append(f"Excel Drive'a yüklenemedi: {exc}")
+
+    if deliverables.outline_path:
+        try:
+            with open(deliverables.outline_path, "r", encoding="utf-8") as handle:
+                deliverables.outline_link = _push(
+                    deliverables.outline_path,
+                    handle.read(),
+                    drive_mod.MIME_TYPE_MARKDOWN,
+                )
+        except Exception as exc:
+            deliverables.notes.append(f"Sunum taslağı Drive'a yüklenemedi: {exc}")
+
+    return deliverables
+
+
+def produce_deliverables(
+    result: Any,
+    findings: Sequence[Any],
+    limits: Sequence[str],
+    narrative: str = "",
+    moment: Optional[datetime] = None,
+    upload: bool = True,
+) -> Deliverables:
+    """Excel + sunum taslağı üretir, isteğe bağlı olarak Drive'a yükler.
+
+    HİÇBİR adım koşuyu düşürmez: her hata ``notes`` alanına Türkçe bir
+    cümleye dönüşür, üretilebilen çıktı yine üretilir.
+    """
+    deliverables = Deliverables()
+    if result is None:
+        return deliverables
+
+    try:
+        deliverables.slides = build_slide_outline(result, findings, limits)
+    except Exception as exc:  # pragma: no cover - savunma amaçlı
+        deliverables.notes.append(f"Sunum taslağı kurulamadı: {exc}")
+
+    directory = output_dir()
+    if excel_enabled():
+        try:
+            deliverables.excel_path = write_workbook(result, directory, moment=moment)
+        except Exception as exc:
+            deliverables.notes.append(f"Excel üretilemedi: {exc}")
+    else:
+        deliverables.notes.append(
+            f"Excel üretimi kapalı ({EXCEL_ENV}=false); yalnızca yazılı rapor "
+            f"ve sunum taslağı üretildi."
+        )
+
+    if deliverables.slides:
+        try:
+            os.makedirs(directory, exist_ok=True)
+            path = os.path.join(
+                directory, deliverable_basename(result, moment) + "-sunum.md"
+            )
+            body = render_slide_outline(deliverables.slides)
+            if narrative.strip():
+                body = f"{body}\n\n## 📝 Yazılı rapor\n\n{narrative.strip()}"
+            with open(path, "w", encoding="utf-8") as handle:
+                handle.write(body + "\n")
+            deliverables.outline_path = path
+        except Exception as exc:
+            deliverables.notes.append(f"Sunum taslağı dosyaya yazılamadı: {exc}")
+
+    if upload and (deliverables.excel_path or deliverables.outline_path):
+        upload_deliverables(deliverables)
+
+    return deliverables
+
+
 class DataAnalystAdvisor(Advisor):
     """Veri analisti: motorun sayısını operasyon diline çeviren persona."""
 
     key = "data_analyst"
-    title = "Veri Analisti (Çağrı Merkezi Operasyonu)"
+    title = "Raporlama & Veri Analisti (Excel · Sunum Taslağı · Yazılı Rapor)"
     #: Analiz edilen tablo kurumun kendi operasyon verisidir.
     private = True
     #: Kaynak tablo gün içinde büyüyebilir, ama bir koşuda "yeni bulgu" sayımı
@@ -726,6 +1127,7 @@ class DataAnalystAdvisor(Advisor):
         self._link: str = ""
         self._note: str = ""
         self._error: Optional[BaseException] = None
+        self._deliverables: Deliverables = Deliverables()
 
     # -- veri hazırlığı (LLM'in DIŞINDA) ---------------------------------
     def _prepare(self) -> None:
@@ -825,8 +1227,22 @@ class DataAnalystAdvisor(Advisor):
 
     # -- yardımcılar -----------------------------------------------------
     def _briefing(self, narrative: str) -> Briefing:
-        """Metni yapısal rapor gövdesiyle birlikte bir brifinge sarar."""
+        """Metni yapısal rapor gövdesiyle ve ÜRETİLEN ÇIKTILARLA sarar.
+
+        Brifing artık üç şeyi birden taşır: yazılı rapor (analistin yorumu),
+        sunuma yapıştırılabilir slayt taslağı ve diske yazılmış ``.xlsx``
+        çalışma kitabının yolu/bağlantısı. Çıktı üretimi brifingi ASLA
+        düşürmez — üretilemeyen şey ``notes`` içinde Türkçe bir cümle olur.
+        """
+        deliverables = self._deliver(narrative)
+
         parts = [narrative.strip()]
+        outline = render_slide_outline(deliverables.slides)
+        if outline:
+            parts.append(outline)
+        summary = deliverables.summary_block()
+        if summary:
+            parts.append(summary)
         if self._note:
             parts.append(f"🗂️ {self._note}")
         parts.append(CAVEAT)
@@ -835,14 +1251,69 @@ class DataAnalystAdvisor(Advisor):
             briefing.report = build_report_payload(
                 self._result, self._findings, narrative, self._limits, link=self._link
             )
+            self._attach_deliverables(briefing, deliverables)
         except Exception as exc:  # pragma: no cover - savunma amaçlı
             logger.warning("veri analisti yapısal raporu kurulamadı: %s", exc)
         return briefing
 
+    def _deliver(self, narrative: str) -> Deliverables:
+        """Excel + sunum taslağını üretir; her hata bir nota dönüşür."""
+        try:
+            self._deliverables = produce_deliverables(
+                self._result, self._findings, self._limits, narrative=narrative
+            )
+        except Exception as exc:  # pragma: no cover - savunma amaçlı
+            logger.warning("veri analisti çıktıları üretilemedi: %s", exc)
+            self._deliverables = Deliverables(notes=[f"Çıktılar üretilemedi: {exc}"])
+        return self._deliverables
+
+    @staticmethod
+    def _attach_deliverables(briefing: Briefing, deliverables: Deliverables) -> None:
+        """Üretilen dosyaları yapısal raporun kaynak listesine ekler."""
+        report = getattr(briefing, "report", None)
+        if not isinstance(report, dict):
+            return
+        sources = list(report.get("sources") or [])
+        if deliverables.excel_path:
+            sources.append(
+                {
+                    "title": os.path.basename(deliverables.excel_path),
+                    "url": deliverables.excel_link or deliverables.excel_path,
+                    "note": "Grafikli Excel çalışma kitabı.",
+                }
+            )
+        if deliverables.outline_path:
+            sources.append(
+                {
+                    "title": os.path.basename(deliverables.outline_path),
+                    "url": deliverables.outline_link or deliverables.outline_path,
+                    "note": "Sunum taslağı (Slides dosyası DEĞİL).",
+                }
+            )
+        report["sources"] = sources
+
 
 __all__ = [
     "CAVEAT",
+    "DELIVERABLES_HEADING",
+    "DEFAULT_MAX_SLIDES",
+    "DEFAULT_OUTPUT_DIR",
     "DataAnalystAdvisor",
+    "Deliverables",
+    "EXCEL_ENV",
+    "OUTPUT_DIR_ENV",
+    "OUTPUT_FOLDER_ENV",
+    "SLIDES_LIMIT_NOTE",
+    "SLIDE_HEADING",
+    "build_slide_outline",
+    "deliverable_basename",
+    "excel_enabled",
+    "output_dir",
+    "output_folder_id",
+    "produce_deliverables",
+    "render_slide_outline",
+    "upload_deliverables",
+    "write_workbook",
     "IMPACT_ORDER",
     "SECTION_HEADINGS",
     "SETUP_HELP",

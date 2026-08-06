@@ -279,6 +279,56 @@ ADVISOR_CHANNELS: Tuple[ChannelSpec, ...] = (
         advisor_key="executive_coaching",
     ),
     ChannelSpec(
+        env_key=advisor_channel_env("productivity_coach"),
+        name="ai-verimlilik-kocu",
+        label="Verimlilik Koçu",
+        purpose=(
+            "Verimlilik Koçu ajanının kanalı. Haftanın odak blok mimarisi, "
+            "enerji eşleşmesi ve gün iskeleti. Takvim OKUNMAZ; yalnızca zaman "
+            "yapısı önerilir."
+        ),
+        topic="⏱️ Odak blokları · enerji eşleşmesi · haftanın iskeleti",
+        advisor_key="productivity_coach",
+    ),
+    ChannelSpec(
+        env_key=advisor_channel_env("risk_sentinel"),
+        name="ai-risk-nobetci",
+        label="Risk Nöbetçisi",
+        purpose=(
+            "Risk Nöbetçisi ajanının kanalı. Koşu geçmişinde TREND hâlinde "
+            "kötüleşen ölçümler ve eşik aşımları. SİSTEM İÇ ÖLÇÜMÜ taşır; "
+            "panoya yazılmaz."
+        ),
+        topic="📉 Erken uyarı · kötüleşen eğilim + eşik aşımı · 🔒 kişisel",
+        private=True,
+        advisor_key="risk_sentinel",
+    ),
+    ChannelSpec(
+        env_key=advisor_channel_env("decision_intelligence"),
+        name="ai-karar-zekasi",
+        label="Karar Zekâsı",
+        purpose=(
+            "Karar Zekâsı ajanının kanalı. Verilmiş kararların sonucu, karar "
+            "kalitesi geri bildirimi ve tekrar eden örüntüler. KENDİ "
+            "KARARLARINIZI içerir; panoya yazılmaz."
+        ),
+        topic="⚖️ Kararların sonucu · süreç kalitesi · 🔒 kişisel",
+        private=True,
+        advisor_key="decision_intelligence",
+    ),
+    ChannelSpec(
+        env_key=advisor_channel_env("social_guardian"),
+        name="ai-itibar-muhafizi",
+        label="İtibar Muhafızı",
+        purpose=(
+            "İtibar Muhafızı ajanının kanalı. Marka zararı riski, kriz erken "
+            "uyarısı, cevap penceresi ve duruş önerisi. İçerik koçluğu değil, "
+            "risk değerlendirmesi."
+        ),
+        topic="🛟 İtibar riski · şiddet + cevap penceresi",
+        advisor_key="social_guardian",
+    ),
+    ChannelSpec(
         env_key=advisor_channel_env("work_analyst"),
         name="ai-is-analisti",
         label="İş Analisti Danışmanı",
