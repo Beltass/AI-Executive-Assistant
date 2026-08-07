@@ -1,41 +1,41 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-08-06T12:58:55+00:00",
-  "generated_at_istanbul": "06.08.2026 15:58",
+  "generated_at": "2026-08-07T00:41:39+00:00",
+  "generated_at_istanbul": "07.08.2026 03:41",
   "run": {
     "conclusion": "ok",
     "total": 22,
-    "ok": 1,
+    "ok": 2,
     "failed": 0,
-    "skipped": 21,
-    "duration_seconds": 50.9,
+    "skipped": 20,
+    "duration_seconds": 35.9,
     "batch": {
       "enabled": true,
-      "attempted": false,
-      "used": false,
-      "sections_requested": 1,
-      "sections_produced": 0,
+      "attempted": true,
+      "used": true,
+      "sections_requested": 2,
+      "sections_produced": 2,
       "model": "gemini-2.5-flash",
       "provider": "gemini",
-      "prompt_chars_total": 0,
-      "guide_saved_chars": 0,
-      "failure_reason": "single_section",
-      "failure_detail": "toplu istek için yeterli bölüm yok (1)"
+      "prompt_chars_total": 8404,
+      "guide_saved_chars": 3762,
+      "failure_reason": "",
+      "failure_detail": ""
     },
     "tokens": {
       "called": true,
-      "prompt": 2405,
-      "output": 3492,
-      "thoughts": 4696,
-      "total": 10593,
-      "latency_seconds": 48.0,
+      "prompt": 2817,
+      "output": 1664,
+      "thoughts": 3379,
+      "total": 7860,
+      "latency_seconds": 34.38,
       "retries": 0,
       "fallback_used": false
     },
     "mode": "incremental",
     "mode_label": "artımlı",
-    "new_findings": 1,
-    "nothing_new_count": 12
+    "new_findings": 2,
+    "nothing_new_count": 11
   },
   "slack": {
     "status": "ok",
@@ -89,13 +89,13 @@
     {
       "id": "career_development",
       "name": "Kariyer Gelişimi (İK · İlanlar · İngilizce · Sertifika)",
-      "status": "ok",
-      "content_length": 12618,
-      "detail": "",
+      "status": "skipped",
+      "content_length": 0,
+      "detail": "yeni bulgu yok",
       "emoji": "💼",
       "category": "kariyer",
-      "new_findings": 1,
-      "nothing_new": false
+      "new_findings": 0,
+      "nothing_new": true
     },
     {
       "id": "market_intelligence",
@@ -111,13 +111,13 @@
     {
       "id": "complaint_radar",
       "name": "Pazar Trendleri & Kapsamlı Analiz Danışmanı",
-      "status": "skipped",
-      "content_length": 0,
-      "detail": "yeni bulgu yok",
+      "status": "ok",
+      "content_length": 3984,
+      "detail": "",
       "emoji": "📊",
       "category": "sektör",
-      "new_findings": 0,
-      "nothing_new": true
+      "new_findings": 1,
+      "nothing_new": false
     },
     {
       "id": "linkedin_coach",
@@ -221,13 +221,13 @@
     {
       "id": "risk_sentinel",
       "name": "Risk Nöbetçisi (Erken Uyarı · Eşik Aşımı)",
-      "status": "skipped",
-      "content_length": 0,
-      "detail": "yeni bulgu yok",
+      "status": "ok",
+      "content_length": 2275,
+      "detail": "",
       "emoji": "📉",
       "category": "operasyon",
-      "new_findings": 0,
-      "nothing_new": true
+      "new_findings": 1,
+      "nothing_new": false
     },
     {
       "id": "decision_intelligence",
@@ -312,7 +312,7 @@
     "urgent_count": 0,
     "action_items": 0,
     "vip_emails": 0,
-    "last_update": "2026-08-06T12:58:55+00:00",
+    "last_update": "2026-08-07T00:41:39+00:00",
     "last_fetch_error": null
   },
   "calendar": {
@@ -326,7 +326,7 @@
       "duration_minutes": null
     },
     "available_slots": [],
-    "last_update": "2026-08-06T12:58:55+00:00",
+    "last_update": "2026-08-07T00:41:39+00:00",
     "last_fetch_error": null
   },
   "integrations": {
@@ -361,11 +361,11 @@
   },
   "performance": {
     "daily_metrics": {
-      "completion_rate": 4.5,
-      "deadline_adherence": 4.5,
+      "completion_rate": 9.1,
+      "deadline_adherence": 9.1,
       "success_rate": 100.0,
-      "token_efficiency": 3492.0,
-      "last_update": "2026-08-06T12:58:55+00:00"
+      "token_efficiency": 832.0,
+      "last_update": "2026-08-07T00:41:39+00:00"
     },
     "work_status": {
       "meeting_hours": 0.0,
@@ -381,16 +381,16 @@
         100.0,
         100.0,
         100.0,
-        4.5
+        9.1
       ],
       "deadline_7d": [
-        73.3,
         13.3,
         6.7,
         6.7,
         43.8,
         28.6,
-        4.5
+        4.5,
+        9.1
       ],
       "success_7d": [
         100.0,
@@ -406,19 +406,6 @@
     "feedback": ""
   },
   "history": [
-    {
-      "at": "2026-07-31T09:50:12+00:00",
-      "at_istanbul": "31.07.2026 12:50",
-      "conclusion": "ok",
-      "ok": 13,
-      "failed": 0,
-      "skipped": 2,
-      "total": 15,
-      "duration_seconds": 489.4,
-      "slack": "ok",
-      "mode": "full",
-      "new_findings": 14
-    },
     {
       "at": "2026-07-31T12:58:13+00:00",
       "at_istanbul": "31.07.2026 15:58",
@@ -818,6 +805,20 @@
       "mode": "incremental",
       "new_findings": 1,
       "total_tokens": 10593
+    },
+    {
+      "at": "2026-08-07T00:41:39+00:00",
+      "at_istanbul": "07.08.2026 03:41",
+      "conclusion": "ok",
+      "ok": 2,
+      "failed": 0,
+      "skipped": 20,
+      "total": 22,
+      "duration_seconds": 35.9,
+      "slack": "ok",
+      "mode": "incremental",
+      "new_findings": 2,
+      "total_tokens": 7860
     }
   ]
 }

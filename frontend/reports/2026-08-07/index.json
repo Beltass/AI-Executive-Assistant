@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "date": "2026-08-07",
+  "generated_at": "2026-08-07T03:41:39+03:00",
+  "generated_at_istanbul": "07.08.2026 03:41",
+  "mode": "incremental",
+  "mode_label": "artımlı",
+  "count": 1,
+  "reports": [
+    {
+      "id": "complaint_radar",
+      "name": "Pazar Trendleri & Kapsamlı Analiz Danışmanı",
+      "emoji": "📊",
+      "category": "sektör",
+      "headline": "BDDK'ya 2017 yılında yaklaşık 65 bin şikâyet gelmesi, sektörde müşteri memnuniyetsizliğinin regülatöre taşınma potansiyelinin yüksek olduğunu gösteren önemli bir referans noktasıdır.",
+      "excerpt": "Bugün gelen bilgilere göre, 2017 yılında Bankacılık Düzenleme ve Denetleme Kurumu'na (BDDK) yaklaşık 65 bin şikâyet ulaşmıştır. Bu veri, geçmişe ait olsa da, sektördeki müşteri şikâyetlerinin…",
+      "words": 500,
+      "read_minutes": 2,
+      "action_count": 0,
+      "actions": [],
+      "generated_at": "2026-08-07T03:41:39+03:00",
+      "generated_at_istanbul": "07.08.2026 03:41",
+      "path": "complaint_radar.json"
+    }
+  ]
+}
