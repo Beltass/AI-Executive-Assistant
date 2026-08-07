@@ -1,26 +1,101 @@
 {
   "schema_version": 1,
   "date": "2026-08-07",
-  "generated_at": "2026-08-07T03:41:39+03:00",
-  "generated_at_istanbul": "07.08.2026 03:41",
-  "mode": "incremental",
-  "mode_label": "artımlı",
-  "count": 1,
+  "generated_at": "2026-08-07T11:13:40+03:00",
+  "generated_at_istanbul": "07.08.2026 11:13",
+  "mode": "full",
+  "mode_label": "tam brifing",
+  "count": 3,
   "reports": [
     {
       "id": "complaint_radar",
       "name": "Pazar Trendleri & Kapsamlı Analiz Danışmanı",
       "emoji": "📊",
       "category": "sektör",
-      "headline": "BDDK'ya 2017 yılında yaklaşık 65 bin şikâyet gelmesi, sektörde müşteri memnuniyetsizliğinin regülatöre taşınma potansiyelinin yüksek olduğunu gösteren önemli bir referans noktasıdır.",
-      "excerpt": "Bugün gelen bilgilere göre, 2017 yılında Bankacılık Düzenleme ve Denetleme Kurumu'na (BDDK) yaklaşık 65 bin şikâyet ulaşmıştır. Bu veri, geçmişe ait olsa da, sektördeki müşteri şikâyetlerinin…",
-      "words": 500,
-      "read_minutes": 2,
-      "action_count": 0,
-      "actions": [],
-      "generated_at": "2026-08-07T03:41:39+03:00",
-      "generated_at_istanbul": "07.08.2026 03:41",
+      "headline": "Bugün yeni şikâyet verileri gelmemekle birlikte, bankacılık sektöründe dijital kanal sorunları ve çözüm odaklılığın eksikliği, müşteri memnuniyetini kalıcı olarak tehdit eden ana unsurlar olmaya devam ediyor.",
+      "excerpt": "Günaydın yönetici, Bugün itibarıyla anlık şikâyet akışımızda yeni bir hacimsel artış veya spesifik bir trend değişimine işaret eden veri bulunmamaktadır. Ancak, bu durum sektörde kronikleşmiş ve…",
+      "words": 937,
+      "read_minutes": 5,
+      "action_count": 1,
+      "actions": [
+        {
+          "id": "65763a18",
+          "title": "Bugün 30 dakikanızı ayırın ve son bir ay içinde dijital kanal kaynaklı olduğu belirtilen, çözümsüz kalmış veya tekrar aramayla sonuçlanmış en az 5 şikâyet kaydını inceleyin. Bu kayıtların ortak yönlerini belirleyerek, hangi dijital kanal sürecinin veya özelliğinin yapısal bir soruna işaret ettiğini not edin. Başarı ölçütü olarak, bu 5 şikâyetin hangi operasyonel adımda kırıldığını (örn. \"şifre sıfırlama akışı çok karmaşık\") net bir şekilde tanımlayabilmeyi hedefleyin.",
+          "priority": "P0",
+          "priority_rank": 1,
+          "owner": "",
+          "due_date": "",
+          "source_advisor": "complaint_radar",
+          "evidence_links": [],
+          "impact": "",
+          "recommendation": "",
+          "approval_status": "not_required",
+          "status": "pending"
+        }
+      ],
+      "generated_at": "2026-08-07T11:13:40+03:00",
+      "generated_at_istanbul": "07.08.2026 11:13",
       "path": "complaint_radar.json"
+    },
+    {
+      "id": "morning_operations",
+      "name": "Sabah İşletme Brifingi",
+      "emoji": "📋",
+      "category": "operasyon",
+      "headline": "Dün kritik yol öğelerinde beliren \"at-risk\" ve \"blocked\" durumları, bugünün operasyonel önceliklerini netleştirmeyi ve proaktif engel kaldırmayı zorunlu kılıyor.",
+      "excerpt": "Günaydın! Güne başlamadan önce, dünün operasyonel nabzını hızlıca tutalım ve bugünün kritik odaklarını belirleyelim. Yoğun temponuzda her dakikanın değerli olduğunun farkındayım, bu yüzden size…",
+      "words": 503,
+      "read_minutes": 3,
+      "action_count": 1,
+      "actions": [
+        {
+          "id": "ec039e4a",
+          "title": "Bugün 15 dakikanızı ayırarak, dün \"blocked\" ve \"at-risk\" olarak işaretlenen kritik yol öğelerinin listesini çıkarın. Her bir öğenin yanına, çözümü için atılacak ilk somut adımı ve sorumlu kişiyi yazın. Başarı ölçütü olarak, bu listeyi gün sonunda en az bir 'blocked' öğeyi 'in-progress' veya 'resolved' durumuna geçirmek için somut bir eylem planıyla güncellemeyi hedefleyin.",
+          "priority": "P0",
+          "priority_rank": 1,
+          "owner": "",
+          "due_date": "",
+          "source_advisor": "morning_operations",
+          "evidence_links": [],
+          "impact": "",
+          "recommendation": "",
+          "approval_status": "not_required",
+          "status": "pending"
+        }
+      ],
+      "generated_at": "2026-08-07T11:13:40+03:00",
+      "generated_at_istanbul": "07.08.2026 11:13",
+      "path": "morning_operations.json"
+    },
+    {
+      "id": "career_development",
+      "name": "Kariyer Gelişimi (İK · İlanlar · İngilizce · Sertifika)",
+      "emoji": "💼",
+      "category": "kariyer",
+      "headline": "Banka çağrı merkezi üst düzey yöneticileri için veriyle hikâye anlatma becerisi, kariyer gelişiminde ve liderlik iletişiminde kritik bir fark yaratma potansiyeli taşıyor.",
+      "excerpt": "Sevgili yönetici, kariyer yolculuğunuzda önemli bir kavşaktasınız. Sektördeki deneyiminiz ve liderlik yetkinliğinizle yeni ufuklara yelken açarken, doğru stratejilerle kariyerinizi bir üst seviyeye…",
+      "words": 1695,
+      "read_minutes": 8,
+      "action_count": 1,
+      "actions": [
+        {
+          "id": "051af0f3",
+          "title": "Bugün 20 dakikanızı ayırarak, yukarıdaki mini alıştırmadaki Türkçe cümleleri İngilizceye çevirmeye çalışın. Cevapları bu bölümün sonundaki 'Örnek Cevap' kısmıyla karşılaştırmadan önce, kendi başınıza bir taslak oluşturun. Bu, İngilizce düşünme ve iş İngilizcesi kalıplarını uygulama becerinizi geliştirecektir.",
+          "priority": "P0",
+          "priority_rank": 1,
+          "owner": "",
+          "due_date": "",
+          "source_advisor": "career_development",
+          "evidence_links": [],
+          "impact": "",
+          "recommendation": "",
+          "approval_status": "not_required",
+          "status": "pending"
+        }
+      ],
+      "generated_at": "2026-08-07T11:13:40+03:00",
+      "generated_at_istanbul": "07.08.2026 11:13",
+      "path": "career_development.json"
     }
   ]
 }

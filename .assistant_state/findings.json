@@ -524,8 +524,8 @@
   "retention_days": 30,
   "schema_version": 1,
   "sources": {
-    "career_feeds": "s:b8ad470a7077b97103d8dc0138c00755",
-    "complaint_feeds": "s:24ef3395c3aca6491526e2578a3c1603",
+    "career_feeds": "s:4f59f9123bd036521a89cd9352d1e8a7",
+    "complaint_feeds": "s:9aab6bbbb801a853538766741a1d1044",
     "market_feeds": "s:8970e7b803b4e806bdd4a9185c4d1afc",
     "run_history": "s:7e821f6b2506e4172ef61bf6a0c7b0a3"
   },
