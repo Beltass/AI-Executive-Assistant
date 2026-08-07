@@ -1,0 +1,42 @@
+name: Upload Docs to Drive
+
+# Publishes docs/AJAN_KULLANIM_KILAVUZU.md to the Drive folder the advisor
+# reports are archived to (GOOGLE_DRIVE_FOLDER_ID).
+#
+# MANUAL ONLY — no cron. The guide changes rarely, so a schedule would just
+# burn Actions minutes; run this from the Actions tab after editing the doc.
+on:
+  workflow_dispatch:
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install package
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+
+      - name: Upload documents to Drive
+        env:
+          # Same Google credentials as daily-briefing.yml: there is no token
+          # file on a runner, so the one-time local login's refresh token is
+          # passed through the environment instead. Without these three the
+          # script prints "Drive kimlik bilgisi yok, atlandı" and exits 0.
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
+          # Drive root folder: where reports are archived.
+          GOOGLE_DRIVE_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
+        run: python scripts/upload_docs_to_drive.py
