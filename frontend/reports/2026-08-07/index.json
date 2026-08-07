@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "date": "2026-08-07",
-  "generated_at": "2026-08-07T18:57:08+03:00",
-  "generated_at_istanbul": "07.08.2026 18:57",
+  "generated_at": "2026-08-07T22:53:39+03:00",
+  "generated_at_istanbul": "07.08.2026 22:53",
   "mode": "incremental",
   "mode_label": "artımlı",
   "count": 3,
@@ -12,29 +12,14 @@
       "name": "Pazar Trendleri & Kapsamlı Analiz Danışmanı",
       "emoji": "📊",
       "category": "sektör",
-      "headline": "Bugün yeni şikâyet verileri gelmemekle birlikte, bankacılık sektöründe dijital kanal sorunları ve çözüm odaklılığın eksikliği, müşteri memnuniyetini kalıcı olarak tehdit eden ana unsurlar olmaya devam ediyor.",
-      "excerpt": "Günaydın yönetici, Bugün itibarıyla anlık şikâyet akışımızda yeni bir hacimsel artış veya spesifik bir trend değişimine işaret eden veri bulunmamaktadır. Ancak, bu durum sektörde kronikleşmiş ve…",
-      "words": 937,
-      "read_minutes": 5,
-      "action_count": 1,
-      "actions": [
-        {
-          "id": "65763a18",
-          "title": "Bugün 30 dakikanızı ayırın ve son bir ay içinde dijital kanal kaynaklı olduğu belirtilen, çözümsüz kalmış veya tekrar aramayla sonuçlanmış en az 5 şikâyet kaydını inceleyin. Bu kayıtların ortak yönlerini belirleyerek, hangi dijital kanal sürecinin veya özelliğinin yapısal bir soruna işaret ettiğini not edin. Başarı ölçütü olarak, bu 5 şikâyetin hangi operasyonel adımda kırıldığını (örn. \"şifre sıfırlama akışı çok karmaşık\") net bir şekilde tanımlayabilmeyi hedefleyin.",
-          "priority": "P0",
-          "priority_rank": 1,
-          "owner": "",
-          "due_date": "",
-          "source_advisor": "complaint_radar",
-          "evidence_links": [],
-          "impact": "",
-          "recommendation": "",
-          "approval_status": "not_required",
-          "status": "pending"
-        }
-      ],
-      "generated_at": "2026-08-07T11:13:40+03:00",
-      "generated_at_istanbul": "07.08.2026 11:13",
+      "headline": "Bankacılık sektöründe kart şikâyetlerinin iki kat artarak BDDK'ya taşınması, operasyonel süreçlerdeki genel bir kırılmaya ve müşteri memnuniyetsizliğine işaret ediyor.",
+      "excerpt": "🔥 En çok konuşulan şikâyetler: Sektör genelinde kart şikâyetlerinin önceki döneme göre iki kat arttığı gözlenmektedir. Bu durum, kart ürün ve hizmetleriyle ilgili operasyonel süreçlerdeki genel…",
+      "words": 478,
+      "read_minutes": 2,
+      "action_count": 0,
+      "actions": [],
+      "generated_at": "2026-08-07T22:53:39+03:00",
+      "generated_at_istanbul": "07.08.2026 22:53",
       "path": "complaint_radar.json"
     },
     {

@@ -203,6 +203,7 @@
       "t:58d63916440a86f2": "2026-08-04",
       "t:82af53a3803d412b": "2026-08-04",
       "t:89115970e7539dba": "2026-08-04",
+      "t:8d23f76e39c41b88": "2026-08-07",
       "t:9f83fb3f9c397ef8": "2026-08-07",
       "t:ae1ba14e7c5486d0": "2026-08-04",
       "t:c635b8f439fdfd44": "2026-08-04",
@@ -216,7 +217,8 @@
       "u:5fc45dad4f0390a2": "2026-08-07",
       "u:8ebf273a7af1d591": "2026-08-04",
       "u:a57a01c9ca0c2d47": "2026-08-04",
-      "u:b6c19cef08d25b50": "2026-08-04"
+      "u:b6c19cef08d25b50": "2026-08-04",
+      "u:db1ba04024822fa6": "2026-08-07"
     },
     "cx_research": {
       "t:247dfdb0f4caffca": "2026-07-30",
@@ -525,9 +527,9 @@
   "schema_version": 1,
   "sources": {
     "career_feeds": "s:4f59f9123bd036521a89cd9352d1e8a7",
-    "complaint_feeds": "s:9aab6bbbb801a853538766741a1d1044",
+    "complaint_feeds": "s:9a45a1ac863a56dbd19497a490510968",
     "market_feeds": "s:8970e7b803b4e806bdd4a9185c4d1afc",
-    "run_history": "s:ea49232f9c9a4a4ece9ea15132fc5b47"
+    "run_history": "s:ad3977d28c61ee3a3a7f4942e90c9dbc"
   },
   "updated_at": "2026-08-07",
   "weekly_runs": {}
