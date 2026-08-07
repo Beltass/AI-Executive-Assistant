@@ -1,14 +1,14 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-08-07T11:47:12+00:00",
-  "generated_at_istanbul": "07.08.2026 14:47",
+  "generated_at": "2026-08-07T15:57:08+00:00",
+  "generated_at_istanbul": "07.08.2026 18:57",
   "run": {
     "conclusion": "ok",
     "total": 22,
     "ok": 1,
     "failed": 0,
     "skipped": 21,
-    "duration_seconds": 39.0,
+    "duration_seconds": 15.8,
     "batch": {
       "enabled": true,
       "attempted": false,
@@ -24,12 +24,12 @@
     },
     "tokens": {
       "called": true,
-      "prompt": 1421,
-      "output": 1052,
+      "prompt": 1420,
+      "output": 969,
       "thoughts": 0,
-      "total": 2473,
-      "latency_seconds": 37.19,
-      "retries": 1,
+      "total": 2389,
+      "latency_seconds": 13.63,
+      "retries": 0,
       "fallback_used": false
     },
     "mode": "incremental",
@@ -222,7 +222,7 @@
       "id": "risk_sentinel",
       "name": "Risk Nöbetçisi (Erken Uyarı · Eşik Aşımı)",
       "status": "ok",
-      "content_length": 3687,
+      "content_length": 3495,
       "detail": "",
       "emoji": "📉",
       "category": "operasyon",
@@ -312,7 +312,7 @@
     "urgent_count": 0,
     "action_items": 0,
     "vip_emails": 0,
-    "last_update": "2026-08-07T11:47:12+00:00",
+    "last_update": "2026-08-07T15:57:08+00:00",
     "last_fetch_error": null
   },
   "calendar": {
@@ -326,7 +326,7 @@
       "duration_minutes": null
     },
     "available_slots": [],
-    "last_update": "2026-08-07T11:47:12+00:00",
+    "last_update": "2026-08-07T15:57:08+00:00",
     "last_fetch_error": null
   },
   "integrations": {
@@ -364,8 +364,8 @@
       "completion_rate": 4.5,
       "deadline_adherence": 4.5,
       "success_rate": 100.0,
-      "token_efficiency": 1052.0,
-      "last_update": "2026-08-07T11:47:12+00:00"
+      "token_efficiency": 969.0,
+      "last_update": "2026-08-07T15:57:08+00:00"
     },
     "work_status": {
       "meeting_hours": 0.0,
@@ -384,12 +384,12 @@
         4.5
       ],
       "deadline_7d": [
-        6.7,
         43.8,
         28.6,
         4.5,
         9.1,
         27.3,
+        4.5,
         4.5
       ],
       "success_7d": [
@@ -406,19 +406,6 @@
     "feedback": ""
   },
   "history": [
-    {
-      "at": "2026-07-31T20:22:01+00:00",
-      "at_istanbul": "31.07.2026 23:22",
-      "conclusion": "ok",
-      "ok": 1,
-      "failed": 0,
-      "skipped": 14,
-      "total": 15,
-      "duration_seconds": 31.7,
-      "slack": "ok",
-      "mode": "incremental",
-      "new_findings": 2
-    },
     {
       "at": "2026-08-01T09:06:43+00:00",
       "at_istanbul": "01.08.2026 12:06",
@@ -821,6 +808,20 @@
       "mode": "incremental",
       "new_findings": 2,
       "total_tokens": 2473
+    },
+    {
+      "at": "2026-08-07T15:57:08+00:00",
+      "at_istanbul": "07.08.2026 18:57",
+      "conclusion": "ok",
+      "ok": 1,
+      "failed": 0,
+      "skipped": 21,
+      "total": 22,
+      "duration_seconds": 15.8,
+      "slack": "ok",
+      "mode": "incremental",
+      "new_findings": 2,
+      "total_tokens": 2389
     }
   ]
 }
