@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "date": "2026-08-08",
+  "generated_at": "2026-08-08T10:47:58+03:00",
+  "generated_at_istanbul": "08.08.2026 10:47",
+  "mode": "full",
+  "mode_label": "tam brifing",
+  "count": 2,
+  "reports": [
+    {
+      "id": "morning_operations",
+      "name": "Sabah İşletme Brifingi",
+      "emoji": "📋",
+      "category": "operasyon",
+      "headline": "Dünkü performans verileri ışığında bugünün operasyonel öncelikleri, kritik yoldaki olası engelleri aşmaya ve en önemli göreve odaklanarak günün verimli geçmesini sağlamak.",
+      "excerpt": "Bugüne başlarken, dünün yoğun temposunun ardından operasyonel ritmimizi doğru kurmak hayati önem taşıyor. Sadece e-postaları kontrol etmekle kalmayıp, günün en zorlu görevine öncelik vererek proaktif…",
+      "words": 579,
+      "read_minutes": 3,
+      "action_count": 1,
+      "actions": [
+        {
+          "id": "97fd8756",
+          "title": "Bugün, \"En zor/en önemli görevi başlat\" ilkesini uygulayın. Günün en kritik tek görevini belirleyin ve ilk 30 dakikanızı bu görevin ilk adımını atmaya ayırın. Başarı ölçütü: Günün sonunda, bu görevin ilk aşamasının tamamlandığını veya belirgin bir ilerleme kaydedildiğini gösteren somut bir çıktı (örn. taslak, ilk analiz, karar taslağı) üretin.",
+          "priority": "P0",
+          "priority_rank": 1,
+          "owner": "",
+          "due_date": "",
+          "source_advisor": "morning_operations",
+          "evidence_links": [],
+          "impact": "",
+          "recommendation": "",
+          "approval_status": "not_required",
+          "status": "pending"
+        }
+      ],
+      "generated_at": "2026-08-08T10:47:58+03:00",
+      "generated_at_istanbul": "08.08.2026 10:47",
+      "path": "morning_operations.json"
+    },
+    {
+      "id": "complaint_radar",
+      "name": "Pazar Trendleri & Kapsamlı Analiz Danışmanı",
+      "emoji": "📊",
+      "category": "sektör",
+      "headline": "Bugün yeni şikayet verisi olmamasına rağmen, bankacılık ve finans sektöründe bekleme süresi, çözümsüzlük ve ücret şeffaflığı gibi kalıcı şikayet temaları, müşteri memnuniyeti ve operasyonel verimlilik için sürekli dikkat gerektirmektedir.",
+      "excerpt": "Müşteri şikayetleri, genellikle bir buzdağının görünen kısmıdır; yüzeyde yeni bir hareket olmasa bile, derindeki akıntılar devam eder. Bugün bankacılık ve finans sektöründen gelen yeni bir şikayet…",
+      "words": 884,
+      "read_minutes": 4,
+      "action_count": 1,
+      "actions": [
+        {
+          "id": "05939087",
+          "title": "Son bir ayda \"çözüldü\" olarak kapatılan 10 adet şikayet dosyasını rastgele seçin ve bu müşterilerden kaçının 7 gün içinde aynı veya benzer bir konu için tekrar aradığını doğrulayın. Başarı ölçütü: Bu 10 dosyanın kaçında tekrar temas olduğunu gösteren somut bir sayı elde edin. Bu, çözümsüzlük teması için önemli bir erken uyarı sinyali sağlayacaktır.",
+          "priority": "P2",
+          "priority_rank": 3,
+          "owner": "",
+          "due_date": "",
+          "source_advisor": "complaint_radar",
+          "evidence_links": [],
+          "impact": "",
+          "recommendation": "",
+          "approval_status": "not_required",
+          "status": "pending"
+        }
+      ],
+      "generated_at": "2026-08-08T10:47:58+03:00",
+      "generated_at_istanbul": "08.08.2026 10:47",
+      "path": "complaint_radar.json"
+    }
+  ]
+}
