@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
   "date": "2026-08-08",
-  "generated_at": "2026-08-08T18:30:41+03:00",
-  "generated_at_istanbul": "08.08.2026 18:30",
+  "generated_at": "2026-08-08T22:31:53+03:00",
+  "generated_at_istanbul": "08.08.2026 22:31",
   "mode": "incremental",
   "mode_label": "artımlı",
-  "count": 2,
+  "count": 3,
   "reports": [
     {
       "id": "morning_operations",
@@ -66,6 +66,21 @@
       "generated_at": "2026-08-08T10:47:58+03:00",
       "generated_at_istanbul": "08.08.2026 10:47",
       "path": "complaint_radar.json"
+    },
+    {
+      "id": "career_development",
+      "name": "Kariyer Gelişimi (İK · İlanlar · İngilizce · Sertifika)",
+      "emoji": "💼",
+      "category": "kariyer",
+      "headline": "Üst düzey bir çağrı merkezi yöneticisi olarak, veriyle hikaye anlatma becerilerinizi geliştirerek kariyerinizde yeni kapılar açın ve stratejik iletişimde fark yaratın.",
+      "excerpt": "Bir sunumda sadece sayıları sıralamakla, o sayıların arkasındaki \"nedeni\" ve \"sonucu\" etkili bir hikayeye dönüştürmek arasında devasa bir fark vardır. Özellikle yönetici seviyesinde, veriyi…",
+      "words": 2062,
+      "read_minutes": 10,
+      "action_count": 0,
+      "actions": [],
+      "generated_at": "2026-08-08T22:31:53+03:00",
+      "generated_at_istanbul": "08.08.2026 22:31",
+      "path": "career_development.json"
     }
   ]
 }
