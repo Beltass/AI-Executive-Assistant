@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-08-08T07:47:59+00:00",
-  "generated_at_istanbul": "08.08.2026 10:47",
+  "generated_at": "2026-08-08T11:30:13+00:00",
+  "generated_at_istanbul": "08.08.2026 14:30",
   "history_limit": 60,
   "attribution_note": "Ajan başına token değerleri TAHMİNDİR: ekip tek bir toplu model çağrısıyla çalışır, sağlayıcı tokenları çağrı başına raporlar. Girdi tokenları her ajanın prompt uzunluğuna, çıktı tokenları ürettiği metin uzunluğuna göre paylaştırılır.",
   "totals": {
-    "runs": 38,
+    "runs": 39,
     "runs_with_llm": 38,
     "total_tokens": 448712,
     "prompt_tokens": 183237,
@@ -25,50 +25,50 @@
     {
       "severity": "warn",
       "title": "Pazar Trendleri & Kapsamlı Analiz Danışmanı beklenenden pahalı",
-      "detail": "Son 7 çalıştırmada bu ajan üretilen metnin %27,1'ini üretiyor ama tahmini token'ın %39,3'ini harcıyor (+12.2 puan fark). Persona ve görev metnini kısaltmak, aynı çıktıyı daha az girdi tokenıyla verir.",
+      "detail": "Son 7 çalıştırmada bu ajan üretilen metnin %31,9'ini üretiyor ama tahmini token'ın %48,1'ini harcıyor (+16.2 puan fark). Persona ve görev metnini kısaltmak, aynı çıktıyı daha az girdi tokenıyla verir.",
       "metric": "7494 tahmini token",
       "advisor": "complaint_radar"
     },
     {
       "severity": "warn",
       "title": "Risk Nöbetçisi (Erken Uyarı · Eşik Aşımı) beklenenden pahalı",
-      "detail": "Son 7 çalıştırmada bu ajan üretilen metnin %19,9'ini üretiyor ama tahmini token'ın %31,1'ini harcıyor (+11.2 puan fark). Persona ve görev metnini kısaltmak, aynı çıktıyı daha az girdi tokenıyla verir.",
+      "detail": "Son 7 çalıştırmada bu ajan üretilen metnin %23,4'ini üretiyor ama tahmini token'ın %38,1'ini harcıyor (+14.7 puan fark). Persona ve görev metnini kısaltmak, aynı çıktıyı daha az girdi tokenıyla verir.",
       "metric": "5937 tahmini token",
       "advisor": "risk_sentinel"
     },
     {
       "severity": "warn",
       "title": "Düşünme (thinking) tokenı oranı",
-      "detail": "Toplam token'ın %42,4'i modelin görünmeyen iç akıl yürütmesine gidiyor (17885 token). Bu kısım brifingde hiç görünmez. Oran yüksekse daha hafif bir model ya da daha net/kısa bir görev tanımı doğrudan tasarruf sağlar.",
-      "metric": "%42,4",
+      "detail": "Toplam token'ın %41,7'i modelin görünmeyen iç akıl yürütmesine gidiyor (13189 token). Bu kısım brifingde hiç görünmez. Oran yüksekse daha hafif bir model ya da daha net/kısa bir görev tanımı doğrudan tasarruf sağlar.",
+      "metric": "%41,7",
       "advisor": ""
     },
     {
       "severity": "warn",
       "title": "Girdi, çıktıdan pahalı",
-      "detail": "Çalıştırma başına ortalama 2047 token prompt gönderiliyor, 1426 token yanıt alınıyor — girdi toplamın %34'i. Yani kotanın çoğu soru sormaya gidiyor, cevap almaya değil. Persona metinlerini kısaltmak buradan kazandırır.",
-      "metric": "2047 / 1426 token",
+      "detail": "Çalıştırma başına ortalama 1987 token prompt gönderiliyor, 1081 token yanıt alınıyor — girdi toplamın %37,7'i. Yani kotanın çoğu soru sormaya gidiyor, cevap almaya değil. Persona metinlerini kısaltmak buradan kazandırır.",
+      "metric": "1987 / 1081 token",
       "advisor": ""
     },
     {
       "severity": "warn",
       "title": "Artımlı çalıştırma tam brifing kadar girdi gönderiyor",
-      "detail": "Artımlı modda ortalama 1.4 bölüm üretiliyor ama ortalama 2184 girdi tokenı gönderiliyor — tam brifingin (1702) %128,3'i kadar. Artımlı prompt daha da kısaltılabilir: yalnızca yeni bulgusu olan bölümler ve kısa yazım kuralları gönderilmeli.",
-      "metric": "2184 vs 1702 girdi tokenı",
+      "detail": "Artımlı modda ortalama 1.5 bölüm üretiliyor ama ortalama 2129 girdi tokenı gönderiliyor — tam brifingin (1702) %125,1'i kadar. Artımlı prompt daha da kısaltılabilir: yalnızca yeni bulgusu olan bölümler ve kısa yazım kuralları gönderilmeli.",
+      "metric": "2129 vs 1702 girdi tokenı",
       "advisor": ""
     },
     {
       "severity": "info",
       "title": "Yeniden deneme maliyeti",
-      "detail": "Son 7 çalıştırmada toplam 3 kez istek tekrarlandı (429/5xx). Her tekrar bekleme süresidir, token değil — ama brifingi geciktirir. Tekrarlar sürüyorsa GEMINI_REQUEST_SPACING_SECONDS değerini artırmak yardımcı olur.",
+      "detail": "Son 6 çalıştırmada toplam 3 kez istek tekrarlandı (429/5xx). Her tekrar bekleme süresidir, token değil — ama brifingi geciktirir. Tekrarlar sürüyorsa GEMINI_REQUEST_SPACING_SECONDS değerini artırmak yardımcı olur.",
       "metric": "3 tekrar",
       "advisor": ""
     },
     {
       "severity": "warn",
       "title": "Verimlilik geriliyor",
-      "detail": "1000 token başına üretilen metin 2471 karakterden 1854 karaktere düştü (-25%). Aynı kota daha az metin üretiyor — promptlar büyümüş ya da yanıtlar kısalmış olabilir.",
-      "metric": "1854 karakter/1K token",
+      "detail": "1000 token başına üretilen metin 2571 karakterden 1976 karaktere düştü (-23%). Aynı kota daha az metin üretiyor — promptlar büyümüş ya da yanıtlar kısalmış olabilir.",
+      "metric": "1976 karakter/1K token",
       "advisor": ""
     },
     {
@@ -3474,6 +3474,65 @@
           "name": "Teknik Gözetim (7/24 SRE)"
         }
       ],
+      "attribution": "estimate"
+    },
+    {
+      "at": "2026-08-08T11:30:13+00:00",
+      "at_istanbul": "08.08.2026 14:30",
+      "mode": "incremental",
+      "mode_label": "artımlı",
+      "provider": "",
+      "model": "",
+      "llm_called": false,
+      "llm_ok": false,
+      "llm_call_count": 0,
+      "prompt_tokens": 0,
+      "output_tokens": 0,
+      "thoughts_tokens": 0,
+      "total_tokens": 0,
+      "latency_seconds": 0.0,
+      "duration_seconds": 1.4,
+      "retries": 0,
+      "fallback_used": false,
+      "models_tried": 0,
+      "advisors_ok": 0,
+      "advisors_failed": 0,
+      "advisors_skipped": 22,
+      "executed_advisors": [],
+      "skipped_advisors": {
+        "morning_operations": "yeni_bulgu_yok",
+        "communications_calendar": "yeni_bulgu_yok",
+        "meeting_prep": "yeni_bulgu_yok",
+        "drive_insight": "yeni_bulgu_yok",
+        "career_development": "yeni_bulgu_yok",
+        "market_intelligence": "tetiklenmedi(user_requested)",
+        "complaint_radar": "yeni_bulgu_yok",
+        "linkedin_coach": "yeni_bulgu_yok",
+        "social_media_coach": "tetiklenmedi(weekly)",
+        "personal_assistant": "tetiklenmedi(weekly)",
+        "data_analyst": "yeni_bulgu_yok",
+        "ai_innovation": "tetiklenmedi(weekly)",
+        "kids_development": "tetiklenmedi(user_requested)",
+        "executive_coaching": "tetiklenmedi(weekly)",
+        "productivity_coach": "tetiklenmedi(weekly)",
+        "learning_curator": "tetiklenmedi(weekly)",
+        "risk_sentinel": "yeni_bulgu_yok",
+        "decision_intelligence": "tetiklenmedi(weekly)",
+        "social_guardian": "yeni_bulgu_yok",
+        "work_analyst": "yeni_bulgu_yok",
+        "operations_director": "yeni_bulgu_yok",
+        "sre_watchdog": "yeni_bulgu_yok"
+      },
+      "sections": 0,
+      "sections_requested": 0,
+      "characters": 0,
+      "prompt_chars_total": 0,
+      "guide_saved_chars": 0,
+      "chars_per_1k_tokens": 0.0,
+      "tokens_per_section": 0.0,
+      "thoughts_share": 0.0,
+      "prompt_share": 0.0,
+      "agents": [],
       "attribution": "estimate"
     }
   ]
